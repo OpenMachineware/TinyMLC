@@ -27,6 +27,8 @@ void run_inference(const int8_t* input, int8_t* output) {
 
 // 主函数
 int main() {
+    volatile char* uart = (volatile char*)0x10000000;
+
     static int8_t input[INPUT_SIZE];
     static int8_t output[OUTPUT_SIZE];
 
@@ -39,6 +41,8 @@ int main() {
 
     // 输出结果（占位，后续替换为实际输出）
     // 暂时什么也不做，避免编译问题
+
+    uart[0] = 'O'; uart[0] = 'K'; uart[0] = '\n';
 
     return 0;
 }
