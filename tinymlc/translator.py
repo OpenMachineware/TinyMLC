@@ -95,29 +95,28 @@ def parse_model(model_path: str):
 
 
 def generate_c_code(model_info: dict) -> str:
-    """生成 C 代码"""
-    c_template = Template("""// 自动生成的代码，请勿手动修改
-// 由 tinymlc 自动生成
+    """从模板生成 C 代码"""
+    from jinja2 import Template
+    from pathlib import Path
 
-#include <stdint.h>
-#include <string.h>
+    template_path = Path(__file__).parent / 'templates' / 'model.c.tpl'
+    with open(template_path, 'r') as f:
+        template = Template(f.read())
 
-// 模型输入输出定义
-#define INPUT_SIZE {{ model_info.input[0].shape | last }}
-#define OUTPUT_SIZE {{ model_info.output[0].shape | last }}
+    # 从 model_info 提取输入输出大小
+    input_size = 1
+    for dim in model_info['input'][0]['shape']:
+        input_size *= dim
 
-// 内存池
-static int8_t arena[1024];  // TODO: 动态计算大小
+    output_size = 1
+    for dim in model_info['output'][0]['shape']:
+        output_size *= dim
 
-// 推理函数
-void run_inference(const int8_t* input, int8_t* output) {
-    // TODO: 这里需要根据算子列表生成具体代码
+    return template.render(
+        input_size=input_size,
+        output_size=output_size
+    )
 
-    // 示例：直接将输入复制到输出（占位）
-    memcpy(output, input, INPUT_SIZE);
-}
-""")
-    return c_template.render(model_info=model_info)
 
 
 def main():
@@ -172,7 +171,7 @@ def main():
     print(f"完成! 输出文件: {args.output}")
     print("\n下一步:")
     print("  1. 查看生成的代码: cat", args.output)
-    print("  2. 编译: riscv-none-eabi-gcc -c", args.output)
+    print("  2. 编译: riscv64-elf-gcc -march=rv32imac -mabi=ilp32 -static -ffreestanding -nostdlib -c", args.output)
     print("  3. 链接并烧录到 MCU")
 
     return 0

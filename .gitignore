@@ -6,6 +6,10 @@ __pycache__/
 
 # C extensions
 *.so
+*.o
+*.elf
+*.bin
+*.out
 
 # Distribution / packaging
 .Python
@@ -217,3 +221,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Model files
+*.tflite
