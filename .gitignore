@@ -224,3 +224,6 @@ __marimo__/
 
 # Model files
 *.tflite
+
+# Generated files
+tinymlc_generated

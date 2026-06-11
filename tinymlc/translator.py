@@ -94,16 +94,17 @@ def parse_model(model_path: str):
     }
 
 
-def generate_c_code(model_info: dict) -> str:
-    """从模板生成 C 代码"""
+def generate_c_code(model_info: dict,
+                    inference_func: str = "tinymlc_inference",
+                    with_test_main: bool = False,
+                    output_dir: str = ".") -> dict:
+    """生成 C 代码和头文件"""
     from jinja2 import Template
     from pathlib import Path
 
-    template_path = Path(__file__).parent / 'templates' / 'model.c.tpl'
-    with open(template_path, 'r') as f:
-        template = Template(f.read())
+    template_dir = Path(__file__).parent / 'templates'
 
-    # 从 model_info 提取输入输出大小
+    # 计算输入输出大小
     input_size = 1
     for dim in model_info['input'][0]['shape']:
         input_size *= dim
@@ -112,17 +113,48 @@ def generate_c_code(model_info: dict) -> str:
     for dim in model_info['output'][0]['shape']:
         output_size *= dim
 
-    return template.render(
-        input_size=input_size,
-        output_size=output_size
-    )
+    context = {
+        'input_size': input_size,
+        'output_size': output_size,
+        'inference_func': inference_func,
+        'weights_header': 'fc_weights.h',  # 暂时固定，后续可配置
+        'model_header': 'model.h',
+    }
+
+    # 生成 model.c
+    with open(template_dir / 'model.c.tpl', 'r') as f:
+        tmpl = Template(f.read())
+    model_c = tmpl.render(**context)
+
+    # 生成 model.h
+    with open(template_dir / 'model.h.tpl', 'r') as f:
+        tmpl = Template(f.read())
+    model_h = tmpl.render(**context)
+
+    result = {
+        'model.c': model_c,
+        'model.h': model_h,
+    }
+
+    # 可选：生成测试 main
+    if with_test_main:
+        with open(template_dir / 'main_test.c.tpl', 'r') as f:
+            tmpl = Template(f.read())
+        result['main_test.c'] = tmpl.render(**context)
+
+    return result
 
 
 
 def main():
     parser = argparse.ArgumentParser(description="tinymlc - TinyML Compiler")
     parser.add_argument("model", help="TFLite 模型文件路径")
-    parser.add_argument("-o", "--output", default="model.c", help="输出 C 文件路径")
+    parser.add_argument("--entry-point", default="tinymlc_inference",
+                        help="推理函数名称 (默认: tinymlc_inference)")
+    parser.add_argument("--with-test-main", action="store_true",
+                        help="生成测试用的 main 函数")
+    parser.add_argument("-o", "--output-dir", default="tinymlc_generated",
+                        help="输出目录 (默认: tinymlc_generated)")
     parser.add_argument("-v", "--verbose", action="store_true", help="打印详细信息")
 
     args = parser.parse_args()
@@ -163,15 +195,31 @@ def main():
                 )
 
     print("正在生成 C 代码...")
-    c_code = generate_c_code(model_info)
+    # c_code = generate_c_code(model_info)
+    # with open(args.output, "w") as f:
+    #     f.write(c_code)
+    generated_files = generate_c_code(
+        model_info,
+        inference_func=args.entry_point,
+        with_test_main=args.with_test_main
+    )
 
-    with open(args.output, "w") as f:
-        f.write(c_code)
+    # 创建输出目录
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"完成! 输出文件: {args.output}")
+    # 写入所有文件
+    for filename, content in generated_files.items():
+        output_path = output_dir / filename
+        with open(output_path, 'w') as f:
+            f.write(content)
+        print(f"生成: {output_path}")
+
+    print(f"完成! 输出目录: {output_dir}")
+
     print("\n下一步:")
-    print("  1. 查看生成的代码: cat", args.output)
-    print("  2. 编译: riscv64-elf-gcc -march=rv32imac -mabi=ilp32 -static -ffreestanding -nostdlib -c", args.output)
+    print("  1. 查看生成的代码: ls", output_dir)
+    print("  2. 编译: riscv64-elf-gcc -march=rv32imac -mabi=ilp32 -static -ffreestanding -nostdlib -c", output_dir)
     print("  3. 链接并烧录到 MCU")
 
     return 0
