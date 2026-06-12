@@ -1,4 +1,5 @@
 // 自动生成的代码，请勿手动修改
+// 可调用 {{ inference_func }} 接入你的工程
 // 由 tinymlc 自动生成
 
 #include <stdint.h>

@@ -3,9 +3,12 @@
 
 #include <stdint.h>
 #include "{{ model_header }}"
+#include "debug_print.h"
+
 
 // UART 输出（用于测试）
 #define UART_TX_ADDR ((volatile char*)0x10000000)
+#define SIFIVE_TEST_ADDR ((volatile uint32_t*)0x100000)
 
 static void putchar(char c) {
     *UART_TX_ADDR = c;
@@ -21,10 +24,8 @@ static void print_int(int n) {
 }
 
 int main() {
-    volatile char* uart = (volatile char*)0x10000000;
-
-    static int8_t input[INPUT_SIZE];
-    static int8_t output[OUTPUT_SIZE];
+    int8_t input[INPUT_SIZE];
+    int8_t output[OUTPUT_SIZE];
 
     // 测试输入：全 1
     for (int i = 0; i < INPUT_SIZE; i++) {
@@ -41,7 +42,9 @@ int main() {
     }
     putchar('\n');
 
-    uart[0] = 'O'; uart[0] = 'K'; uart[0] = '\n';
+    DEBUG_STR("ALL-OK\n");
+
+    *SIFIVE_TEST_ADDR = 0x3333;  // QEMU 自动退出
 
     return 0;
 }
