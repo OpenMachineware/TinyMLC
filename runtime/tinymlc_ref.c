@@ -68,20 +68,20 @@ void tmlc_unidirectional_sequence_lstm_s8(
     //           bias: [4 * hidden]
 
     // 临时缓冲区：当前时间步的门预激活值
-    int32_t gate_i[20];
-    int32_t gate_f[20];
-    int32_t gate_g[20];
-    int32_t gate_o[20];
+    int32_t gate_i[hidden_size];
+    int32_t gate_f[hidden_size];
+    int32_t gate_g[hidden_size];
+    int32_t gate_o[hidden_size];
 
     // 激活后的门值
-    int16_t act_i[20];
-    int16_t act_f[20];
-    int16_t act_g[20];
-    int16_t act_o[20];
+    int16_t act_i[hidden_size];
+    int16_t act_f[hidden_size];
+    int16_t act_g[hidden_size];
+    int16_t act_o[hidden_size];
 
     // 当前时间步的隐藏状态和细胞状态
-    int8_t h_cur[20];
-    int8_t c_cur[20];
+    int8_t h_cur[hidden_size];
+    int8_t c_cur[hidden_size];
 
     // 复制初始状态
     for (int i = 0; i < hidden_size; i++) {

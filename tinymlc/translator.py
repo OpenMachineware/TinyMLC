@@ -59,6 +59,33 @@ def parse_model(interpreter):
             "output_details": [],
         }
 
+        # 如果是 LSTM 算子，提取形状参数
+        if op["op_name"] == "UNIDIRECTIONAL_SEQUENCE_LSTM":
+            # 输入张量的形状 [time_steps, batch, input_size]
+            input_idx = op["inputs"][0]
+            input_shape = tensor_map.get(input_idx, {}).get("shape", [])
+            if len(input_shape) >= 3:
+                time_steps = input_shape[0]
+                batch_size = input_shape[1]
+                input_size = input_shape[2]
+            else:
+                time_steps, batch_size, input_size = 1, 1, 1
+
+            # 输出张量的形状 [time_steps, batch, hidden_size]
+            output_idx = op["outputs"][0]
+            output_shape = tensor_map.get(output_idx, {}).get("shape", [])
+            if len(output_shape) >= 3:
+                hidden_size = output_shape[2]
+            else:
+                hidden_size = 1
+
+            op_info["lstm_params"] = {
+                "time_steps": time_steps,
+                "batch_size": batch_size,
+                "input_size": input_size,
+                "hidden_size": hidden_size,
+            }
+
         # 获取输入张量的详细信息
         for inp_idx in op["inputs"]:
             if inp_idx != -1:  # -1 表示没有这个输入
@@ -95,10 +122,9 @@ def parse_model(interpreter):
     }
 
 
-def generate_c_code(model_info: dict,
-                    inference_func: str = "tinymlc_inference",
-                    with_test_main: bool = False,
-                    output_dir: str = ".") -> dict:
+def generate_c_code(model_info,
+                    inference_func="tinymlc_inference",
+                    with_test_main=False, output_dir="."):
     """生成 C 代码和头文件"""
     from jinja2 import Template
     from pathlib import Path
@@ -114,12 +140,48 @@ def generate_c_code(model_info: dict,
     for dim in model_info['output'][0]['shape']:
         output_size *= dim
 
+    # 检测模型包含的算子类型
+    has_fc = False
+    has_lstm = False
+
+    # 查找 LSTM 参数
+    lstm_params = None
+    for op in model_info.get("ops", []):
+        op_name = op.get("op_name")
+        if op_name == "FULLY_CONNECTED":
+            has_fc = True
+        elif op_name == "UNIDIRECTIONAL_SEQUENCE_LSTM":
+            has_lstm = True
+            lstm_params = op.get("lstm_params")
+
+    # 构建 include 列表
+    includes = []
+    if has_fc:
+        includes.append('#include "fc_weights.h"')
+    if has_lstm:
+        includes.append('#include "lstm_weights.h"')
+
+    if lstm_params is None:
+        print("警告: 未找到 LSTM 参数，使用默认值（可能出错）")
+        lstm_params = {
+            "time_steps": 28,
+            "batch_size": 1,
+            "input_size": 28,
+            "hidden_size": 20,
+        }
+
     context = {
-        'input_size': input_size,
-        'output_size': output_size,
-        'inference_func': inference_func,
-        'weights_header': 'fc_weights.h',  # 暂时固定，后续可配置
-        'model_header': 'model.h',
+        "input_size": input_size,
+        "output_size": output_size,
+        "inference_func": inference_func,
+        "includes": "\n".join(includes),
+        "has_fc": has_fc,
+        "has_lstm": has_lstm,
+        "model_header": "model.h",  # 固定名称，用于 main_test.c 包含
+        "lstm_time_steps": lstm_params["time_steps"],
+        "lstm_batch_size": lstm_params["batch_size"],
+        "lstm_input_size": lstm_params["input_size"],
+        "lstm_hidden_size": lstm_params["hidden_size"],
     }
 
     # 生成 model.c

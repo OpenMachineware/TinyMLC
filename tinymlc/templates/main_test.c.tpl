@@ -31,11 +31,12 @@ int main() {
     for (int i = 0; i < INPUT_SIZE; i++) {
         input[i] = 1;
     }
-    // 最后一行改为特殊值
+/*
+    // 最后一行改为特殊值 测试用的，无实际作用
     for (int i = (28-1)*28; i < 28*28; i++) {
         input[i] = 101;
     }
-
+*/
     // 调用推理
     {{ inference_func }}(input, output);
 
