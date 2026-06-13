@@ -1,5 +1,6 @@
 #include "tinymlc.h"
 #include "lut.h"
+#include "model.h"
 
 void tmlc_fully_connected_s8(const int8_t* input,
                              const int8_t* weights,
@@ -170,25 +171,25 @@ void tmlc_unidirectional_sequence_lstm_s8(
             int32_t x_i = gate_i[i] >> 8;
             if (x_i < -128) x_i = -128;
             if (x_i > 127) x_i = 127;
-            act_i[i] = sigmoid_lut_lookup(x_i * 32);
+            act_i[i] = sigmoid_lut_lookup(gate_i[i] >> LSTM_SHIFT_I);
 
             // 遗忘门：sigmoid
             int32_t x_f = gate_f[i] >> 8;
             if (x_f < -128) x_f = -128;
             if (x_f > 127) x_f = 127;
-            act_f[i] = sigmoid_lut_lookup(x_f * 32);
+            act_f[i] = sigmoid_lut_lookup(gate_f[i] >> LSTM_SHIFT_F);
 
             // 候选记忆：tanh
             int32_t x_g = gate_g[i] >> 8;
             if (x_g < -128) x_g = -128;
             if (x_g > 127) x_g = 127;
-            act_g[i] = tanh_lut_lookup(x_g * 32);
+            act_g[i] = tanh_lut_lookup(gate_g[i] >> LSTM_SHIFT_G);
 
             // 输出门：sigmoid
             int32_t x_o = gate_o[i] >> 8;
             if (x_o < -128) x_o = -128;
             if (x_o > 127) x_o = 127;
-            act_o[i] = sigmoid_lut_lookup(x_o * 32);
+            act_o[i] = sigmoid_lut_lookup(gate_o[i] >> LSTM_SHIFT_O);
         }
 
         // ========== 3. 更新细胞状态和隐藏状态 ==========

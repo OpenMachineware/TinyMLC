@@ -4,6 +4,7 @@
 
 #include "tinymlc.h"
 {{ includes }}
+#include "model.h"
 
 // 输入输出大小
 #define INPUT_SIZE {{ input_size }}

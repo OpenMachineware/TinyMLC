@@ -6,24 +6,15 @@ TinyMLC - TinyML Compiler
 
 import sys
 import argparse
+import numpy as np
+import tensorflow as tf
 from pathlib import Path
+from jinja2 import Template
 
 from tinymlc.extract_weights import (extract_fc_weights, extract_lstm_weights,
                                      export_weights_to_c, export_bias_to_c,
                                      export_concatenated_weights,
                                      export_concatenated_bias)
-# 检查依赖
-try:
-    import tensorflow as tf
-except ImportError:
-    print("错误: 请先安装 tensorflow: uv add tensorflow")
-    sys.exit(1)
-
-try:
-    from jinja2 import Template
-except ImportError:
-    print("错误: 请先安装 jinja2: uv add jinja2")
-    sys.exit(1)
 
 
 def parse_model(interpreter):
@@ -38,13 +29,17 @@ def parse_model(interpreter):
     # 构建张量索引 -> 信息的映射
     tensor_map = {}
     for t in tensor_details:
+        quant = t.get("quantization", (None, None))
+        scale = quant[0] if quant[0] is not None else 1.0
+        zero_point = quant[1] if quant[1] is not None else 0
+
         tensor_map[t["index"]] = {
             "name": t["name"],
             "shape": t["shape"],
             "dtype": str(t["dtype"]),
-            "size": (
-                t["shape"].num_elements() if hasattr(t["shape"], "num_elements") else 1
-            ),
+            "size": t["shape"].num_elements() if hasattr(t["shape"], "num_elements") else 1,
+            "scale": float(scale),
+            "zero_point": int(zero_point),
         }
 
     # 获取所有算子及其详细信息
@@ -61,6 +56,8 @@ def parse_model(interpreter):
 
         # 如果是 LSTM 算子，提取形状参数
         if op["op_name"] == "UNIDIRECTIONAL_SEQUENCE_LSTM":
+            print(f"LSTM inputs: {op['inputs']}")
+            print(f"LSTM outputs: {op['outputs']}")
             # 输入张量的形状 [time_steps, batch, input_size]
             input_idx = op["inputs"][0]
             input_shape = tensor_map.get(input_idx, {}).get("shape", [])
@@ -79,11 +76,63 @@ def parse_model(interpreter):
             else:
                 hidden_size = 1
 
+            # 提取量化参数（取第一个输入权重的 scale 和 zero_point 作为代表）
+            # 输入门权重索引通常是 inputs[4]
+            input_weight_idx = op["inputs"][4] if len(
+                op["inputs"]) > 4 else None
+            input_scale = 0.00390625  # 1/256
+            input_zp = 0
+
+            if input_weight_idx is not None:
+                tensor_info = tensor_map.get(input_weight_idx, {})
+                input_scale = tensor_info.get("scale", 0.00390625)  # 1/256
+                input_zp = tensor_info.get("zero_point", 0)
+                print(f"  LSTM 输入权重量化: scale={input_scale}, zp={input_zp}")
+
+            # 提取 LSTM 四个门的权重和 bias 索引
+            # 输入权重索引：inputs[1], [2], [3], [4] 对应 i, f, g, o
+            input_weight_indices = [op["inputs"][1], op["inputs"][2],
+                                    op["inputs"][3], op["inputs"][4]]
+            # 递归权重索引：inputs[5], [6], [7], [8] 对应 i, f, g, o
+            recurrent_weight_indices = [op["inputs"][5], op["inputs"][6],
+                                        op["inputs"][7], op["inputs"][8]]
+            # 偏置索引：inputs[12], [13], [14], [15] 对应 i, f, g, o
+            bias_indices = [op["inputs"][12], op["inputs"][13],
+                            op["inputs"][14], op["inputs"][15]]
+
+            # 从 tensor_map 中读取每个门的 scale
+            input_scales = []
+            for idx in input_weight_indices:
+                tensor_info = tensor_map.get(idx, {})
+                scale = tensor_info.get("scale", 0.01)
+                input_scales.append(scale)
+                print(f"  LSTM 输入权重 index {idx}: scale={scale}")
+
+            recurrent_scales = []
+            for idx in recurrent_weight_indices:
+                tensor_info = tensor_map.get(idx, {})
+                scale = tensor_info.get("scale", 0.01)
+                recurrent_scales.append(scale)
+                print(f"  LSTM 递归权重 index {idx}: scale={scale}")
+
+            bias_scales = []
+            for idx in bias_indices:
+                tensor_info = tensor_map.get(idx, {})
+                scale = tensor_info.get("scale", 1e-5)
+                bias_scales.append(scale)
+                print(f"  LSTM bias index {idx}: scale={scale}")
+
             op_info["lstm_params"] = {
                 "time_steps": time_steps,
                 "batch_size": batch_size,
                 "input_size": input_size,
                 "hidden_size": hidden_size,
+                "input_scales": input_scales,
+                "recurrent_scales": recurrent_scales,
+                "bias_scales": bias_scales,
+                "input_scale": input_scales[0] if input_scales else 0.01,
+                "input_zp": 0,
+                # 也可以添加其他门的参数，先取一个代表
             }
 
         # 获取输入张量的详细信息
@@ -126,9 +175,6 @@ def generate_c_code(model_info,
                     inference_func="tinymlc_inference",
                     with_test_main=False, output_dir="."):
     """生成 C 代码和头文件"""
-    from jinja2 import Template
-    from pathlib import Path
-
     template_dir = Path(__file__).parent / 'templates'
 
     # 计算输入输出大小
@@ -168,7 +214,30 @@ def generate_c_code(model_info,
             "batch_size": 1,
             "input_size": 28,
             "hidden_size": 20,
+            "shifts": [8, 8, 8, 8],  # 默认右移 8 位
         }
+    else:
+        # 计算每个 gate 的右移位数
+        # 输入权重 scale (i,f,g,o) 和递归权重 scale (i,f,g,o)
+        input_scales = lstm_params.get("input_scales", [0.01, 0.01, 0.01, 0.01])
+        recurrent_scales = lstm_params.get("recurrent_scales",
+                                           [0.01, 0.01, 0.01, 0.01])
+
+        shifts = []
+        for in_s, rec_s in zip(input_scales, recurrent_scales):
+            gate_scale = in_s * rec_s
+            # 计算右移位数：希望 gate >> shift 落在 [-128,127] 范围
+            # shift = floor(log2(1 / gate_scale))
+            if gate_scale > 0:
+                shift = int(np.log2(1.0 / gate_scale))
+            else:
+                shift = 8
+            # 限制范围 4-12，避免溢出
+            shift = max(4, min(shift, 12))
+            shifts.append(shift)
+
+        lstm_params["shifts"] = shifts
+        print(f"LSTM 右移位数: i={shifts[0]}, f={shifts[1]}, g={shifts[2]}, o={shifts[3]}")
 
     context = {
         "input_size": input_size,
@@ -182,6 +251,9 @@ def generate_c_code(model_info,
         "lstm_batch_size": lstm_params["batch_size"],
         "lstm_input_size": lstm_params["input_size"],
         "lstm_hidden_size": lstm_params["hidden_size"],
+        "lstm_input_scale": lstm_params.get("input_scale", 0.00390625),  # 1/256
+        "lstm_input_zp": lstm_params.get("input_zp", 0),
+        "lstm_shifts": lstm_params.get("shifts", [8, 8, 8, 8]),  # 默认 8
     }
 
     # 生成 model.c
@@ -210,9 +282,6 @@ def generate_c_code(model_info,
 
 def generate_lut(output_dir: Path):
     """生成 sigmoid 和 tanh 的 LUT 表"""
-    import numpy as np
-    from jinja2 import Template
-
     # 生成 LUT 数据
     x = np.linspace(-8, 8, 256, endpoint=False)
 
