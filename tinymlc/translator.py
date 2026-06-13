@@ -8,6 +8,10 @@ import sys
 import argparse
 from pathlib import Path
 
+from tinymlc.extract_weights import (extract_fc_weights, extract_lstm_weights,
+                                     export_weights_to_c, export_bias_to_c,
+                                     export_concatenated_weights,
+                                     export_concatenated_bias)
 # 检查依赖
 try:
     import tensorflow as tf
@@ -22,11 +26,8 @@ except ImportError:
     sys.exit(1)
 
 
-def parse_model(model_path: str):
+def parse_model(interpreter):
     """解析 TFLite 模型，返回算子列表和张量信息"""
-    interpreter = tf.lite.Interpreter(model_path=model_path)
-    interpreter.allocate_tensors()
-
     # 获取输入输出张量
     input_details = interpreter.get_input_details()
     output_details = interpreter.get_output_details()
@@ -145,6 +146,44 @@ def generate_c_code(model_info: dict,
     return result
 
 
+def generate_lut(output_dir: Path):
+    """生成 sigmoid 和 tanh 的 LUT 表"""
+    import numpy as np
+    from jinja2 import Template
+
+    # 生成 LUT 数据
+    x = np.linspace(-8, 8, 256, endpoint=False)
+
+    # Sigmoid: 范围 [0,1]，量化到 int16 [0, 32767]
+    sigmoid = 1 / (1 + np.exp(-x))
+    sigmoid_lut = np.round(sigmoid * 32767).astype(np.int16)
+
+    # Tanh: 范围 [-1,1]，量化到 int16 [-32768, 32767]
+    tanh = np.tanh(x)
+    tanh_lut = np.round(tanh * 32767).astype(np.int16)
+
+    # 渲染模板
+    template_path = Path(__file__).parent / 'templates' / 'lut.h.tpl'
+    with open(template_path, 'r') as f:
+        template = Template(f.read())
+
+    lut_h = template.render(
+        sigmoid_lut=sigmoid_lut.tolist(),
+        tanh_lut=tanh_lut.tolist()
+    )
+
+    # 写入文件
+    with open(output_dir / 'lut.h', 'w') as f:
+        f.write(lut_h)
+
+    # 生成空的 lut.c（保持一致性）
+    with open(output_dir / 'lut.c', 'w') as f:
+        f.write('// LUT implementation is in lut.h\n')
+        f.write('#include "lut.h"\n')
+
+    print(f"已生成: {output_dir}/lut.h")
+    print(f"已生成: {output_dir}/lut.c")
+
 
 def main():
     parser = argparse.ArgumentParser(description="tinymlc - TinyML Compiler")
@@ -164,8 +203,12 @@ def main():
         print(f"错误: 模型文件不存在: {args.model}")
         return 1
 
+    # 创建 interpreter 用于解析模型和提取权重
+    interpreter = tf.lite.Interpreter(model_path=args.model)
+    interpreter.allocate_tensors()
+
     print(f"正在解析模型: {args.model}")
-    model_info = parse_model(args.model)
+    model_info = parse_model(interpreter)
 
     if args.verbose:
         print("\n=== 模型信息 ===")
@@ -194,19 +237,47 @@ def main():
                     f"        - [{out['index']}] {out['name']}: shape={out['shape']}, size={out['size']}"
                 )
 
+    # 创建输出目录
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # 提取并生成权重文件
+    print("正在提取权重...")
+    # 提取权重
+    fc_weights, fc_bias = extract_fc_weights(interpreter)
+    lstm_weights = extract_lstm_weights(interpreter)
+
+    # 生成 fc_weights.h
+    if fc_weights is not None:
+        with open(output_dir / 'fc_weights.h', 'w') as f:
+            f.write("// 自动从 tflite 提取的 FC 层权重和 bias\n")
+            f.write("// 请勿手动修改\n\n")
+            export_weights_to_c(fc_weights, "fc_weights", f)
+            export_bias_to_c(fc_bias, "fc_bias", f)
+        print(f"已生成: {output_dir}/fc_weights.h")
+
+    # 生成 lstm_weights.h
+    if lstm_weights and lstm_weights['input']:
+        with open(output_dir / 'lstm_weights.h', 'w') as f:
+            f.write("// 自动从 tflite 提取的 LSTM 各门权重和 bias\n")
+            f.write("// 顺序: i, f, g, o\n\n")
+            f.write("// 请勿手动修改\n\n")
+
+            # 导入拼接函数（需要在文件顶部导入）
+            export_concatenated_weights(lstm_weights['input'], f,
+                                        'lstm_input_weights', 'int8')
+            export_concatenated_weights(lstm_weights['recurrent'], f,
+                                        'lstm_recurrent_weights', 'int8')
+            export_concatenated_bias(lstm_weights['bias'], f, 'lstm_bias')
+
+        print(f"已生成: {output_dir}/lstm_weights.h")
+
     print("正在生成 C 代码...")
-    # c_code = generate_c_code(model_info)
-    # with open(args.output, "w") as f:
-    #     f.write(c_code)
     generated_files = generate_c_code(
         model_info,
         inference_func=args.entry_point,
         with_test_main=args.with_test_main
     )
-
-    # 创建输出目录
-    output_dir = Path(args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
 
     # 写入所有文件
     for filename, content in generated_files.items():
@@ -214,6 +285,9 @@ def main():
         with open(output_path, 'w') as f:
             f.write(content)
         print(f"生成: {output_path}")
+
+    # 生成 LUT
+    generate_lut(output_dir)
 
     print(f"完成! 输出目录: {output_dir}")
 
