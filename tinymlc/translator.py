@@ -17,6 +17,11 @@ from tinymlc.extract_weights import (extract_fc_weights, extract_lstm_weights,
                                      export_concatenated_bias)
 
 
+# DELEGATE 是 TFLite 中一个特殊算子，它代表"委托给硬件加速器"
+# （如 GPU、NPU、XNNPACK），现阶段不做，以后支持硬件加速器再做
+IGNORED_OPS = {"DELEGATE"}
+
+
 def parse_model(interpreter):
     """解析 TFLite 模型，返回算子列表和张量信息"""
     # 获取输入输出张量
@@ -45,6 +50,9 @@ def parse_model(interpreter):
     # 获取所有算子及其详细信息
     ops = []
     for op in interpreter._get_ops_details():
+        if op["op_name"] in IGNORED_OPS:
+            continue
+
         op_info = {
             "index": op["index"],
             "op_name": op["op_name"],
@@ -52,6 +60,8 @@ def parse_model(interpreter):
             "outputs": op["outputs"],
             "input_details": [],
             "output_details": [],
+            "state": "created",
+            "pass_flags": {},
         }
 
         # 如果是 LSTM 算子，提取形状参数
@@ -134,6 +144,43 @@ def parse_model(interpreter):
                 "input_zp": 0,
                 # 也可以添加其他门的参数，先取一个代表
             }
+            # 判断是否成功：所有必需的参数都有效
+            success = True
+
+            # 检查形状参数
+            if time_steps <= 0 or input_size <= 0 or hidden_size <= 0:
+                success = False
+                print(f"错误: LSTM 形状参数无效: time_steps={time_steps}, \
+input_size={input_size}, hidden_size={hidden_size}")
+
+            # 检查 scales 是否完整
+            if len(input_scales) != 4 or len(recurrent_scales) != 4 or len(
+                    bias_scales) != 4:
+                success = False
+                print(f"错误: LSTM scale 参数不完整: input_scales=\
+{len(input_scales)}, recurrent_scales={len(recurrent_scales)}, \
+bias_scales={len(bias_scales)}")
+
+            if success:
+                op_info["state"] = "translated"
+                op_info["pass_flags"]["lstm_parse"] = "applied"
+            else:
+                op_info["state"] = "invalid"
+                op_info["pass_flags"]["lstm_parse"] = "failed"
+
+        # 对于其他算子（FC、Softmax等），直接设置默认状态
+        elif op["op_name"] == "FULLY_CONNECTED":
+            op_info["state"] = "translated"
+            op_info["pass_flags"]["default"] = "no_pass_needed"
+        elif op["op_name"] == "SOFTMAX":
+            op_info["state"] = "translated"
+            op_info["pass_flags"]["default"] = "no_pass_needed"
+        elif op["op_name"] == "RESHAPE":
+            op_info["state"] = "translated"
+            op_info["pass_flags"]["default"] = "no_pass_needed"
+        else:
+            op_info["state"] = "created"  # FIXME 未识别的算子，后续会报错
+            op_info["pass_flags"]["unknown"] = "needs_implementation"
 
         # 获取输入张量的详细信息
         for inp_idx in op["inputs"]:
@@ -174,6 +221,14 @@ def parse_model(interpreter):
 def generate_c_code(model_info,
                     inference_func="tinymlc_inference",
                     with_test_main=False, output_dir="."):
+    ops = model_info.get("ops", [])
+    for op in ops:
+        if op["state"] != "translated":
+            print(
+                f"错误: 算子 {op['op_name']} 状态为 {op.get('state')}，无法生成代码")
+            print(f"  Pass flags: {op.get('pass_flags', {})}")
+            sys.exit(1)
+
     """生成 C 代码和头文件"""
     template_dir = Path(__file__).parent / 'templates'
 
