@@ -217,3 +217,27 @@ void tmlc_unidirectional_sequence_lstm_s8(
         cell_state[i] = c_cur[i];
     }
 }
+
+void tmlc_reshape_s8(const int8_t* input, int8_t* output,
+                     int input_size, const int* new_shape, int shape_size)
+{
+    // 计算输出大小
+    int output_size = 1;
+    for (int i = 0; i < shape_size; i++) {
+        output_size *= new_shape[i];
+    }
+
+    // 验证大小匹配
+    if (input_size != output_size) {
+        // 大小不匹配，报错或直接返回
+        // 在 MCU 上可以触发一个错误标志
+        return;
+    }
+
+    // 复制数据
+    for (int i = 0; i < input_size; i++) {
+        output[i] = input[i];
+    }
+    // 或用 memcpy
+    // memcpy(output, input, input_size * sizeof(int8_t));
+}

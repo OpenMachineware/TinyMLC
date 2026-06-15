@@ -35,4 +35,8 @@ void tmlc_unidirectional_sequence_lstm_s8(
     int input_size,
     int hidden_size);
 
+// Reshape 算子：改变张量形状，不改变数据
+void tmlc_reshape_s8(const int8_t* input, int8_t* output,
+                     const int* new_shape, int shape_size);
+
 #endif

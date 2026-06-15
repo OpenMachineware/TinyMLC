@@ -315,18 +315,19 @@ def parse_model(interpreter):
             if len(op["inputs"]) < 2 or op["inputs"][1] == -1:
                 fatal_error("Reshape", "缺少目标形状参数",
                             "检查模型转换是否完整")
+
             # 获取目标形状张量
             shape_idx = op["inputs"][1]
             shape_tensor = tensor_map.get(shape_idx, {})
             target_shape = shape_tensor.get("shape", [])
+
             if not target_shape or target_shape[0] == 0:
-                fatal_error("Reshape", "目标形状无效",
+                fatal_error("Reshape", f"目标形状无效: {target_shape}",
                             "检查 Reshape 算子参数")
 
+            op_info["reshape_target_shape"] = target_shape
             op_info["state"] = "translated"
             op_info["pass_flags"]["reshape_check"] = "success"
-            # 可以存储目标形状供代码生成使用
-            op_info["reshape_target_shape"] = target_shape
 
         # ========== DELEGATE 算子跳过 ==========
         elif op["op_name"] == "DELEGATE":

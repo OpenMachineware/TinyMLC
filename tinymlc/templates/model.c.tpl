@@ -43,13 +43,11 @@ void {{ inference_func }}(const int8_t* input, int8_t* output) {
     );
 
     // Reshape: [LSTM_HIDDEN_SIZE] -> [LSTM_TIME_STEPS * LSTM_HIDDEN_SIZE]
+    static const int reshape_target[] = {LSTM_TIME_STEPS * LSTM_HIDDEN_SIZE};
     int8_t lstm_out[LSTM_TIME_STEPS * LSTM_HIDDEN_SIZE];
-    for (int i = 0; i < LSTM_TIME_STEPS; i++) {
-        for (int j = 0; j < LSTM_HIDDEN_SIZE; j++) {
-            // FIXME 简化，实际应该是每个时间步的输出
-            lstm_out[i * LSTM_HIDDEN_SIZE + j] = output_state[j];
-        }
-    }
+    tmlc_reshape_s8(output_state, lstm_out,
+                    LSTM_TIME_STEPS * LSTM_HIDDEN_SIZE,
+                    reshape_target, 1);
 
     {% if has_fc %}
     // FC 层
