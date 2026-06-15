@@ -11,7 +11,7 @@ typedef uint16_t u16;
 typedef int32_t s32;
 typedef uint32_t u32;
 
-// 全连接 (Fully Connected)
+// FC
 void tmlc_fully_connected_s8(const s8* input,
                               const s8* weights,
                               const s32* bias,
@@ -22,21 +22,22 @@ void tmlc_fully_connected_s8(const s8* input,
 // Softmax
 void tmlc_softmax_s8(const s8* input, s8* output, int size);
 
-// LSTM (先放接口，实现可以稍后)
+// LSTM
 void tmlc_unidirectional_sequence_lstm_s8(
-    const s8* input,                // [time_steps, batch, input_size]
-    const s8* input_weights,        // [4, hidden, input_size]
-    const s8* recurrent_weights,    // [4, hidden, hidden]
-    const s32* bias,                // [4, hidden]
-    s8* output_state,               // [batch, hidden]
-    s8* cell_state,                 // [batch, hidden]
+    const int8_t* input,
+    const int8_t* input_weights,
+    const int8_t* recurrent_weights,
+    const int32_t* bias,
+    int8_t* output_sequence,   // 完整序列 [time_steps, hidden_size]
+    int8_t* output_state,      // 最后状态 [hidden_size]（可 NULL）
+    int8_t* cell_state,        // 最后细胞状态（可 NULL）
     int time_steps,
     int batch_size,
     int input_size,
     int hidden_size);
 
-// Reshape 算子：改变张量形状，不改变数据
+// Reshape
 void tmlc_reshape_s8(const int8_t* input, int8_t* output,
-                     const int* new_shape, int shape_size);
+                     int input_size, const int* new_shape, int shape_size);
 
 #endif

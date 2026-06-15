@@ -19,39 +19,34 @@
 
 // 推理函数
 void {{ inference_func }}(const int8_t* input, int8_t* output) {
-    static int8_t output_state[LSTM_HIDDEN_SIZE];
-    static int8_t cell_state[LSTM_HIDDEN_SIZE];
+    // LSTM 输出：完整序列 [time_steps, hidden_size]
+    int8_t lstm_sequence[LSTM_TIME_STEPS * LSTM_HIDDEN_SIZE];
 
-    // 初始化状态为 0
-    for (int i = 0; i < LSTM_HIDDEN_SIZE; i++) {
-        output_state[i] = 0;
-        cell_state[i] = 0;
-    }
+    // 可选：最后状态（当前不需要，传 NULL）
+    int8_t last_state[LSTM_HIDDEN_SIZE];
+    int8_t last_cell[LSTM_HIDDEN_SIZE];
 
-    // 调用 LSTM
+    // 调用 LSTM（输出完整序列）
     tmlc_unidirectional_sequence_lstm_s8(
         input,
         lstm_input_weights,
         lstm_recurrent_weights,
         lstm_bias,
-        output_state,
-        cell_state,
+        lstm_sequence,   // 完整序列输出
+        last_state,      // 最后状态（不需要）
+        last_cell,       // 最后细胞状态（不需要）
         LSTM_TIME_STEPS,
         LSTM_BATCH_SIZE,
         LSTM_INPUT_SIZE,
         LSTM_HIDDEN_SIZE
     );
 
-    // Reshape: [LSTM_HIDDEN_SIZE] -> [LSTM_TIME_STEPS * LSTM_HIDDEN_SIZE]
-    static const int reshape_target[] = {LSTM_TIME_STEPS * LSTM_HIDDEN_SIZE};
-    int8_t lstm_out[LSTM_TIME_STEPS * LSTM_HIDDEN_SIZE];
-    tmlc_reshape_s8(output_state, lstm_out,
-                    LSTM_TIME_STEPS * LSTM_HIDDEN_SIZE,
-                    reshape_target, 1);
+    // lstm_sequence 已经是 [time_steps * hidden_size] 的连续内存
+    // 直接传给 FC 层，无需 Reshape
 
     {% if has_fc %}
     // FC 层
-    tmlc_fully_connected_s8(lstm_out, fc_weights, fc_bias, output,
+    tmlc_fully_connected_s8(lstm_sequence, fc_weights, fc_bias, output,
                             LSTM_TIME_STEPS * LSTM_HIDDEN_SIZE, OUTPUT_SIZE);
     {% endif %}
 
