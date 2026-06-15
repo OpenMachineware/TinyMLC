@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """TFLite 模型解析器"""
 
+import sys
 import tensorflow as tf
 
 
@@ -9,134 +10,98 @@ import tensorflow as tf
 IGNORED_OPS = {"DELEGATE"}
 
 
-def _match_lstm_inputs(op, tensor_map):
-    """通过名称匹配 LSTM 算子的所有输入
+def fatal_error(op_name, reason, suggestion=None):
+    """致命错误：打印错误信息并退出"""
+    print("\n" + "=" * 60)
+    print(f"错误: {op_name} 算子解析失败")
+    print(f"原因: {reason}")
+    if suggestion:
+        print(f"\n建议: {suggestion}")
+    print("=" * 60)
+    sys.exit(1)
 
-        返回:
-            dict: {
-                "input_idx": int,                    # 输入数据张量索引
-                "input_weights": list[int],          # 4个输入门权重索引 (i,f,g,o)
-                "recurrent_weights": list[int],      # 4个递归门权重索引 (i,f,g,o)
-                "biases": list[int],                 # 4个偏置索引 (i,f,g,o)
-            }
-            缺失的项为 None
-        """
-    result = {
-        "input_idx": None,
-        "input_weights": [None, None, None, None],
-        "recurrent_weights": [None, None, None, None],
-        "biases": [None, None, None, None],
-    }
 
-    # 名称到门索引的映射
-    gate_keywords = {
-        0: ["input", "i"],  # 输入门
-        1: ["forget", "f"],  # 遗忘门
-        2: ["cell", "c", "g"],  # 候选门
-        3: ["output", "o"],  # 输出门
-    }
+def match_tensor_by_name(op, tensor_map, roles):
+    """通用张量名称匹配
 
-    for idx in op["inputs"]:
-        if idx == -1:
+    Args:
+        op: 算子信息（包含 inputs 列表）
+        tensor_map: 张量索引到信息的映射
+        roles: 角色定义列表，每个元素是 (role_name, [keyword_list])
+               例如: [("weights", ["matmul", "weight", "kernel"]),
+                     ("bias", ["bias"]),
+                     ("input", [])]  # 空列表表示剩余的所有张量
+
+    Returns:
+        dict: {role_name: idx} 匹配结果
+    """
+    result = {}
+    used_indices = set()
+
+    # 第一步：按关键词匹配
+    for role_name, keywords in roles:
+        if not keywords:  # 空列表表示稍后处理剩余项
             continue
+        for idx in op["inputs"]:
+            if idx == -1 or idx in used_indices:
+                continue
+            tensor_info = tensor_map.get(idx, {})
+            name = tensor_info.get("name", "").lower()
+            for kw in keywords:
+                if kw in name:
+                    result[role_name] = idx
+                    used_indices.add(idx)
+                    break
+            if role_name in result:
+                break
 
-        tensor_info = tensor_map.get(idx, {})
-        name = tensor_info.get("name", "").lower()
-
-        # 1. 识别输入数据张量
-        if name == "input" or name.endswith("/input") or "lstm_input" in name:
-            result["input_idx"] = idx
+    # 第二步：处理没有关键词的角色（匹配剩余张量）
+    for role_name, keywords in roles:
+        if keywords:  # 跳过已有关键词的
             continue
-
-        # 2. 识别权重（input_weights 或 recurrent_weights）
-        if "weight" in name or "kernel" in name:
-            # 判断是输入权重还是递归权重
-            is_recurrent = "recurrent" in name or "rec" in name
-
-            for gate_idx, keywords in gate_keywords.items():
-                matched = False
-                for kw in keywords:
-                    if kw in name:
-                        matched = True
-                        break
-                if matched:
-                    if is_recurrent:
-                        result["recurrent_weights"][gate_idx] = idx
-                    else:
-                        result["input_weights"][gate_idx] = idx
-                    break
-
-        # 3. 识别偏置
-        if "bias" in name:
-            for gate_idx, keywords in gate_keywords.items():
-                matched = False
-                for kw in keywords:
-                    if kw in name:
-                        matched = True
-                        break
-                if matched:
-                    result["biases"][gate_idx] = idx
-                    break
-
-    # 过滤 None，但保留部分匹配的结果
-    result["input_weights"] = [i for i in result["input_weights"] if
-                               i is not None]
-    result["recurrent_weights"] = [i for i in result["recurrent_weights"] if
-                                   i is not None]
-    result["biases"] = [i for i in result["biases"] if i is not None]
+        for idx in op["inputs"]:
+            if idx == -1 or idx in used_indices:
+                continue
+            result[role_name] = idx
+            used_indices.add(idx)
+            break
 
     return result
 
 
-def _fallback_lstm_positional(op):
-    """当名称匹配失败时，使用 TFLite 标准位置匹配"""
-    # TFLite LSTM 标准位置（参考官方文档）
-    # inputs[0] = input
-    # inputs[1-4] = input_weights (i,f,g,o)
-    # inputs[5-8] = recurrent_weights (i,f,g,o)
-    # inputs[9-12] = cell_weights (通常不用)
-    # inputs[13-16] = bias (i,f,g,o)
-    result = {
-        "input_idx": None,
-        "input_weights": [],
-        "recurrent_weights": [],
-        "biases": [],
-    }
+def match_tensor_by_position(op, positions):
+    """通用位置匹配（回退方案）
 
+    Args:
+        op: 算子信息
+        positions: 位置定义列表，每个元素是 (role_name, position_index)
+                   例如: [("input", 0), ("weights", 1), ("bias", 2)]
+
+    Returns:
+        dict: {role_name: idx} 匹配结果，不存在的索引为 None
+    """
+    result = {}
     inputs = op["inputs"]
-
-    # inputs[0] = 输入数据
-    if len(inputs) > 0:
-        result["input_idx"] = inputs[0]
-
-    # inputs[1-4] = 输入权重 (i, f, g, o)
-    if len(inputs) >= 5:
-        result["input_weights"] = [inputs[1], inputs[2], inputs[3], inputs[4]]
-        result["input_weights"] = [i for i in result["input_weights"] if
-                                   i != -1]
-
-    # inputs[5-8] = 递归权重 (i, f, g, o)
-    if len(inputs) >= 9:
-        result["recurrent_weights"] = [inputs[5], inputs[6], inputs[7],
-                                       inputs[8]]
-        result["recurrent_weights"] = [i for i in result["recurrent_weights"] if
-                                       i != -1]
-
-    # inputs[13-16] = 偏置 (i, f, g, o)
-    if len(inputs) >= 17:
-        result["biases"] = [inputs[13], inputs[14], inputs[15], inputs[16]]
-        result["biases"] = [i for i in result["biases"] if i != -1]
-
+    for role_name, pos in positions:
+        if pos < len(inputs):
+            idx = inputs[pos]
+            result[role_name] = idx if idx != -1 else None
+        else:
+            result[role_name] = None
     return result
 
 
-
-def _get_tensor_shape(tensor_info, default=None):
-    """安全获取张量形状"""
-    shape = tensor_info.get("shape", [])
-    if shape and all(s > 0 for s in shape):
-        return shape
-    return default
+def _merge_match_results(name_match, pos_match, roles):
+    """合并名称匹配和位置匹配结果，名称匹配优先"""
+    result = {}
+    for role_name, _ in roles:
+        if name_match.get(role_name) is not None:
+            result[role_name] = name_match[role_name]
+        elif pos_match.get(role_name) is not None:
+            result[role_name] = pos_match[role_name]
+        else:
+            result[role_name] = None
+    return result
 
 
 def parse_model(interpreter):
@@ -180,32 +145,72 @@ def parse_model(interpreter):
 
         # ========== LSTM 算子处理 ==========
         if op["op_name"] == "UNIDIRECTIONAL_SEQUENCE_LSTM":
-            # 1. 先尝试名称匹配
-            matched = _match_lstm_inputs(op, tensor_map)
+            # 定义角色（12个）
+            roles = [
+                ("input", ["input", "lstm_input"]),
+                ("input_weights_i", ["input_gate", "wi"]),
+                ("input_weights_f", ["forget_gate", "wf"]),
+                ("input_weights_g", ["cell_gate", "wg"]),
+                ("input_weights_o", ["output_gate", "wo"]),
+                ("recurrent_weights_i", ["recurrent", "input_gate", "ri"]),
+                ("recurrent_weights_f", ["recurrent", "forget_gate", "rf"]),
+                ("recurrent_weights_g", ["recurrent", "cell_gate", "rg"]),
+                ("recurrent_weights_o", ["recurrent", "output_gate", "ro"]),
+                ("bias_i", ["bias", "input"]),
+                ("bias_f", ["bias", "forget"]),
+                ("bias_g", ["bias", "cell"]),
+                ("bias_o", ["bias", "output"]),
+            ]
 
-            # 2. 如果名称匹配失败，回退到位置匹配
-            if matched["input_idx"] is None or not matched["input_weights"]:
-                print("提示: 名称匹配失败，使用位置匹配（TFLite 标准格式）")
-                matched = _fallback_lstm_positional(op)
+            # 名称匹配
+            name_match = match_tensor_by_name(op, tensor_map, roles)
 
-            # 3. 验证匹配结果
-            if matched["input_idx"] is None:
-                op_info["state"] = "invalid"
-                op_info["pass_flags"]["lstm_match"] = "failed_input"
-                print("错误: LSTM 算子无法识别输入数据张量")
-                ops.append(op_info)
-                continue
+            # 位置匹配（回退）- TFLite 标准位置
+            positions = [
+                ("input", 0),
+                ("input_weights_i", 1), ("input_weights_f", 2),
+                ("input_weights_g", 3), ("input_weights_o", 4),
+                ("recurrent_weights_i", 5), ("recurrent_weights_f", 6),
+                ("recurrent_weights_g", 7), ("recurrent_weights_o", 8),
+                ("bias_i", 13), ("bias_f", 14), ("bias_g", 15), ("bias_o", 16),
+            ]
+            pos_match = match_tensor_by_position(op, positions)
 
-            if not matched["input_weights"] and not matched["recurrent_weights"]:
-                op_info["state"] = "invalid"
-                op_info["pass_flags"]["lstm_match"] = "failed_weights"
-                print("错误: LSTM 算子无法识别任何权重张量")
-                ops.append(op_info)
-                continue
+            # 合并结果
+            matched = _merge_match_results(name_match, pos_match, roles)
 
-            # 4. 获取形状参数
-            # 此时 matched["input_idx"] 一定不是 None
-            input_shape = tensor_map.get(matched["input_idx"], {}).get("shape", [])
+            # 验证
+            if matched["input"] is None:
+                fatal_error("LSTM", "无法识别输入数据张量",
+                            "转换时添加 converter._experimental_preserve_all_tensors = True")
+
+            # 组装权重列表（按顺序 i, f, g, o）
+            input_weights = [
+                matched.get("input_weights_i"), matched.get("input_weights_f"),
+                matched.get("input_weights_g"), matched.get("input_weights_o")
+            ]
+            input_weights = [i for i in input_weights if i is not None]
+
+            recurrent_weights = [
+                matched.get("recurrent_weights_i"),
+                matched.get("recurrent_weights_f"),
+                matched.get("recurrent_weights_g"),
+                matched.get("recurrent_weights_o")
+            ]
+            recurrent_weights = [i for i in recurrent_weights if i is not None]
+
+            biases = [
+                matched.get("bias_i"), matched.get("bias_f"),
+                matched.get("bias_g"), matched.get("bias_o")
+            ]
+            biases = [i for i in biases if i is not None]
+
+            if not input_weights and not recurrent_weights:
+                    fatal_error("LSTM", "无法识别任何权重张量",
+                                "检查模型是否为标准 TFLite LSTM 格式")
+
+            # 获取形状参数
+            input_shape = tensor_map.get(matched["input"], {}).get("shape", [])
             if len(input_shape) >= 3:
                 time_steps = input_shape[0]
                 batch_size = input_shape[1]
@@ -220,23 +225,23 @@ def parse_model(interpreter):
             else:
                 hidden_size = 1
 
-            # 提取量化参数
+            # 提取量化参数（scale）
             input_scales = []
-            for idx in matched["input_weights"]:
+            for idx in input_weights:
                 scale = tensor_map.get(idx, {}).get("scale", 0.01)
                 input_scales.append(scale)
 
             recurrent_scales = []
-            for idx in matched["recurrent_weights"]:
+            for idx in recurrent_weights:
                 scale = tensor_map.get(idx, {}).get("scale", 0.01)
                 recurrent_scales.append(scale)
 
             bias_scales = []
-            for idx in matched["biases"]:
+            for idx in biases:
                 scale = tensor_map.get(idx, {}).get("scale", 1e-5)
                 bias_scales.append(scale)
 
-            # 存储 LSTM 参数
+            # 存储参数
             op_info["lstm_params"] = {
                 "time_steps": time_steps,
                 "batch_size": batch_size,
@@ -250,76 +255,78 @@ def parse_model(interpreter):
             }
 
             op_info["lstm_weight_indices"] = {
-                "input": matched["input_weights"],
-                "recurrent": matched["recurrent_weights"],
-                "bias": matched["biases"],
+                "input": input_weights,
+                "recurrent": recurrent_weights,
+                "bias": biases,
             }
 
             op_info["state"] = "translated"
             op_info["pass_flags"]["lstm_match"] = "success"
-            if len(matched["input_weights"]) != 4:
-                op_info["pass_flags"]["lstm_input_weights_warning"] = f"found_{len(matched['input_weights'])}_expected_4"
 
         # ========== FC 算子处理 ==========
         elif op["op_name"] == "FULLY_CONNECTED":
-            # 1. 先尝试名称匹配
-            weights_idx = None
-            bias_idx = None
-            input_idx = None
+            # 定义角色
+            roles = [
+                ("weights", ["matmul", "weight", "kernel"]),
+                ("bias", ["bias"]),
+                ("input", []),  # 剩余的张量就是输入
+            ]
 
-            for idx in op["inputs"]:
-                if idx == -1:
-                    continue
-                tensor_info = tensor_map.get(idx, {})
-                name = tensor_info.get("name", "").lower()
+            # 名称匹配
+            name_match = match_tensor_by_name(op, tensor_map, roles)
 
-                if "matmul" in name or "weight" in name or "kernel" in name:
-                    weights_idx = idx
-                    op_info["pass_flags"]["fc_weights_match"] = "name"
-                elif "bias" in name:
-                    bias_idx = idx
-                    op_info["pass_flags"]["fc_bias_match"] = "name"
-                else:
-                    input_idx = idx
-                    op_info["pass_flags"]["fc_input_match"] = "name"
+            # 位置匹配（回退）
+            positions = [("input", 0), ("weights", 1), ("bias", 2)]
+            pos_match = match_tensor_by_position(op, positions)
 
-            # 2. 如果名称匹配失败，回退到位置匹配（TFLite 标准格式）
-            if weights_idx is None or bias_idx is None or input_idx is None:
-                print("提示: FC 名称匹配失败，使用位置匹配（TFLite 标准格式）")
-                # TFLite FC 标准位置：inputs[0]=input, inputs[1]=weight, inputs[2]=bias
-                if len(op["inputs"]) >= 3:
-                    if input_idx is None:
-                        input_idx = op["inputs"][0]
-                        op_info["pass_flags"]["fc_input_match"] = "position"
-                    if weights_idx is None:
-                        weights_idx = op["inputs"][1]
-                        op_info["pass_flags"]["fc_weights_match"] = "position"
-                    if bias_idx is None:
-                        bias_idx = op["inputs"][2]
-                        op_info["pass_flags"]["fc_bias_match"] = "position"
+            # 合并结果
+            matched = _merge_match_results(name_match, pos_match, roles)
 
-            # 3. 验证匹配结果
-            if weights_idx is not None and bias_idx is not None and input_idx is not None:
-                op_info["fc_weights_idx"] = weights_idx
-                op_info["fc_bias_idx"] = bias_idx
-                op_info["fc_input_idx"] = input_idx
-                op_info["state"] = "translated"
-                op_info["pass_flags"]["fc_match"] = "success"
-            else:
-                op_info["state"] = "invalid"
-                op_info["pass_flags"]["fc_match"] = "failed"
-                print(
-                    f"错误: FC 算子匹配失败: weights={weights_idx}, bias={bias_idx}, input={input_idx}")
+            # 验证
+            if None in [matched.get("weights"), matched.get("bias"),
+                        matched.get("input")]:
+                fatal_error("FC", f"匹配失败: {matched}",
+                            "检查模型是否为标准 TFLite FC 格式，或转换时保留张量名称")
+
+            op_info["fc_weights_idx"] = matched["weights"]
+            op_info["fc_bias_idx"] = matched["bias"]
+            op_info["fc_input_idx"] = matched["input"]
+            op_info["state"] = "translated"
+            op_info["pass_flags"]["fc_match"] = "success"
+            op_info["pass_flags"]["fc_weights_method"] = "name" if name_match.get(
+                "weights") else "position"
 
         # ========== Softmax 算子处理 ==========
         elif op["op_name"] == "SOFTMAX":
+            # Softmax 通常没有额外参数，只需检查输入输出
+            if len(op["inputs"]) < 1 or op["inputs"][0] == -1:
+                fatal_error("Softmax", "缺少输入张量",
+                            "检查模型转换是否完整")
+            if len(op["outputs"]) < 1 or op["outputs"][0] == -1:
+                fatal_error("Softmax", "缺少输出张量",
+                            "检查模型转换是否完整")
+
             op_info["state"] = "translated"
-            op_info["pass_flags"]["softmax_check"] = "no_weights_needed"
+            op_info["pass_flags"]["softmax_check"] = "success"
 
         # ========== Reshape 算子处理 ==========
         elif op["op_name"] == "RESHAPE":
+            # Reshape 需要目标形状参数（通常在 inputs[1]）
+            if len(op["inputs"]) < 2 or op["inputs"][1] == -1:
+                fatal_error("Reshape", "缺少目标形状参数",
+                            "检查模型转换是否完整")
+            # 获取目标形状张量
+            shape_idx = op["inputs"][1]
+            shape_tensor = tensor_map.get(shape_idx, {})
+            target_shape = shape_tensor.get("shape", [])
+            if not target_shape or target_shape[0] == 0:
+                fatal_error("Reshape", "目标形状无效",
+                            "检查 Reshape 算子参数")
+
             op_info["state"] = "translated"
-            op_info["pass_flags"]["reshape_check"] = "pending"
+            op_info["pass_flags"]["reshape_check"] = "success"
+            # 可以存储目标形状供代码生成使用
+            op_info["reshape_target_shape"] = target_shape
 
         # ========== DELEGATE 算子跳过 ==========
         elif op["op_name"] == "DELEGATE":
@@ -327,8 +334,9 @@ def parse_model(interpreter):
 
         # ========== 未知算子 ==========
         else:
-            op_info["state"] = "created"
-            op_info["pass_flags"]["unknown"] = "needs_implementation"
+            fatal_error(op["op_name"], "不支持的算子类型",
+                        f"当前支持的算子: UNIDIRECTIONAL_SEQUENCE_LSTM, FULLY_CONNECTED, SOFTMAX, RESHAPE\n"
+                        f"如需支持新算子，请参考文档或提交 Issue")
 
         # 获取输入张量详细信息（所有算子都执行）
         for inp_idx in op["inputs"]:
