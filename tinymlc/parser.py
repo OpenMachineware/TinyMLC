@@ -262,6 +262,7 @@ def parse_model(interpreter):
 
         # ========== FC 算子处理 ==========
         elif op["op_name"] == "FULLY_CONNECTED":
+            # 1. 先尝试名称匹配
             weights_idx = None
             bias_idx = None
             input_idx = None
@@ -274,23 +275,41 @@ def parse_model(interpreter):
 
                 if "matmul" in name or "weight" in name or "kernel" in name:
                     weights_idx = idx
-                    op_info["pass_flags"]["fc_weights_match"] = "success"
+                    op_info["pass_flags"]["fc_weights_match"] = "name"
                 elif "bias" in name:
                     bias_idx = idx
-                    op_info["pass_flags"]["fc_bias_match"] = "success"
+                    op_info["pass_flags"]["fc_bias_match"] = "name"
                 else:
                     input_idx = idx
-                    op_info["pass_flags"]["fc_input_match"] = "success"
+                    op_info["pass_flags"]["fc_input_match"] = "name"
 
+            # 2. 如果名称匹配失败，回退到位置匹配（TFLite 标准格式）
+            if weights_idx is None or bias_idx is None or input_idx is None:
+                print("提示: FC 名称匹配失败，使用位置匹配（TFLite 标准格式）")
+                # TFLite FC 标准位置：inputs[0]=input, inputs[1]=weight, inputs[2]=bias
+                if len(op["inputs"]) >= 3:
+                    if input_idx is None:
+                        input_idx = op["inputs"][0]
+                        op_info["pass_flags"]["fc_input_match"] = "position"
+                    if weights_idx is None:
+                        weights_idx = op["inputs"][1]
+                        op_info["pass_flags"]["fc_weights_match"] = "position"
+                    if bias_idx is None:
+                        bias_idx = op["inputs"][2]
+                        op_info["pass_flags"]["fc_bias_match"] = "position"
+
+            # 3. 验证匹配结果
             if weights_idx is not None and bias_idx is not None and input_idx is not None:
                 op_info["fc_weights_idx"] = weights_idx
                 op_info["fc_bias_idx"] = bias_idx
                 op_info["fc_input_idx"] = input_idx
                 op_info["state"] = "translated"
+                op_info["pass_flags"]["fc_match"] = "success"
             else:
                 op_info["state"] = "invalid"
                 op_info["pass_flags"]["fc_match"] = "failed"
-                print(f"错误: FC 算子匹配失败: weights={weights_idx}, bias={bias_idx}, input={input_idx}")
+                print(
+                    f"错误: FC 算子匹配失败: weights={weights_idx}, bias={bias_idx}, input={input_idx}")
 
         # ========== Softmax 算子处理 ==========
         elif op["op_name"] == "SOFTMAX":
