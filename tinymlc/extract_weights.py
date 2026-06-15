@@ -153,18 +153,24 @@ def export_concatenated_weights(weights_list, output_file, array_name,
 
 def export_concatenated_bias(bias_list, output_file, array_name):
     """导出拼接后的 bias 数组"""
+    gate_order = ['i', 'f', 'g', 'o']
     arrays = []
-    total_size = 0
-    for gate in ['i', 'f', 'g', 'o']:
-        b = bias_list[gate]
-        if b is None:
-            print(f"警告: {gate} 门 bias 缺失，使用零数组")
-            return
-        flat = b.flatten()
-        arrays.append(flat)
-        total_size += len(flat)
+
+    for gate in gate_order:
+        b = bias_list.get(gate)
+        if b is not None:
+            arrays.append(b.flatten())
+            print(f"  bias_{gate}: {b.size} 个元素")
+        else:
+            print(f"  警告: {gate} 门 bias 缺失")
+
+    if not arrays:
+        # 所有 bias 都缺失，生成占位符
+        output_file.write(f"static const int32_t {array_name}[1] = {{0}};\n\n")
+        return
 
     concatenated = np.concatenate(arrays)
+    total_size = len(concatenated)
 
     output_file.write(
         f"static const int32_t {array_name}[{total_size}] = {{\n    ")
@@ -176,20 +182,25 @@ def export_concatenated_bias(bias_list, output_file, array_name):
             output_file.write("\n    ")
     output_file.write("\n};\n\n")
 
+    print(f"  生成 {array_name}[{total_size}]")
+
 
 def main():
-    parser = argparse.ArgumentParser(description='从 tflite 模型提取 FC 和 LSTM 权重')
+    parser = argparse.ArgumentParser(
+        description='从 tflite 模型提取 FC 和 LSTM 权重')
     parser.add_argument('model', help='TFLite 模型文件路径')
     parser.add_argument('--output-dir', default='tinymlc_generated',
                         help='输出目录 (默认: tinymlc_generated)')
     args = parser.parse_args()
 
-    # 加载模型
+    # 1. 加载模型并解析
+    print(f"正在加载模型: {args.model}")
     interpreter = tf.lite.Interpreter(model_path=args.model)
     interpreter.allocate_tensors()
 
     model_info = parse_model(interpreter)
-    # 找到 FC 和 LSTM 的 op_info
+
+    # 2. 查找算子信息
     fc_op_info = None
     lstm_op_info = None
     for op in model_info["ops"]:
@@ -198,26 +209,30 @@ def main():
         elif op["op_name"] == "UNIDIRECTIONAL_SEQUENCE_LSTM":
             lstm_op_info = op
 
-    # 提取权重
+    # 3. 提取权重
+    print("\n正在提取权重...")
+    fc_weights = fc_bias = None
     if fc_op_info:
         fc_weights, fc_bias = extract_fc_weights(interpreter, fc_op_info)
-    else:
-        fc_weights, fc_bias = None, None
 
+    lstm_weights = None
     if lstm_op_info:
         lstm_weights = extract_lstm_weights(interpreter, lstm_op_info)
-    else:
-        lstm_weights = None
 
-    if fc_weights is None and all(v is None for v in lstm_weights['input'].values()):
+    # 4. 检查是否有任何权重被提取
+    has_fc = fc_weights is not None
+    has_lstm = lstm_weights is not None and any(
+        v is not None for v in lstm_weights['input'].values())
+
+    if not (has_fc or has_lstm):
         print("错误: 未找到任何权重")
-        return
+        return 1
 
-    # 创建输出目录
+    # 5. 创建输出目录
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # 生成 fc_weights.h
+    # 6. 生成 FC 权重文件
     if fc_weights is not None:
         output_path = output_dir / 'fc_weights.h'
         with open(output_path, 'w') as f:
@@ -227,39 +242,45 @@ def main():
             export_bias_to_c(fc_bias, "fc_bias", f)
         print(f"已生成: {output_path}")
 
-    # 生成 lstm_weights.h
-    output_path = output_dir / 'lstm_weights.h'
-    with open(output_path, 'w') as f:
-        f.write("// 自动从 tflite 提取的 LSTM 各门权重和 bias（已拼接）\n")
-        f.write("// 顺序: i, f, g, o\n")
-        f.write("// 请勿手动修改\n\n")
+    # 7. 生成 LSTM 权重文件
+    if lstm_weights and any(v is not None for v in lstm_weights['input'].values()):
+        output_path = output_dir / 'lstm_weights.h'
+        with open(output_path, 'w') as f:
+            f.write("// 自动从 tflite 提取的 LSTM 各门权重和 bias（已拼接）\n")
+            f.write("// 顺序: i, f, g, o\n")
+            f.write("// 请勿手动修改\n\n")
 
-        # 导出拼接后的输入权重 [4, 20, 28] -> [4*20*28]
-        export_concatenated_weights(lstm_weights['input'], f,
-                          'lstm_input_weights', 'int8')
-        # 导出拼接后的递归权重 [4, 20, 20] -> [4*20*20]
-        export_concatenated_weights(lstm_weights['recurrent'], f,
-                          'lstm_recurrent_weights', 'int8')
-        # 导出拼接后的 bias [4, 20] -> [4*20]
-        export_concatenated_bias(lstm_weights['bias'], f, 'lstm_bias')
+            # 导出拼接后的输入权重
+            export_concatenated_weights(lstm_weights['input'], f,
+                                        'lstm_input_weights', 'int8')
+            # 导出拼接后的递归权重
+            export_concatenated_weights(lstm_weights['recurrent'], f,
+                                        'lstm_recurrent_weights', 'int8')
+            # 导出拼接后的 bias
+            export_concatenated_bias(lstm_weights['bias'], f, 'lstm_bias')
 
-    print(f"已生成: {output_path}")
+        print(f"已生成: {output_path}")
 
-    # 打印统计信息
+    # 8. 打印统计信息
     print("\n=== 提取统计 ===")
     if fc_weights is not None:
-        print(f"FC 权重数量: {fc_weights.size}, bias 数量: {fc_bias.size}")
+        print(
+            f"FC 权重: {fc_weights.size} 个 int8, bias: {fc_bias.size} 个 int32")
 
-    for gate in ['i', 'f', 'g', 'o']:
-        w = lstm_weights['input'].get(gate)
-        if w is not None:
-            print(f"LSTM input_{gate}: {w.size} 个权重")
-        r = lstm_weights['recurrent'].get(gate)
-        if r is not None:
-            print(f"LSTM recurrent_{gate}: {r.size} 个权重")
-        b = lstm_weights['bias'].get(gate)
-        if b is not None:
-            print(f"LSTM bias_{gate}: {b.size} 个偏置")
+    if lstm_weights:
+        for gate in ['i', 'f', 'g', 'o']:
+            w = lstm_weights['input'].get(gate)
+            r = lstm_weights['recurrent'].get(gate)
+            b = lstm_weights['bias'].get(gate)
+            # 检查是否有任何非 None 的权重
+            if w is not None or r is not None or b is not None:
+                w_size = w.size if w is not None else 0
+                r_size = r.size if r is not None else 0
+                b_size = b.size if b is not None else 0
+                print(
+                    f"LSTM {gate} 门: input={w_size}, recurrent={r_size}, bias={b_size}")
+
+    return 0
 
 
 if __name__ == "__main__":
