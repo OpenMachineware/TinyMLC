@@ -3,77 +3,61 @@
 从 tflite 文件中提取 FC 和 LSTM 层的权重和 bias
 """
 
+import sys
 import argparse
 import tensorflow as tf
 import numpy as np
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-def extract_fc_weights(interpreter):
-    """提取 FULLY_CONNECTED 层的权重和 bias"""
-    weights_data = None
-    bias_data = None
-
-    # FC 权重索引 3, bias 索引 2
-    try:
-        weights_data = interpreter.get_tensor(3)
-        print(f"FC 权重: shape={weights_data.shape}, dtype={weights_data.dtype}")
-        print(f"FC 权重范围: [{weights_data.min()}, {weights_data.max()}]")
-    except:
-        print("警告: 无法获取 FC 权重 (index=3)")
-
-    try:
-        bias_data = interpreter.get_tensor(2)
-        print(f"FC bias: shape={bias_data.shape}, dtype={bias_data.dtype}")
-        print(f"FC bias 范围: [{bias_data.min()}, {bias_data.max()}]")
-    except:
-        print("警告: 无法获取 FC bias (index=2)")
-
-    return weights_data, bias_data
+from tinymlc.parser import parse_model
 
 
-def extract_lstm_weights(interpreter):
+def extract_fc_weights(interpreter, op_info):
+    """根据算子信息提取 FC 层的权重和 bias"""
+    weights_idx = op_info.get("fc_weights_idx")
+    bias_idx = op_info.get("fc_bias_idx")
+
+    if weights_idx is None or bias_idx is None:
+        print("错误: FC 权重/bias 索引未找到")
+        return None, None
+
+    weights = interpreter.get_tensor(weights_idx)
+    bias = interpreter.get_tensor(bias_idx)
+    return weights, bias
+
+def extract_lstm_weights(interpreter, op_info):
     """提取 LSTM 各门的权重和 bias"""
-    lstm_weights = {
-        'input': {},
-        'recurrent': {},
-        'bias': {}
-    }
+    indices = op_info.get("lstm_weight_indices", {})
+    input_indices = indices.get("input", [])
+    recurrent_indices = indices.get("recurrent", [])
+    bias_indices = indices.get("bias", [])
 
-    # LSTM 各门的张量索引（从 verbose 输出得知）
-    # 输入权重: 15,14,13,12 (shape [20,28])
-    # 递归权重: 11,10,9,8  (shape [20,20])
-    # 偏置: 7,6,5,4       (shape [20])
+    gate_order = ['i', 'f', 'g', 'o']
 
-    input_indices = {'i': 15, 'f': 14, 'g': 13, 'o': 12}
-    recurrent_indices = {'i': 11, 'f': 10, 'g': 9, 'o': 8}
-    bias_indices = {'i': 7, 'f': 6, 'g': 5, 'o': 4}
+    lstm_weights = {'input': {}, 'recurrent': {}, 'bias': {}}
 
-    for gate, idx in input_indices.items():
-        try:
-            data = interpreter.get_tensor(idx)
-            lstm_weights['input'][gate] = data
-            print(f"LSTM input_{gate}: shape={data.shape}, dtype={data.dtype}")
-        except:
-            print(f"警告: 无法获取 LSTM input_{gate} (index={idx})")
+    # 提取输入权重
+    for idx, gate in zip(input_indices, gate_order[:len(input_indices)]):
+        lstm_weights['input'][gate] = interpreter.get_tensor(idx)
+
+    # 提取递归权重
+    for idx, gate in zip(recurrent_indices,
+                         gate_order[:len(recurrent_indices)]):
+        lstm_weights['recurrent'][gate] = interpreter.get_tensor(idx)
+
+    # 提取偏置（可能少于4个）
+    for idx, gate in zip(bias_indices, gate_order[:len(bias_indices)]):
+        lstm_weights['bias'][gate] = interpreter.get_tensor(idx)
+
+    # 为缺失的门添加 None 占位
+    for gate in gate_order:
+        if gate not in lstm_weights['input']:
             lstm_weights['input'][gate] = None
-
-    for gate, idx in recurrent_indices.items():
-        try:
-            data = interpreter.get_tensor(idx)
-            lstm_weights['recurrent'][gate] = data
-            print(f"LSTM recurrent_{gate}: shape={data.shape}, dtype={data.dtype}")
-        except:
-            print(f"警告: 无法获取 LSTM recurrent_{gate} (index={idx})")
+        if gate not in lstm_weights['recurrent']:
             lstm_weights['recurrent'][gate] = None
-
-    for gate, idx in bias_indices.items():
-        try:
-            data = interpreter.get_tensor(idx)
-            lstm_weights['bias'][gate] = data
-            print(f"LSTM bias_{gate}: shape={data.shape}, dtype={data.dtype}")
-        except:
-            print(f"警告: 无法获取 LSTM bias_{gate} (index={idx})")
+        if gate not in lstm_weights['bias']:
             lstm_weights['bias'][gate] = None
 
     return lstm_weights
@@ -204,9 +188,26 @@ def main():
     interpreter = tf.lite.Interpreter(model_path=args.model)
     interpreter.allocate_tensors()
 
+    model_info = parse_model(interpreter)
+    # 找到 FC 和 LSTM 的 op_info
+    fc_op_info = None
+    lstm_op_info = None
+    for op in model_info["ops"]:
+        if op["op_name"] == "FULLY_CONNECTED":
+            fc_op_info = op
+        elif op["op_name"] == "UNIDIRECTIONAL_SEQUENCE_LSTM":
+            lstm_op_info = op
+
     # 提取权重
-    fc_weights, fc_bias = extract_fc_weights(interpreter)
-    lstm_weights = extract_lstm_weights(interpreter)
+    if fc_op_info:
+        fc_weights, fc_bias = extract_fc_weights(interpreter, fc_op_info)
+    else:
+        fc_weights, fc_bias = None, None
+
+    if lstm_op_info:
+        lstm_weights = extract_lstm_weights(interpreter, lstm_op_info)
+    else:
+        lstm_weights = None
 
     if fc_weights is None and all(v is None for v in lstm_weights['input'].values()):
         print("错误: 未找到任何权重")

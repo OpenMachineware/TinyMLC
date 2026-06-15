@@ -15,207 +15,7 @@ from tinymlc.extract_weights import (extract_fc_weights, extract_lstm_weights,
                                      export_weights_to_c, export_bias_to_c,
                                      export_concatenated_weights,
                                      export_concatenated_bias)
-
-
-# DELEGATE 是 TFLite 中一个特殊算子，它代表"委托给硬件加速器"
-# （如 GPU、NPU、XNNPACK），现阶段不做，以后支持硬件加速器再做
-IGNORED_OPS = {"DELEGATE"}
-
-
-def parse_model(interpreter):
-    """解析 TFLite 模型，返回算子列表和张量信息"""
-    # 获取输入输出张量
-    input_details = interpreter.get_input_details()
-    output_details = interpreter.get_output_details()
-
-    # 获取所有张量详细信息
-    tensor_details = interpreter.get_tensor_details()
-
-    # 构建张量索引 -> 信息的映射
-    tensor_map = {}
-    for t in tensor_details:
-        quant = t.get("quantization", (None, None))
-        scale = quant[0] if quant[0] is not None else 1.0
-        zero_point = quant[1] if quant[1] is not None else 0
-
-        tensor_map[t["index"]] = {
-            "name": t["name"],
-            "shape": t["shape"],
-            "dtype": str(t["dtype"]),
-            "size": t["shape"].num_elements() if hasattr(t["shape"], "num_elements") else 1,
-            "scale": float(scale),
-            "zero_point": int(zero_point),
-        }
-
-    # 获取所有算子及其详细信息
-    ops = []
-    for op in interpreter._get_ops_details():
-        if op["op_name"] in IGNORED_OPS:
-            continue
-
-        op_info = {
-            "index": op["index"],
-            "op_name": op["op_name"],
-            "inputs": op["inputs"],
-            "outputs": op["outputs"],
-            "input_details": [],
-            "output_details": [],
-            "state": "created",
-            "pass_flags": {},
-        }
-
-        # 如果是 LSTM 算子，提取形状参数
-        if op["op_name"] == "UNIDIRECTIONAL_SEQUENCE_LSTM":
-            print(f"LSTM inputs: {op['inputs']}")
-            print(f"LSTM outputs: {op['outputs']}")
-            # 输入张量的形状 [time_steps, batch, input_size]
-            input_idx = op["inputs"][0]
-            input_shape = tensor_map.get(input_idx, {}).get("shape", [])
-            if len(input_shape) >= 3:
-                time_steps = input_shape[0]
-                batch_size = input_shape[1]
-                input_size = input_shape[2]
-            else:
-                time_steps, batch_size, input_size = 1, 1, 1
-
-            # 输出张量的形状 [time_steps, batch, hidden_size]
-            output_idx = op["outputs"][0]
-            output_shape = tensor_map.get(output_idx, {}).get("shape", [])
-            if len(output_shape) >= 3:
-                hidden_size = output_shape[2]
-            else:
-                hidden_size = 1
-
-            # 提取量化参数（取第一个输入权重的 scale 和 zero_point 作为代表）
-            # 输入门权重索引通常是 inputs[4]
-            input_weight_idx = op["inputs"][4] if len(
-                op["inputs"]) > 4 else None
-            input_scale = 0.00390625  # 1/256
-            input_zp = 0
-
-            if input_weight_idx is not None:
-                tensor_info = tensor_map.get(input_weight_idx, {})
-                input_scale = tensor_info.get("scale", 0.00390625)  # 1/256
-                input_zp = tensor_info.get("zero_point", 0)
-                print(f"  LSTM 输入权重量化: scale={input_scale}, zp={input_zp}")
-
-            # 提取 LSTM 四个门的权重和 bias 索引
-            # 输入权重索引：inputs[1], [2], [3], [4] 对应 i, f, g, o
-            input_weight_indices = [op["inputs"][1], op["inputs"][2],
-                                    op["inputs"][3], op["inputs"][4]]
-            # 递归权重索引：inputs[5], [6], [7], [8] 对应 i, f, g, o
-            recurrent_weight_indices = [op["inputs"][5], op["inputs"][6],
-                                        op["inputs"][7], op["inputs"][8]]
-            # 偏置索引：inputs[12], [13], [14], [15] 对应 i, f, g, o
-            bias_indices = [op["inputs"][12], op["inputs"][13],
-                            op["inputs"][14], op["inputs"][15]]
-
-            # 从 tensor_map 中读取每个门的 scale
-            input_scales = []
-            for idx in input_weight_indices:
-                tensor_info = tensor_map.get(idx, {})
-                scale = tensor_info.get("scale", 0.01)
-                input_scales.append(scale)
-                print(f"  LSTM 输入权重 index {idx}: scale={scale}")
-
-            recurrent_scales = []
-            for idx in recurrent_weight_indices:
-                tensor_info = tensor_map.get(idx, {})
-                scale = tensor_info.get("scale", 0.01)
-                recurrent_scales.append(scale)
-                print(f"  LSTM 递归权重 index {idx}: scale={scale}")
-
-            bias_scales = []
-            for idx in bias_indices:
-                tensor_info = tensor_map.get(idx, {})
-                scale = tensor_info.get("scale", 1e-5)
-                bias_scales.append(scale)
-                print(f"  LSTM bias index {idx}: scale={scale}")
-
-            op_info["lstm_params"] = {
-                "time_steps": time_steps,
-                "batch_size": batch_size,
-                "input_size": input_size,
-                "hidden_size": hidden_size,
-                "input_scales": input_scales,
-                "recurrent_scales": recurrent_scales,
-                "bias_scales": bias_scales,
-                "input_scale": input_scales[0] if input_scales else 0.01,
-                "input_zp": 0,
-                # 也可以添加其他门的参数，先取一个代表
-            }
-            # 判断是否成功：所有必需的参数都有效
-            success = True
-
-            # 检查形状参数
-            if time_steps <= 0 or input_size <= 0 or hidden_size <= 0:
-                success = False
-                print(f"错误: LSTM 形状参数无效: time_steps={time_steps}, \
-input_size={input_size}, hidden_size={hidden_size}")
-
-            # 检查 scales 是否完整
-            if len(input_scales) != 4 or len(recurrent_scales) != 4 or len(
-                    bias_scales) != 4:
-                success = False
-                print(f"错误: LSTM scale 参数不完整: input_scales=\
-{len(input_scales)}, recurrent_scales={len(recurrent_scales)}, \
-bias_scales={len(bias_scales)}")
-
-            if success:
-                op_info["state"] = "translated"
-                op_info["pass_flags"]["lstm_parse"] = "applied"
-            else:
-                op_info["state"] = "invalid"
-                op_info["pass_flags"]["lstm_parse"] = "failed"
-
-        # 对于其他算子（FC、Softmax等），直接设置默认状态
-        elif op["op_name"] == "FULLY_CONNECTED":
-            op_info["state"] = "translated"
-            op_info["pass_flags"]["default"] = "no_pass_needed"
-        elif op["op_name"] == "SOFTMAX":
-            op_info["state"] = "translated"
-            op_info["pass_flags"]["default"] = "no_pass_needed"
-        elif op["op_name"] == "RESHAPE":
-            op_info["state"] = "translated"
-            op_info["pass_flags"]["default"] = "no_pass_needed"
-        else:
-            op_info["state"] = "created"  # FIXME 未识别的算子，后续会报错
-            op_info["pass_flags"]["unknown"] = "needs_implementation"
-
-        # 获取输入张量的详细信息
-        for inp_idx in op["inputs"]:
-            if inp_idx != -1:  # -1 表示没有这个输入
-                info = tensor_map.get(inp_idx, {})
-                op_info["input_details"].append(
-                    {
-                        "index": inp_idx,
-                        "name": info.get("name", "unknown"),
-                        "shape": info.get("shape", []),
-                        "size": info.get("size", 0),
-                    }
-                )
-
-        # 获取输出张量的详细信息
-        for out_idx in op["outputs"]:
-            if out_idx != -1:
-                info = tensor_map.get(out_idx, {})
-                op_info["output_details"].append(
-                    {
-                        "index": out_idx,
-                        "name": info.get("name", "unknown"),
-                        "shape": info.get("shape", []),
-                        "size": info.get("size", 0),
-                    }
-                )
-
-        ops.append(op_info)
-
-    return {
-        "input": input_details,
-        "output": output_details,
-        "ops": ops,
-        "tensors": tensor_map,
-    }
+from tinymlc.parser import parse_model
 
 
 def generate_c_code(model_info,
@@ -429,9 +229,25 @@ def main():
 
     # 提取并生成权重文件
     print("正在提取权重...")
+    # 找到 FC 算子的 op_info
+    fc_op_info = None
+    lstm_op_info = None
+    for op in model_info["ops"]:
+        if op["op_name"] == "FULLY_CONNECTED":
+            fc_op_info = op
+        elif op["op_name"] == "UNIDIRECTIONAL_SEQUENCE_LSTM":
+            lstm_op_info = op
+
     # 提取权重
-    fc_weights, fc_bias = extract_fc_weights(interpreter)
-    lstm_weights = extract_lstm_weights(interpreter)
+    if fc_op_info:
+        fc_weights, fc_bias = extract_fc_weights(interpreter, fc_op_info)
+    else:
+        fc_weights, fc_bias = None, None
+
+    if lstm_op_info:
+        lstm_weights = extract_lstm_weights(interpreter, lstm_op_info)
+    else:
+        lstm_weights = None
 
     # 生成 fc_weights.h
     if fc_weights is not None:
