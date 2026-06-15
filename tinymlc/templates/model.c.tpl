@@ -26,15 +26,15 @@ void {{ inference_func }}(const int8_t* input, int8_t* output) {
     int8_t last_state[LSTM_HIDDEN_SIZE];
     int8_t last_cell[LSTM_HIDDEN_SIZE];
 
-    // 调用 LSTM（输出完整序列）
+    // 调用 LSTM（参数数量匹配）
     tmlc_unidirectional_sequence_lstm_s8(
         input,
         lstm_input_weights,
         lstm_recurrent_weights,
         lstm_bias,
-        lstm_sequence,   // 完整序列输出
-        last_state,      // 最后状态（不需要）
-        last_cell,       // 最后细胞状态（不需要）
+        lstm_sequence,   // output_sequence
+        last_state,      // output_state
+        last_cell,       // cell_state
         LSTM_TIME_STEPS,
         LSTM_BATCH_SIZE,
         LSTM_INPUT_SIZE,
