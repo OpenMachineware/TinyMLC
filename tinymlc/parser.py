@@ -200,11 +200,11 @@ def parse_model(interpreter):
             # 获取形状参数
             input_shape = tensor_map.get(matched["input"], {}).get("shape", [])
             if len(input_shape) >= 3:
-                time_steps = input_shape[0]
-                batch_size = input_shape[1]
+                batch_size = input_shape[0]
+                time_steps = input_shape[1]
                 input_size = input_shape[2]
             else:
-                time_steps, batch_size, input_size = 1, 1, 1
+                batch_size, time_steps, input_size = 1, 1, 1
 
             output_idx = op["outputs"][0]
             output_shape = tensor_map.get(output_idx, {}).get("shape", [])
