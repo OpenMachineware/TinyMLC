@@ -16,6 +16,7 @@ from tinymlc.extract_weights import (extract_fc_weights, extract_lstm_weights,
                                      export_concatenated_weights,
                                      export_concatenated_bias)
 from tinymlc.parser import parse_model
+from tinymlc.utils import fatal_error, warning
 
 
 def generate_c_code(model_info,
@@ -238,9 +239,15 @@ def main():
         elif op["op_name"] == "UNIDIRECTIONAL_SEQUENCE_LSTM":
             lstm_op_info = op
 
+    print('-------------------------------------')
+    print(f"Interpreter 状态: {interpreter}")
+    print(f"张量数量: {len(interpreter.get_tensor_details())}")
+    print('-------------------------------------')
     # 提取权重
     if fc_op_info:
         fc_weights, fc_bias = extract_fc_weights(interpreter, fc_op_info)
+        if fc_weights is None:
+            fatal_error("FC 权重提取失败", "检查模型是否完整")
     else:
         fc_weights, fc_bias = None, None
 
@@ -248,6 +255,13 @@ def main():
         lstm_weights = extract_lstm_weights(interpreter, lstm_op_info)
     else:
         lstm_weights = None
+
+    # 检查是否有任何权重被提取
+    has_fc = fc_weights is not None
+    has_lstm = lstm_weights is not None and any(
+        v is not None for v in lstm_weights['input'].values())
+    if not (has_fc or has_lstm):
+        fatal_error("未找到任何权重", "检查模型是否包含支持的算子")
 
     # 生成 fc_weights.h
     if fc_weights is not None:

@@ -1,24 +1,12 @@
 #!/usr/bin/env python3
 """TFLite 模型解析器"""
 
-import sys
 import tensorflow as tf
-
+from tinymlc.utils import fatal_error
 
 # DELEGATE 是 TFLite 中一个特殊算子，它代表"委托给硬件加速器"
 # （如 GPU、NPU、XNNPACK），现阶段不做，以后支持硬件加速器再做
 IGNORED_OPS = {"DELEGATE"}
-
-
-def fatal_error(op_name, reason, suggestion=None):
-    """致命错误：打印错误信息并退出"""
-    print("\n" + "=" * 60)
-    print(f"错误: {op_name} 算子解析失败")
-    print(f"原因: {reason}")
-    if suggestion:
-        print(f"\n建议: {suggestion}")
-    print("=" * 60)
-    sys.exit(1)
 
 
 def match_tensor_by_name(op, tensor_map, roles):

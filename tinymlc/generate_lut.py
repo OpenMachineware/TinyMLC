@@ -7,6 +7,8 @@ import numpy as np
 from pathlib import Path
 from jinja2 import Template
 
+from tinymlc.utils import fatal_error, warning
+
 
 def generate_sigmoid_lut():
     """生成 sigmoid LUT，输出 int16 范围 [0, 32767]"""
@@ -28,38 +30,45 @@ def generate_tanh_lut():
 
 def generate_lut(output_dir: Path):
     """生成 LUT 头文件和源文件"""
-    output_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        output_dir.mkdir(parents=True, exist_ok=True)
 
-    sigmoid_lut = generate_sigmoid_lut()
-    tanh_lut = generate_tanh_lut()
+        sigmoid_lut = generate_sigmoid_lut()
+        tanh_lut = generate_tanh_lut()
 
-    # 渲染 lut.h.tpl
-    template_path = Path(__file__).parent / 'templates' / 'lut.h.tpl'
-    with open(template_path, 'r') as f:
-        template = Template(f.read())
+        # 渲染 lut.h.tpl
+        template_path = Path(__file__).parent / 'templates' / 'lut.h.tpl'
+        with open(template_path, 'r') as f:
+            template = Template(f.read())
 
-    lut_h = template.render(
-        sigmoid_lut=sigmoid_lut.tolist(),
-        tanh_lut=tanh_lut.tolist()
-    )
+        lut_h = template.render(
+            sigmoid_lut=sigmoid_lut.tolist(),
+            tanh_lut=tanh_lut.tolist()
+        )
 
-    with open(output_dir / 'lut.h', 'w') as f:
-        f.write(lut_h)
+        with open(output_dir / 'lut.h', 'w') as f:
+            f.write(lut_h)
 
-    # 渲染 lut.c.tpl
-    template_path = Path(__file__).parent / 'templates' / 'lut.c.tpl'
-    with open(template_path, 'r') as f:
-        template = Template(f.read())
+        # 渲染 lut.c.tpl
+        template_path = Path(__file__).parent / 'templates' / 'lut.c.tpl'
+        with open(template_path, 'r') as f:
+            template = Template(f.read())
 
-    lut_c = template.render()
+        lut_c = template.render()
 
-    with open(output_dir / 'lut.c', 'w') as f:
-        f.write(lut_c)
+        with open(output_dir / 'lut.c', 'w') as f:
+            f.write(lut_c)
 
-    print(f"已生成: {output_dir}/lut.h")
-    print(f"已生成: {output_dir}/lut.c")
-    print(f"Sigmoid LUT 前10个: {sigmoid_lut[:10]}")
-    print(f"Tanh LUT 前10个: {tanh_lut[:10]}")
+        print(f"已生成: {output_dir}/lut.h")
+        print(f"已生成: {output_dir}/lut.c")
+
+        if 'DEBUG' in globals():
+            print(f"Sigmoid LUT 前10个: {sigmoid_lut[:10]}")
+            print(f"Tanh LUT 前10个: {tanh_lut[:10]}")
+
+    except Exception as e:
+        from tinymlc.utils import fatal_error
+        fatal_error(f"LUT 生成失败: {e}", "检查 numpy 和文件系统权限")
 
 
 def main():

@@ -12,19 +12,37 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from tinymlc.parser import parse_model
+from tinymlc.utils import fatal_error, warning
 
 
 def extract_fc_weights(interpreter, op_info):
-    """根据算子信息提取 FC 层的权重和 bias"""
+    """提取 FULLY_CONNECTED 层的权重和 bias"""
     weights_idx = op_info.get("fc_weights_idx")
     bias_idx = op_info.get("fc_bias_idx")
 
-    if weights_idx is None or bias_idx is None:
-        print("错误: FC 权重/bias 索引未找到")
-        return None, None
+    print('=======================================----------------')
+    print(f"尝试获取张量: weights_idx={weights_idx}, bias_idx={bias_idx}")
+    print(
+        f"可用的张量索引: {[t['index'] for t in interpreter.get_tensor_details()]}")
+    print('=======================================----------------')
 
-    weights = interpreter.get_tensor(weights_idx)
-    bias = interpreter.get_tensor(bias_idx)
+    if weights_idx is None or bias_idx is None:
+        fatal_error(
+            f"FC 权重/bias 索引未找到: weights={weights_idx}, bias={bias_idx}",
+            "检查模型转换时是否保留了张量名称"
+        )
+
+    try:
+        weights = interpreter.get_tensor(weights_idx)
+        bias = interpreter.get_tensor(bias_idx)
+    except ValueError as e:
+        fatal_error(
+            f"无法获取张量: {e}",
+            "请确保模型已正确加载，索引有效"
+        )
+
+    print(f"FC 权重: shape={weights.shape}, dtype={weights.dtype}")
+    print(f"FC bias: shape={bias.shape}, dtype={bias.dtype}")
     return weights, bias
 
 def extract_lstm_weights(interpreter, op_info):
@@ -34,22 +52,36 @@ def extract_lstm_weights(interpreter, op_info):
     recurrent_indices = indices.get("recurrent", [])
     bias_indices = indices.get("bias", [])
 
-    gate_order = ['i', 'f', 'g', 'o']
+    if not input_indices or not recurrent_indices:
+        fatal_error(
+            "LSTM 权重索引不完整",
+            "检查模型是否为标准 TFLite LSTM 格式"
+        )
 
+    gate_order = ['i', 'f', 'g', 'o']
     lstm_weights = {'input': {}, 'recurrent': {}, 'bias': {}}
 
     # 提取输入权重
-    for idx, gate in zip(input_indices, gate_order[:len(input_indices)]):
-        lstm_weights['input'][gate] = interpreter.get_tensor(idx)
+    for gate, idx in zip(gate_order, input_indices):
+        try:
+            lstm_weights['input'][gate] = interpreter.get_tensor(idx)
+        except ValueError as e:
+            fatal_error(f"LSTM input_{gate} 权重提取失败: {e}")
 
     # 提取递归权重
-    for idx, gate in zip(recurrent_indices,
-                         gate_order[:len(recurrent_indices)]):
-        lstm_weights['recurrent'][gate] = interpreter.get_tensor(idx)
+    for gate, idx in zip(gate_order, recurrent_indices):
+        try:
+            lstm_weights['recurrent'][gate] = interpreter.get_tensor(idx)
+        except ValueError as e:
+            fatal_error(f"LSTM recurrent_{gate} 权重提取失败: {e}")
 
     # 提取偏置（可能少于4个）
-    for idx, gate in zip(bias_indices, gate_order[:len(bias_indices)]):
-        lstm_weights['bias'][gate] = interpreter.get_tensor(idx)
+    for gate, idx in zip(gate_order, bias_indices):
+        try:
+            lstm_weights['bias'][gate] = interpreter.get_tensor(idx)
+        except ValueError as e:
+            warning(f"LSTM bias_{gate} 提取失败，将使用零数组", f"索引: {idx}")
+            lstm_weights['bias'][gate] = None
 
     # 为缺失的门添加 None 占位
     for gate in gate_order:
@@ -119,27 +151,46 @@ def extract_quant_params(interpreter):
 
 def export_concatenated_weights(weights_list, output_file, array_name,
                                 dtype='int8'):
-    """导出拼接后的权重数组"""
-    # 收集所有数组
+    """导出拼接后的权重数组（缺失的门跳过，用零数组补齐）"""
     arrays = []
     total_size = 0
+    missing_gates = []
+
     for gate in ['i', 'f', 'g', 'o']:
-        w = weights_list[gate]
+        w = weights_list.get(gate)
         if w is None:
-            print(f"警告: {gate} 门权重缺失，使用零数组")
-            return
-        flat = w.flatten()
-        arrays.append(flat)
-        total_size += len(flat)
+            missing_gates.append(gate)
+            # 用零数组作为占位（形状从其他门推断）
+            # 这里先收集缺失信息，后面统一处理
+            continue
+        arrays.append(w.flatten())
+        total_size += w.size
+
+    # 如果有缺失，打印警告并根据已有形状创建零数组
+    if missing_gates:
+        warning(f"警告: {missing_gates} 门权重缺失，使用零数组补齐")
+        # 从第一个非 None 的权重获取形状
+        for gate in ['i', 'f', 'g', 'o']:
+            w = weights_list.get(gate)
+            if w is not None:
+                shape = w.shape
+                for mg in missing_gates:
+                    zero_array = np.zeros(shape, dtype=np.int8)
+                    arrays.append(zero_array.flatten())
+                    total_size += zero_array.size
+                break
+
+    if not arrays:
+        fatal_error(
+            f"所有 {array_name} 权重缺失",
+            f"检查模型转换是否完整，或确认模型包含 {array_name} 权重"
+        )
 
     # 拼接
     concatenated = np.concatenate(arrays)
+    total_size = len(concatenated)
 
-    if dtype == 'int8':
-        c_type = 'int8_t'
-    else:
-        c_type = 'int32_t'
-
+    c_type = 'int8_t' if dtype == 'int8' else 'int32_t'
     output_file.write(
         f"static const {c_type} {array_name}[{total_size}] = {{\n    ")
     for i, val in enumerate(concatenated):
@@ -162,10 +213,11 @@ def export_concatenated_bias(bias_list, output_file, array_name):
             arrays.append(b.flatten())
             print(f"  bias_{gate}: {b.size} 个元素")
         else:
-            print(f"  警告: {gate} 门 bias 缺失")
+            warning(f"  警告: {gate} 门 bias 缺失")
 
     if not arrays:
         # 所有 bias 都缺失，生成占位符
+        warning(f"警告: {array_name} 全部缺失，使用零数组占位")
         output_file.write(f"static const int32_t {array_name}[1] = {{0}};\n\n")
         return
 
@@ -225,7 +277,7 @@ def main():
         v is not None for v in lstm_weights['input'].values())
 
     if not (has_fc or has_lstm):
-        print("错误: 未找到任何权重")
+        fatal_error(f"错误: 未找到任何权重")
         return 1
 
     # 5. 创建输出目录
