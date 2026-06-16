@@ -15,8 +15,9 @@ from tinymlc.extract_weights import (extract_fc_weights, extract_lstm_weights,
                                      export_weights_to_c, export_bias_to_c,
                                      export_concatenated_weights,
                                      export_concatenated_bias)
+from tinymlc.generate_lut import generate_lut
 from tinymlc.parser import parse_model
-from tinymlc.utils import fatal_error, warning
+from tinymlc.utils import fatal_error, warning, info
 
 
 def generate_c_code(model_info,
@@ -25,10 +26,9 @@ def generate_c_code(model_info,
     ops = model_info.get("ops", [])
     for op in ops:
         if op["state"] != "translated":
-            print(
-                f"错误: 算子 {op['op_name']} 状态为 {op.get('state')}，无法生成代码")
-            print(f"  Pass flags: {op.get('pass_flags', {})}")
-            sys.exit(1)
+            fatal_error(
+                f"算子 {op['op_name']} 状态为 {op.get('state')}，无法生成代码",
+                f"Pass flags: {op.get('pass_flags', {})}")
 
     """生成 C 代码和头文件"""
     template_dir = Path(__file__).parent / 'templates'
@@ -64,7 +64,7 @@ def generate_c_code(model_info,
         includes.append('#include "lstm_weights.h"')
 
     if lstm_params is None:
-        print("警告: 未找到 LSTM 参数，使用默认值（可能出错）")
+        warning("未找到 LSTM 参数，使用默认值（可能出错）")
         lstm_params = {
             "time_steps": 28,
             "batch_size": 1,
@@ -93,7 +93,7 @@ def generate_c_code(model_info,
             shifts.append(shift)
 
         lstm_params["shifts"] = shifts
-        print(f"LSTM 右移位数: i={shifts[0]}, f={shifts[1]}, g={shifts[2]}, o={shifts[3]}")
+        info(f"LSTM 右移位数: i={shifts[0]}, f={shifts[1]}, g={shifts[2]}, o={shifts[3]}")
 
     context = {
         "input_size": input_size,
@@ -136,42 +136,6 @@ def generate_c_code(model_info,
     return result
 
 
-def generate_lut(output_dir: Path):
-    """生成 sigmoid 和 tanh 的 LUT 表"""
-    # 生成 LUT 数据
-    x = np.linspace(-8, 8, 256, endpoint=False)
-
-    # Sigmoid: 范围 [0,1]，量化到 int16 [0, 32767]
-    sigmoid = 1 / (1 + np.exp(-x))
-    sigmoid_lut = np.round(sigmoid * 32767).astype(np.int16)
-
-    # Tanh: 范围 [-1,1]，量化到 int16 [-32768, 32767]
-    tanh = np.tanh(x)
-    tanh_lut = np.round(tanh * 32767).astype(np.int16)
-
-    # 渲染模板
-    template_path = Path(__file__).parent / 'templates' / 'lut.h.tpl'
-    with open(template_path, 'r') as f:
-        template = Template(f.read())
-
-    lut_h = template.render(
-        sigmoid_lut=sigmoid_lut.tolist(),
-        tanh_lut=tanh_lut.tolist()
-    )
-
-    # 写入文件
-    with open(output_dir / 'lut.h', 'w') as f:
-        f.write(lut_h)
-
-    # 生成空的 lut.c（保持一致性）
-    with open(output_dir / 'lut.c', 'w') as f:
-        f.write('// LUT implementation is in lut.h\n')
-        f.write('#include "lut.h"\n')
-
-    print(f"已生成: {output_dir}/lut.h")
-    print(f"已生成: {output_dir}/lut.c")
-
-
 def main():
     parser = argparse.ArgumentParser(description="tinymlc - TinyML Compiler")
     parser.add_argument("model", help="TFLite 模型文件路径")
@@ -187,8 +151,7 @@ def main():
 
     # 检查模型文件是否存在
     if not Path(args.model).exists():
-        print(f"错误: 模型文件不存在: {args.model}")
-        return 1
+        fatal_error(f"模型文件不存在: {args.model}", "请检查文件路径")
 
     # 创建 interpreter 用于解析模型和提取权重
     interpreter = tf.lite.Interpreter(model_path=args.model)
@@ -239,10 +202,6 @@ def main():
         elif op["op_name"] == "UNIDIRECTIONAL_SEQUENCE_LSTM":
             lstm_op_info = op
 
-    print('-------------------------------------')
-    print(f"Interpreter 状态: {interpreter}")
-    print(f"张量数量: {len(interpreter.get_tensor_details())}")
-    print('-------------------------------------')
     # 提取权重
     if fc_op_info:
         fc_weights, fc_bias = extract_fc_weights(interpreter, fc_op_info)

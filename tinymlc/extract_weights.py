@@ -20,12 +20,6 @@ def extract_fc_weights(interpreter, op_info):
     weights_idx = op_info.get("fc_weights_idx")
     bias_idx = op_info.get("fc_bias_idx")
 
-    print('=======================================----------------')
-    print(f"尝试获取张量: weights_idx={weights_idx}, bias_idx={bias_idx}")
-    print(
-        f"可用的张量索引: {[t['index'] for t in interpreter.get_tensor_details()]}")
-    print('=======================================----------------')
-
     if weights_idx is None or bias_idx is None:
         fatal_error(
             f"FC 权重/bias 索引未找到: weights={weights_idx}, bias={bias_idx}",
@@ -211,13 +205,12 @@ def export_concatenated_bias(bias_list, output_file, array_name):
         b = bias_list.get(gate)
         if b is not None:
             arrays.append(b.flatten())
-            print(f"  bias_{gate}: {b.size} 个元素")
         else:
-            warning(f"  警告: {gate} 门 bias 缺失")
+            warning(f"{gate} 门 bias 缺失")
 
     if not arrays:
         # 所有 bias 都缺失，生成占位符
-        warning(f"警告: {array_name} 全部缺失，使用零数组占位")
+        warning(f"{array_name} 全部缺失，使用零数组占位")
         output_file.write(f"static const int32_t {array_name}[1] = {{0}};\n\n")
         return
 
@@ -273,12 +266,10 @@ def main():
 
     # 4. 检查是否有任何权重被提取
     has_fc = fc_weights is not None
-    has_lstm = lstm_weights is not None and any(
-        v is not None for v in lstm_weights['input'].values())
+    has_lstm = lstm_weights is not None and any(v is not None for v in lstm_weights['input'].values())
 
     if not (has_fc or has_lstm):
-        fatal_error(f"错误: 未找到任何权重")
-        return 1
+        fatal_error(f"未找到任何权重")
 
     # 5. 创建输出目录
     output_dir = Path(args.output_dir)

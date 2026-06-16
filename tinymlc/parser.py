@@ -169,7 +169,7 @@ def parse_model(interpreter):
 
             # 验证
             if matched["input"] is None:
-                fatal_error("LSTM", "无法识别输入数据张量",
+                fatal_error("无法识别输入数据张量",
                             "转换时添加 converter._experimental_preserve_all_tensors = True")
 
             # 组装权重列表（按顺序 i, f, g, o）
@@ -194,8 +194,8 @@ def parse_model(interpreter):
             biases = [i for i in biases if i is not None]
 
             if not input_weights and not recurrent_weights:
-                    fatal_error("LSTM", "无法识别任何权重张量",
-                                "检查模型是否为标准 TFLite LSTM 格式")
+                fatal_error("无法识别任何权重张量",
+                            "检查模型是否为标准 TFLite LSTM 格式")
 
             # 获取形状参数
             input_shape = tensor_map.get(matched["input"], {}).get("shape", [])
@@ -273,7 +273,7 @@ def parse_model(interpreter):
             # 验证
             if None in [matched.get("weights"), matched.get("bias"),
                         matched.get("input")]:
-                fatal_error("FC", f"匹配失败: {matched}",
+                fatal_error(f"FC 匹配失败: {matched}",
                             "检查模型是否为标准 TFLite FC 格式，或转换时保留张量名称")
 
             op_info["fc_weights_idx"] = matched["weights"]
@@ -288,10 +288,10 @@ def parse_model(interpreter):
         elif op["op_name"] == "SOFTMAX":
             # Softmax 通常没有额外参数，只需检查输入输出
             if len(op["inputs"]) < 1 or op["inputs"][0] == -1:
-                fatal_error("Softmax", "缺少输入张量",
+                fatal_error("Softmax 缺少输入张量",
                             "检查模型转换是否完整")
             if len(op["outputs"]) < 1 or op["outputs"][0] == -1:
-                fatal_error("Softmax", "缺少输出张量",
+                fatal_error("Softmax 缺少输出张量",
                             "检查模型转换是否完整")
 
             op_info["state"] = "translated"
@@ -301,7 +301,7 @@ def parse_model(interpreter):
         elif op["op_name"] == "RESHAPE":
             # Reshape 需要目标形状参数（通常在 inputs[1]）
             if len(op["inputs"]) < 2 or op["inputs"][1] == -1:
-                fatal_error("Reshape", "缺少目标形状参数",
+                fatal_error("Reshape 缺少目标形状参数",
                             "检查模型转换是否完整")
 
             # 获取目标形状张量
@@ -310,7 +310,7 @@ def parse_model(interpreter):
             target_shape = shape_tensor.get("shape", [])
 
             if not target_shape or target_shape[0] == 0:
-                fatal_error("Reshape", f"目标形状无效: {target_shape}",
+                fatal_error(f"Reshape 目标形状无效: {target_shape}",
                             "检查 Reshape 算子参数")
 
             op_info["reshape_target_shape"] = target_shape
@@ -321,7 +321,7 @@ def parse_model(interpreter):
         elif op["op_name"] == "ADD":
             # ADD 算子：两个输入，一个输出
             if len(op["inputs"]) < 2:
-                fatal_error("ADD", "输入不足", "检查模型是否完整")
+                fatal_error("ADD 输入不足", "检查模型是否完整")
 
             op_info["add_inputs"] = [op["inputs"][0], op["inputs"][1]]
             op_info["add_output"] = op["outputs"][0]
@@ -334,9 +334,8 @@ def parse_model(interpreter):
 
         # ========== 未知算子 ==========
         else:
-            fatal_error(op["op_name"], "不支持的算子类型",
-                        f"当前支持的算子: UNIDIRECTIONAL_SEQUENCE_LSTM, FULLY_CONNECTED, SOFTMAX, RESHAPE\n"
-                        f"如需支持新算子，请参考文档或提交 Issue")
+            fatal_error(f"不支持的算子类型: {op['op_name']}",
+                        f"当前支持的算子: UNIDIRECTIONAL_SEQUENCE_LSTM, FULLY_CONNECTED, SOFTMAX, RESHAPE, ADD")
 
         # 获取输入张量详细信息（所有算子都执行）
         for inp_idx in op["inputs"]:
