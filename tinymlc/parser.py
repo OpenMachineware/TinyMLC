@@ -317,6 +317,17 @@ def parse_model(interpreter):
             op_info["state"] = "translated"
             op_info["pass_flags"]["reshape_check"] = "success"
 
+        # ========== ADD 算子 ==========
+        elif op["op_name"] == "ADD":
+            # ADD 算子：两个输入，一个输出
+            if len(op["inputs"]) < 2:
+                fatal_error("ADD", "输入不足", "检查模型是否完整")
+
+            op_info["add_inputs"] = [op["inputs"][0], op["inputs"][1]]
+            op_info["add_output"] = op["outputs"][0]
+            op_info["state"] = "translated"
+            op_info["pass_flags"]["add_check"] = "success"
+
         # ========== DELEGATE 算子跳过 ==========
         elif op["op_name"] == "DELEGATE":
             continue

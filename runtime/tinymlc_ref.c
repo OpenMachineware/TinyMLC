@@ -232,3 +232,11 @@ void tmlc_reshape_s8(const int8_t* input, int8_t* output,
     // 或用 memcpy
     // memcpy(output, input, input_size * sizeof(int8_t));
 }
+
+void tmlc_add_s8(const int8_t* input1, const int8_t* input2, int8_t* output, int size) {
+    for (int i = 0; i < size; i++) {
+        int32_t sum = (int32_t)input1[i] + (int32_t)input2[i];
+        // 简单的量化缩放（根据实际量化参数调整）
+        output[i] = (int8_t)(sum >> 1);
+    }
+}
