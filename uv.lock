@@ -718,6 +718,7 @@ dependencies = [
     { name = "jinja2" },
     { name = "numpy" },
     { name = "tensorflow" },
+    { name = "termcolor" },
 ]
 
 [package.dev-dependencies]
@@ -731,6 +732,7 @@ requires-dist = [
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "numpy", specifier = ">=2.4.6" },
     { name = "tensorflow", specifier = ">=2.21.0" },
+    { name = "termcolor", specifier = ">=3.3.0" },
 ]
 
 [package.metadata.requires-dev]

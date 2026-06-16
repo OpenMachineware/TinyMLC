@@ -163,33 +163,33 @@ def main():
     interpreter = tf.lite.Interpreter(model_path=args.model)
     interpreter.allocate_tensors()
 
-    print(f"正在解析模型: {args.model}")
+    info(f"正在解析模型: {args.model}")
     model_info = parse_model(interpreter)
 
     if args.verbose:
-        print("\n=== 模型信息 ===")
-        print(f"输入张量: {len(model_info['input'])}")
+        info("\n=== 模型信息 ===")
+        info(f"输入张量: {len(model_info['input'])}")
         for inp in model_info["input"]:
-            print(
+            info(
                 f"  - {inp.get('name', 'unnamed')}: shape={inp['shape']}, dtype={inp['dtype']}"
             )
-        print(f"输出张量: {len(model_info['output'])}")
+        info(f"输出张量: {len(model_info['output'])}")
         for out in model_info["output"]:
-            print(
+            info(
                 f"  - {out.get('name', 'unnamed')}: shape={out['shape']}, dtype={out['dtype']}"
             )
 
-        print(f"\n算子数量: {len(model_info['ops'])}")
+        info(f"\n算子数量: {len(model_info['ops'])}")
         for op in model_info["ops"]:
-            print(f"\n  [{op['index']}] {op['op_name']}")
-            print(f"      输入:")
+            info(f"\n  [{op['index']}] {op['op_name']}")
+            info(f"      输入:")
             for inp in op["input_details"]:
-                print(
+                info(
                     f"        - [{inp['index']}] {inp['name']}: shape={inp['shape']}, size={inp['size']}"
                 )
-            print(f"      输出:")
+            info(f"      输出:")
             for out in op["output_details"]:
-                print(
+                info(
                     f"        - [{out['index']}] {out['name']}: shape={out['shape']}, size={out['size']}"
                 )
 
@@ -198,7 +198,7 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # 提取并生成权重文件
-    print("正在提取权重...")
+    info("正在提取权重...")
     # 找到 FC 算子的 op_info
     fc_op_info = None
     lstm_op_info = None
@@ -235,7 +235,7 @@ def main():
             f.write("// 请勿手动修改\n\n")
             export_weights_to_c(fc_weights, "fc_weights", f)
             export_bias_to_c(fc_bias, "fc_bias", f)
-        print(f"已生成: {output_dir}/fc_weights.h")
+        info(f"已生成: {output_dir}/fc_weights.h")
 
     # 生成 lstm_weights.h
     if lstm_weights and lstm_weights['input']:
@@ -251,9 +251,9 @@ def main():
                                         'lstm_recurrent_weights', 'int8')
             export_concatenated_bias(lstm_weights['bias'], f, 'lstm_bias')
 
-        print(f"已生成: {output_dir}/lstm_weights.h")
+        info(f"已生成: {output_dir}/lstm_weights.h")
 
-    print("正在生成 C 代码...")
+    info("正在生成 C 代码...")
     generated_files = generate_c_code(
         model_info,
         inference_func=args.entry_point,
@@ -265,17 +265,17 @@ def main():
         output_path = output_dir / filename
         with open(output_path, 'w') as f:
             f.write(content)
-        print(f"生成: {output_path}")
+        info(f"生成: {output_path}")
 
     # 生成 LUT
     generate_lut(output_dir)
 
-    print(f"完成! 输出目录: {output_dir}")
+    info(f"完成! 输出目录: {output_dir}")
 
-    print("\n下一步:")
-    print("  1. 查看生成的代码: ls", output_dir)
-    print("  2. 编译: riscv64-elf-gcc -march=rv32imac -mabi=ilp32 -static -ffreestanding -nostdlib -c", output_dir)
-    print("  3. 链接并烧录到 MCU")
+    info("\n下一步:")
+    info(f"  1. 查看生成的代码: ls {output_dir}")
+    info(f"  2. 编译: cd {output_dir} && build.sh")
+    info(f"  3. 链接并烧录到 MCU")
 
     return 0
 

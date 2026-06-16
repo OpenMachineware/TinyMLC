@@ -12,7 +12,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from tinymlc.parser import parse_model
-from tinymlc.utils import fatal_error, warning
+from tinymlc.utils import fatal_error, warning, info
 
 
 def extract_fc_weights(interpreter, op_info):
@@ -35,8 +35,8 @@ def extract_fc_weights(interpreter, op_info):
             "请确保模型已正确加载，索引有效"
         )
 
-    print(f"FC 权重: shape={weights.shape}, dtype={weights.dtype}")
-    print(f"FC bias: shape={bias.shape}, dtype={bias.dtype}")
+    info(f"FC 权重: shape={weights.shape}, dtype={weights.dtype}")
+    info(f"FC bias: shape={bias.shape}, dtype={bias.dtype}")
     return weights, bias
 
 def extract_lstm_weights(interpreter, op_info):
@@ -138,7 +138,7 @@ def extract_quant_params(interpreter):
             scale = tensor['quantization'][0]
             zero_point = tensor['quantization'][1]
             quant_params[gate] = {'scale': scale, 'zero_point': zero_point}
-            print(f"LSTM gate {gate}: scale={scale}, zero_point={zero_point}")
+            info(f"LSTM gate {gate}: scale={scale}, zero_point={zero_point}")
 
     return quant_params
 
@@ -227,7 +227,7 @@ def export_concatenated_bias(bias_list, output_file, array_name):
             output_file.write("\n    ")
     output_file.write("\n};\n\n")
 
-    print(f"  生成 {array_name}[{total_size}]")
+    info(f"  生成 {array_name}[{total_size}]")
 
 
 def main():
@@ -239,7 +239,7 @@ def main():
     args = parser.parse_args()
 
     # 1. 加载模型并解析
-    print(f"正在加载模型: {args.model}")
+    info(f"正在加载模型: {args.model}")
     interpreter = tf.lite.Interpreter(model_path=args.model)
     interpreter.allocate_tensors()
 
@@ -255,7 +255,7 @@ def main():
             lstm_op_info = op
 
     # 3. 提取权重
-    print("\n正在提取权重...")
+    info("\n正在提取权重...")
     fc_weights = fc_bias = None
     if fc_op_info:
         fc_weights, fc_bias = extract_fc_weights(interpreter, fc_op_info)
@@ -283,7 +283,7 @@ def main():
             f.write("// 请勿手动修改\n\n")
             export_weights_to_c(fc_weights, "fc_weights", f)
             export_bias_to_c(fc_bias, "fc_bias", f)
-        print(f"已生成: {output_path}")
+        info(f"已生成: {output_path}")
 
     # 7. 生成 LSTM 权重文件
     if lstm_weights and any(v is not None for v in lstm_weights['input'].values()):
@@ -302,12 +302,12 @@ def main():
             # 导出拼接后的 bias
             export_concatenated_bias(lstm_weights['bias'], f, 'lstm_bias')
 
-        print(f"已生成: {output_path}")
+        info(f"已生成: {output_path}")
 
     # 8. 打印统计信息
-    print("\n=== 提取统计 ===")
+    info("\n=== 提取统计 ===")
     if fc_weights is not None:
-        print(
+        info(
             f"FC 权重: {fc_weights.size} 个 int8, bias: {fc_bias.size} 个 int32")
 
     if lstm_weights:
@@ -320,7 +320,7 @@ def main():
                 w_size = w.size if w is not None else 0
                 r_size = r.size if r is not None else 0
                 b_size = b.size if b is not None else 0
-                print(
+                info(
                     f"LSTM {gate} 门: input={w_size}, recurrent={r_size}, bias={b_size}")
 
     return 0

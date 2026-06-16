@@ -7,7 +7,7 @@ import numpy as np
 from pathlib import Path
 from jinja2 import Template
 
-from tinymlc.utils import fatal_error
+from tinymlc.utils import fatal_error, warning, info
 
 
 def generate_sigmoid_lut():
@@ -59,8 +59,8 @@ def generate_lut(output_dir: Path):
         with open(output_dir / 'lut.c', 'w') as f:
             f.write(lut_c)
 
-        print(f"已生成: {output_dir}/lut.h")
-        print(f"已生成: {output_dir}/lut.c")
+        info(f"已生成: {output_dir}/lut.h")
+        info(f"已生成: {output_dir}/lut.c")
 
     except Exception as e:
         fatal_error(f"LUT 生成失败: {e}", "检查 numpy 和文件系统权限")
