@@ -20,10 +20,84 @@ from tinymlc.parser import parse_model
 from tinymlc.utils import fatal_error, warning, info
 
 
+def build_execution_order(ops, tensors):
+    """根据张量依赖关系确定算子执行顺序"""
+
+    # 转换所有索引为 Python int
+    for op in ops:
+        op["index"] = int(op["index"])
+        if "input_indices" in op:
+            op["input_indices"] = [int(i) for i in op["input_indices"]]
+        if "output_indices" in op:
+            op["output_indices"] = [int(i) for i in op["output_indices"]]
+
+    # 1. 建立张量 → 生产算子的映射
+    tensor_producer = {}
+    for op in ops:
+        for out_idx in op.get("output_indices", []):
+            tensor_producer[int(out_idx)] = op
+
+    # 2. 建立算子依赖关系
+    op_deps = {}
+    for op in ops:
+        deps = set()
+        op_idx = int(op["index"])
+        for inp_idx in op.get("input_indices", []):
+            inp_idx = int(inp_idx)
+            if inp_idx in tensor_producer:
+                producer = tensor_producer[inp_idx]
+                prod_idx = int(producer["index"])
+                if prod_idx != op_idx:
+                    deps.add(prod_idx)
+        op_deps[op_idx] = list(deps)
+
+    # 3. 计算入度（当前算子依赖于多少个其他算子）
+    in_degree = {}
+    for op in ops:
+        op_idx = int(op["index"])
+        in_degree[op_idx] = len(op_deps.get(op_idx, []))
+
+    print(f"in_degree: {in_degree}")
+    print(f"op_deps: {op_deps}")
+
+    # 4. 拓扑排序（Kahn 算法）
+    from collections import deque
+    queue = deque([op_idx for op_idx, deg in in_degree.items() if deg == 0])
+    print(f"queue: {list(queue)}")
+
+    order = []
+    while queue:
+        op_idx = queue.popleft()
+        op = next(o for o in ops if int(o["index"]) == op_idx)
+        order.append(op)
+
+        for next_op in ops:
+            next_idx = int(next_op["index"])
+            if op_idx in op_deps.get(next_idx, []):
+                in_degree[next_idx] -= 1
+                if in_degree[next_idx] == 0:
+                    queue.append(next_idx)
+
+    print(f"order: {[op['index'] for op in order]}")
+
+    if len(order) != len(ops):
+        fatal_error("模型存在循环依赖，无法确定执行顺序",
+                    "请检查模型结构是否合理")
+
+    return order
+
+
 def generate_c_code(model_info,
                     inference_func="tinymlc_inference",
                     with_test_main=False, output_dir="."):
     ops = model_info.get("ops", [])
+    tensors = model_info.get("tensors", {})
+
+    execution_order = build_execution_order(ops, tensors)
+    info("算子执行顺序:")
+    for op in execution_order:
+        info(f"  {op['index']}: {op['op_name']}")
+
     for op in ops:
         if op["state"] != "translated":
             fatal_error(
@@ -95,6 +169,13 @@ def generate_c_code(model_info,
         lstm_params["shifts"] = shifts
         info(f"LSTM 右移位数: i={shifts[0]}, f={shifts[1]}, g={shifts[2]}, o={shifts[3]}")
 
+    tensor_sizes = {}
+    for tensor_idx, tensor_info in tensors.items():
+        size = 1
+        for dim in tensor_info.get("shape", []):
+            size *= dim
+        tensor_sizes[tensor_idx] = size
+
     context = {
         "input_size": input_size,
         "output_size": output_size,
@@ -110,6 +191,9 @@ def generate_c_code(model_info,
         "lstm_input_scale": lstm_params.get("input_scale", 0.00390625),  # 1/256
         "lstm_input_zp": lstm_params.get("input_zp", 0),
         "lstm_shifts": lstm_params.get("shifts", [8, 8, 8, 8]),  # 默认 8
+        "tensor_sizes": tensor_sizes,
+        "execution_order": execution_order,
+        "last_output_tensor": execution_order[-1]["output_indices"][0],
     }
 
     # 生成 model.c

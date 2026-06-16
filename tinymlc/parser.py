@@ -363,6 +363,10 @@ def parse_model(interpreter):
                     "zero_point": info.get("zero_point", 0),
                 })
 
+        # 添加索引信息
+        op_info["input_indices"] = [idx for idx in op["inputs"] if idx != -1]
+        op_info["output_indices"] = [idx for idx in op["outputs"] if idx != -1]
+
         ops.append(op_info)
 
     return {
