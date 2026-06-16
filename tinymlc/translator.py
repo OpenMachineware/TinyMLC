@@ -133,6 +133,12 @@ def generate_c_code(model_info,
             tmpl = Template(f.read())
         result['main_test.c'] = tmpl.render(**context)
 
+    # ========== 生成代码后更新状态 ==========
+    for op in ops:
+        if op["state"] == "translated":
+            op["state"] = "generated"
+            op["pass_flags"]["codegen"] = "success"
+
     return result
 
 
