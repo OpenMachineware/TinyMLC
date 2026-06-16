@@ -5,23 +5,8 @@
 #include "{{ model_header }}"
 #include "debug_print.h"
 
-
-// UART 输出（用于测试）
-#define UART_TX_ADDR ((volatile char*)0x10000000)
 #define SIFIVE_TEST_ADDR ((volatile uint32_t*)0x100000)
 
-static void putchar(char c) {
-    *UART_TX_ADDR = c;
-}
-
-static void print_int(int n) {
-    if (n < 0) {
-        putchar('-');
-        n = -n;
-    }
-    if (n >= 10) print_int(n / 10);
-    putchar('0' + (n % 10));
-}
 
 int main() {
     int8_t input[INPUT_SIZE];
@@ -31,12 +16,7 @@ int main() {
     for (int i = 0; i < INPUT_SIZE; i++) {
         input[i] = 1;
     }
-/*
-    // 最后一行改为特殊值 测试用的，无实际作用
-    for (int i = (28-1)*28; i < 28*28; i++) {
-        input[i] = 101;
-    }
-*/
+
     // 调用推理
     {{ inference_func }}(input, output);
 
