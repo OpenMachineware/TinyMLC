@@ -1,13 +1,22 @@
 // 自动生成的代码，请勿手动修改
 // 由 tinymlc 自动生成
 
-#include <string.h>
 #include "tinymlc.h"
 {{ includes }}
+#include "model.h"
+#include "debug_print.h"
+#include <stddef.h>
 
 // 输入输出大小
 #define INPUT_SIZE {{ input_size }}
 #define OUTPUT_SIZE {{ output_size }}
+
+// 中间张量内存（静态分配，放在函数外部）
+{% for op in execution_order %}
+    {% for out_idx in op.output_indices %}
+    int8_t tensor_{{ out_idx }}[{{ tensor_sizes[out_idx] }}] __attribute__((section(".bss")));
+    {% endfor %}
+{% endfor %}
 
 {% if has_lstm %}
 // LSTM 参数
@@ -18,13 +27,6 @@
 
 // 推理函数
 void {{ inference_func }}(const int8_t* input, int8_t* output) {
-    // 中间张量内存（简单版：每个输出分配独立数组）
-    {% for op in execution_order %}
-        {% for out_idx in op.output_indices %}
-    static int8_t tensor_{{ out_idx }}[{{ tensor_sizes[out_idx] }}];
-        {% endfor %}
-    {% endfor %}
-
     // 输入张量映射
     int8_t* tensor_0 = (int8_t*)input;
 
@@ -50,28 +52,34 @@ void {{ inference_func }}(const int8_t* input, int8_t* output) {
         fc_weights,
         fc_bias,
         tensor_{{ op.output_indices[0] }},
-        {{ fc_input_size }},
-        {{ fc_output_size }}
+        {{ tensor_sizes[op.input_indices[0]] }},
+        {{ tensor_sizes[op.output_indices[0]] }}
     );
     {% elif op.op_name == "SOFTMAX" %}
     tmlc_softmax_s8(
         tensor_{{ op.input_indices[0] }},
         tensor_{{ op.output_indices[0] }},
-        {{ softmax_size }}
+        {{ tensor_sizes[op.input_indices[0]] }}
     );
     {% elif op.op_name == "RESHAPE" %}
-    tmlc_reshape_s8(
-        tensor_{{ op.input_indices[0] }},
-        tensor_{{ op.output_indices[0] }},
-        {{ reshape_input_size }},
-        reshape_target,
-        1
-    );
+    {
+        static const int reshape_target[] = { {% for s in op.reshape_target_shape %}{{ s }}{% if not loop.last %}, {% endif %}{% endfor %} };
+        int reshape_input_size = {{ tensor_sizes[op.input_indices[0]] }};
+        tmlc_reshape_s8(
+            tensor_{{ op.input_indices[0] }},
+            tensor_{{ op.output_indices[0] }},
+            reshape_input_size,
+            reshape_target,
+            {{ op.reshape_target_shape | length }}
+        );
+    }
     {% endif %}
     {% endfor %}
 
     // 输出张量映射
     if (output != NULL) {
-        memcpy(output, tensor_{{ last_output_tensor }}, OUTPUT_SIZE * sizeof(int8_t));
+        for (int i = 0; i < OUTPUT_SIZE; i++) {
+            output[i] = tensor_{{ last_output_tensor }}[i];
+        }
     }
 }

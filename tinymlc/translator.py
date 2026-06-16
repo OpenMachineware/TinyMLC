@@ -57,13 +57,9 @@ def build_execution_order(ops, tensors):
         op_idx = int(op["index"])
         in_degree[op_idx] = len(op_deps.get(op_idx, []))
 
-    print(f"in_degree: {in_degree}")
-    print(f"op_deps: {op_deps}")
-
     # 4. 拓扑排序（Kahn 算法）
     from collections import deque
     queue = deque([op_idx for op_idx, deg in in_degree.items() if deg == 0])
-    print(f"queue: {list(queue)}")
 
     order = []
     while queue:
@@ -77,8 +73,6 @@ def build_execution_order(ops, tensors):
                 in_degree[next_idx] -= 1
                 if in_degree[next_idx] == 0:
                     queue.append(next_idx)
-
-    print(f"order: {[op['index'] for op in order]}")
 
     if len(order) != len(ops):
         fatal_error("模型存在循环依赖，无法确定执行顺序",
@@ -176,6 +170,31 @@ def generate_c_code(model_info,
             size *= dim
         tensor_sizes[tensor_idx] = size
 
+    # 提取所有 Reshape 算子的目标形状
+    reshape_targets = []
+    for op in execution_order:
+        if op.get("op_name") == "RESHAPE":
+            target_shape = op.get("reshape_target_shape", [])
+            if target_shape:
+                reshape_targets.append("{" + ", ".join(
+                    str(int(s)) for s in target_shape) + "}")
+            else:
+                reshape_targets.append("{0}")
+
+    fc_params = {}
+    for op in execution_order:
+        if op.get("op_name") == "FULLY_CONNECTED":
+            # 获取输入张量大小
+            input_idx = op["input_indices"][0]  # FC 的第一个输入是数据
+            input_size = tensor_sizes.get(input_idx, 0)
+            # 输出大小
+            output_idx = op["output_indices"][0]
+            output_size = tensor_sizes.get(output_idx, 0)
+            fc_params[op["index"]] = {
+                "input_size": input_size,
+                "output_size": output_size,
+            }
+
     context = {
         "input_size": input_size,
         "output_size": output_size,
@@ -194,6 +213,8 @@ def generate_c_code(model_info,
         "tensor_sizes": tensor_sizes,
         "execution_order": execution_order,
         "last_output_tensor": execution_order[-1]["output_indices"][0],
+        "reshape_targets": reshape_targets,
+        "fc_params": fc_params,
     }
 
     # 生成 model.c

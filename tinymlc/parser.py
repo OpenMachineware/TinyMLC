@@ -104,7 +104,8 @@ def parse_model(interpreter):
         scale = quant[0] if quant[0] is not None else 1.0
         zero_point = quant[1] if quant[1] is not None else 0
 
-        tensor_map[t["index"]] = {
+        # 先构建字典
+        tensor_entry = {
             "name": t["name"],
             "shape": list(t["shape"]),
             "dtype": str(t["dtype"]),
@@ -112,6 +113,16 @@ def parse_model(interpreter):
             "scale": float(scale),
             "zero_point": int(zero_point),
         }
+
+        # 尝试获取常量张量的值
+        if t["name"].endswith("Const") or "shape" in t["name"].lower():
+            try:
+                data = interpreter.get_tensor(t["index"])
+                tensor_entry["data"] = data  # 直接添加到 tensor_entry
+            except:
+                pass
+
+        tensor_map[t["index"]] = tensor_entry
 
     # 获取输入输出
     input_details = interpreter.get_input_details()
@@ -299,21 +310,50 @@ def parse_model(interpreter):
 
         # ========== Reshape 算子处理 ==========
         elif op["op_name"] == "RESHAPE":
-            # Reshape 需要目标形状参数（通常在 inputs[1]）
             if len(op["inputs"]) < 2 or op["inputs"][1] == -1:
-                fatal_error("Reshape 缺少目标形状参数",
-                            "检查模型转换是否完整")
+                fatal_error("Reshape 缺少目标形状参数", "检查模型转换是否完整")
 
-            # 获取目标形状张量
             shape_idx = op["inputs"][1]
             shape_tensor = tensor_map.get(shape_idx, {})
-            target_shape = shape_tensor.get("shape", [])
+
+            # 优先从 data 获取目标形状
+            if "data" in shape_tensor:
+                target_shape = [int(s) for s in shape_tensor["data"].flatten()]
+            else:
+                target_shape = shape_tensor.get("shape", [])
 
             if not target_shape or target_shape[0] == 0:
                 fatal_error(f"Reshape 目标形状无效: {target_shape}",
                             "检查 Reshape 算子参数")
 
-            op_info["reshape_target_shape"] = target_shape
+            # 如果有 -1，根据输入张量大小计算
+            if -1 in target_shape:
+                # 获取输入张量索引
+                input_idx = op["inputs"][0]
+                input_tensor = tensor_map.get(input_idx, {})
+
+                # 计算输入张量的总大小
+                input_shape = input_tensor.get("shape", [])
+                if input_shape:
+                    input_size = 1
+                    for s in input_shape:
+                        input_size *= int(s)
+                else:
+                    input_size = 1
+
+                # 计算其他维度的乘积
+                other_dims = 1
+                for s in target_shape:
+                    if s != -1:
+                        other_dims *= s
+
+                # -1 的实际值 = 总大小 / 其他维度乘积
+                if other_dims > 0:
+                    dynamic_size = input_size // other_dims
+                    target_shape = [dynamic_size if s == -1 else s for s in
+                                    target_shape]
+
+            op_info["reshape_target_shape"] = [int(s) for s in target_shape]
             op_info["state"] = "translated"
             op_info["pass_flags"]["reshape_check"] = "success"
 
