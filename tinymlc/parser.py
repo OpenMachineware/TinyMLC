@@ -364,8 +364,8 @@ def parse_model(interpreter):
             if len(op["inputs"]) < 2:
                 fatal_error("ADD 输入不足", "检查模型是否完整")
 
-            op_info["add_inputs"] = [op["inputs"][0], op["inputs"][1]]
-            op_info["add_output"] = op["outputs"][0]
+            op_info["add_input1_idx"] = op["inputs"][0]
+            op_info["add_input2_idx"] = op["inputs"][1]
             op_info["state"] = "translated"
             op_info["pass_flags"]["add_check"] = "success"
 

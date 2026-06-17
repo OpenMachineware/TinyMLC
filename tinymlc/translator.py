@@ -20,6 +20,9 @@ from tinymlc.parser import parse_model
 from tinymlc.utils import fatal_error, warning, info
 
 
+SUPPORTED_OPS = ["FULLY_CONNECTED", "UNIDIRECTIONAL_SEQUENCE_LSTM", "ADD", "SOFTMAX", "RESHAPE", "QUANTIZE", "SVDF"]
+
+
 def build_execution_order(ops, tensors):
     """根据张量依赖关系确定算子执行顺序"""
 
@@ -97,6 +100,17 @@ def generate_c_code(model_info,
             fatal_error(
                 f"算子 {op['op_name']} 状态为 {op.get('state')}，无法生成代码",
                 f"Pass flags: {op.get('pass_flags', {})}")
+
+    # 检查是否有支持的算子
+    has_supported_op = False
+    for op in model_info["ops"]:
+        if op["op_name"] in SUPPORTED_OPS:
+            has_supported_op = True
+            break
+
+    if not has_supported_op:
+        fatal_error("模型不包含任何支持的算子",
+                    f"支持的算子: {', '.join(SUPPORTED_OPS)}")
 
     """生成 C 代码和头文件"""
     template_dir = Path(__file__).parent / 'templates'
@@ -195,6 +209,20 @@ def generate_c_code(model_info,
                 "output_size": output_size,
             }
 
+    # 计算输入大小
+    if len(model_info["input"]) == 1:
+        input_size_1 = 1
+        for dim in model_info["input"][0]["shape"]:
+            input_size_1 *= dim
+        input_size_2 = 0
+    elif len(model_info["input"]) == 2:
+        input_size_1 = 1
+        for dim in model_info["input"][0]["shape"]:
+            input_size_1 *= dim
+        input_size_2 = 1
+        for dim in model_info["input"][1]["shape"]:
+            input_size_2 *= dim
+
     context = {
         "input_size": input_size,
         "output_size": output_size,
@@ -215,6 +243,9 @@ def generate_c_code(model_info,
         "last_output_tensor": execution_order[-1]["output_indices"][0],
         "reshape_targets": reshape_targets,
         "fc_params": fc_params,
+        "inputs_count": len(model_info["input"]),
+        "INPUT_SIZE_1": input_size_1,
+        "INPUT_SIZE_2": input_size_2,
     }
 
     # 生成 model.c
@@ -330,8 +361,18 @@ def main():
     has_fc = fc_weights is not None
     has_lstm = lstm_weights is not None and any(
         v is not None for v in lstm_weights['input'].values())
+    # 如果没有权重，检查模型是否有不需要权重的算子
     if not (has_fc or has_lstm):
-        fatal_error("未找到任何权重", "检查模型是否包含支持的算子")
+        has_weightless_op = False
+        for op in model_info["ops"]:
+            if op["op_name"] in ["ADD", "SOFTMAX", "RESHAPE", "QUANTIZE"]:
+                has_weightless_op = True
+                break
+
+        if not has_weightless_op:
+            fatal_error("未找到任何权重", "检查模型是否包含支持的算子")
+        else:
+            info("注意: 模型只包含无权重算子（ADD/Softmax/Reshape），继续...")
 
     # 生成 fc_weights.h
     if fc_weights is not None:

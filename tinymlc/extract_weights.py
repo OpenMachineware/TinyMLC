@@ -274,7 +274,17 @@ def main():
     has_lstm = lstm_weights is not None and any(v is not None for v in lstm_weights['input'].values())
 
     if not (has_fc or has_lstm):
-        fatal_error(f"未找到任何权重")
+        # 检查是否有 ADD、SOFTMAX 等不需要权重的算子
+        has_weightless_op = False
+        for op in model_info["ops"]:
+            if op["op_name"] in ["ADD", "SOFTMAX", "RESHAPE"]:
+                has_weightless_op = True
+                break
+
+        if not has_weightless_op:
+            fatal_error("未找到任何权重", "检查模型是否包含支持的算子")
+        else:
+            info("注意: 模型只包含无权重算子（ADD/Softmax/Reshape），继续...")
 
     # 5. 创建输出目录
     output_dir = Path(args.output_dir)

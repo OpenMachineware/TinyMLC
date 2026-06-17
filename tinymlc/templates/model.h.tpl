@@ -18,6 +18,10 @@
 {% endif %}
 
 // 推理函数声明
-void {{ inference_func }}(const int8_t* input, int8_t* output);
+{% if inputs_count == 1 %}
+    void {{ inference_func }}(const int8_t* input, int8_t* output);
+{% elif inputs_count == 2 %}
+    void {{ inference_func }}(const int8_t* input1, const int8_t* input2, int8_t* output);
+{% endif %}
 
 #endif // TINYMLC_MODEL_H

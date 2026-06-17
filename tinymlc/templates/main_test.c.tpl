@@ -7,25 +7,36 @@
 
 #define SIFIVE_TEST_ADDR ((volatile uint32_t*)0x100000)
 
-
 int main() {
-    int8_t input[INPUT_SIZE];
-    int8_t output[OUTPUT_SIZE];
+    static int8_t output[OUTPUT_SIZE];
 
-    // 测试输入：全 1
-    for (int i = 0; i < INPUT_SIZE; i++) {
-        input[i] = 1;
-    }
-
-    // 调用推理
-    {{ inference_func }}(input, output);
+    {% if inputs_count == 1 %}
+        // 测试输入
+        static int8_t input[INPUT_SIZE];
+        for (int i = 0; i < INPUT_SIZE; i++) {
+            input[i] = 1;
+        }
+        // 调用推理
+        {{ inference_func }}(input, output);
+    {% elif inputs_count == 2 %}
+        static int8_t input1[{{ INPUT_SIZE_1 }}];
+        static int8_t input2[{{ INPUT_SIZE_2 }}];
+        for (int i = 0; i < {{ INPUT_SIZE_1 }}; i++) {
+            input1[i] = 1;
+        }
+        for (int i = 0; i < {{ INPUT_SIZE_2 }}; i++) {
+            input2[i] = 1;
+        }
+        // 调用推理
+        {{ inference_func }}(input1, input2, output);
+    {% endif %}
 
     // 输出结果
     for (int i = 0; i < OUTPUT_SIZE; i++) {
-        print_int(output[i]);
-        putchar(' ');
+        tinymlc_print_int(output[i]);
+        tinymlc_putchar(' ');
     }
-    putchar('\n');
+    tinymlc_putchar('\n');
 
     DEBUG_STR("ALL-OK\n");
 

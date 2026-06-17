@@ -1,8 +1,11 @@
 #include "tinymlc.h"
-#include "lut.h"
 #include "model.h"
 #include "debug_print.h"
 #include <stddef.h>
+
+#ifdef TINYMLC_HAS_LSTM
+#include "lut.h"
+#endif
 
 void tmlc_fully_connected_s8(const int8_t* input,
                              const int8_t* weights,
