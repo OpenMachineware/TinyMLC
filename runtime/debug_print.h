@@ -7,16 +7,16 @@
 // 编译时通过 -DTINYMLC_DEBUG 启用调试
 #ifdef TINYMLC_DEBUG
     // 调试模式：启用打印
-    void putchar(char c);
-    void print_int(int n);
+    void tinymlc_putchar(char c);
+    void tinymlc_print_int(int n);
     void debug_char(char c);
     void debug_str(const char* str);
     void debug_int(int n);
     void debug_hex(unsigned int n);
-    void debug_endl(void);  // 打印换行
+    void debug_endl(void);
 
-    #define PUTCHAR(c) putchar(c)
-    #define PRINT_INT(n) print_int(n)
+    #define TMLC_PUTCHAR(c) tinymlc_putchar(c)
+    #define TMLC_PRINT_INT(n) tinymlc_print_int(n)
     #define DEBUG_CHAR(c) debug_char(c)
     #define DEBUG_STR(s) debug_str(s)
     #define DEBUG_INT(n) debug_int(n)
@@ -33,8 +33,8 @@
 
 #else
     // Release 模式：宏展开为空
-    #define PUTCHAR(c) ((void)0)
-    #define PRINT_INT(n) ((void)0)
+    #define TMLC_PUTCHAR(c) ((void)0)
+    #define TMLC_PRINT_INT(n) ((void)0)
     #define DEBUG_CHAR(c) ((void)0)
     #define DEBUG_STR(s) ((void)0)
     #define DEBUG_INT(n) ((void)0)
