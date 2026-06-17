@@ -27,13 +27,18 @@ def extract_fc_weights(interpreter, op_info):
         )
 
     try:
-        weights = interpreter.get_tensor(weights_idx)
-        bias = interpreter.get_tensor(bias_idx)
+        # 尝试使用 tensor() 方法
+        weights_tensor = interpreter.tensor(weights_idx)
+        bias_tensor = interpreter.tensor(bias_idx)
+        weights = weights_tensor()
+        bias = bias_tensor()
     except ValueError as e:
-        fatal_error(
-            f"无法获取张量: {e}",
-            "请确保模型已正确加载，索引有效"
-        )
+        # 回退到 get_tensor
+        try:
+            weights = interpreter.get_tensor(weights_idx)
+            bias = interpreter.get_tensor(bias_idx)
+        except ValueError as e2:
+            fatal_error(f"无法获取张量: {e2}", "请确保模型已正确加载")
 
     info(f"FC 权重: shape={weights.shape}, dtype={weights.dtype}")
     info(f"FC bias: shape={bias.shape}, dtype={bias.dtype}")
