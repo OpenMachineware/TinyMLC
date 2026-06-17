@@ -28,9 +28,9 @@ void tmlc_unidirectional_sequence_lstm_s8(
     const int8_t* input_weights,
     const int8_t* recurrent_weights,
     const int32_t* bias,
-    int8_t* output_sequence,   // 完整序列 [time_steps, hidden_size]
-    int8_t* output_state,      // 最后状态 [hidden_size]（可 NULL）
-    int8_t* cell_state,        // 最后细胞状态（可 NULL）
+    int8_t* output_sequence,
+    int8_t* output_state,
+    int8_t* cell_state,
     int time_steps,
     int batch_size,
     int input_size,

@@ -16,7 +16,7 @@ from tinymlc.extract_weights import (extract_fc_weights, extract_lstm_weights,
                                      export_concatenated_weights,
                                      export_concatenated_bias)
 from tinymlc.generate_lut import generate_lut
-from tinymlc.parser import parse_model
+from tinymlc.parser_litert import parse_model
 from tinymlc.utils import fatal_error, warning, info
 
 
@@ -295,12 +295,13 @@ def main():
     if not Path(args.model).exists():
         fatal_error(f"模型文件不存在: {args.model}", "请检查文件路径")
 
-    # 创建 interpreter 用于解析模型和提取权重
+    # 1. 使用 LiteRT 解析模型结构
+    info(f"正在解析模型: {args.model}")
+    model_info = parse_model(args.model)
+
+    # 2. 创建 interpreter 用于提取权重（暂时保留）
     interpreter = tf.lite.Interpreter(model_path=args.model)
     interpreter.allocate_tensors()
-
-    info(f"正在解析模型: {args.model}")
-    model_info = parse_model(interpreter)
 
     if args.verbose:
         info("\n=== 模型信息 ===")

@@ -2,9 +2,22 @@
 #include "model.h"
 #include "debug_print.h"
 #include <stddef.h>
-
-#ifdef TINYMLC_HAS_LSTM
 #include "lut.h"
+
+// ========== LSTM 移位宏默认值 ==========
+// 如果 model.h 中定义了这些宏，则使用 model.h 中的值
+// 否则使用默认值 8
+#ifndef LSTM_SHIFT_I
+#define LSTM_SHIFT_I 8
+#endif
+#ifndef LSTM_SHIFT_F
+#define LSTM_SHIFT_F 8
+#endif
+#ifndef LSTM_SHIFT_G
+#define LSTM_SHIFT_G 8
+#endif
+#ifndef LSTM_SHIFT_O
+#define LSTM_SHIFT_O 8
 #endif
 
 void tmlc_fully_connected_s8(const int8_t* input,
@@ -47,7 +60,6 @@ void tmlc_softmax_s8(const int8_t* input, int8_t* output, int size) {
     }
 }
 
-#ifdef TINYMLC_HAS_LSTM
 // LSTM 量化参数（从模型元数据提取，这里使用典型值）
 // 实际应该从 tflite 的 quantization 字段读取
 #define LSTM_INPUT_SCALE   0.00390625f   // 1/256
@@ -214,7 +226,6 @@ void tmlc_unidirectional_sequence_lstm_s8(
         }
     }
 }
-#endif
 
 void tmlc_reshape_s8(const int8_t* input, int8_t* output,
                      int input_size, const int* new_shape, int shape_size)

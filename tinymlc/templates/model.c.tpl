@@ -1,6 +1,14 @@
 // 自动生成的代码，请勿手动修改
 // 由 tinymlc 自动生成
 
+{% if has_lstm %}
+#define TINYMLC_HAS_LSTM
+#define LSTM_SHIFT_I {{ lstm_shifts[0] }}
+#define LSTM_SHIFT_F {{ lstm_shifts[1] }}
+#define LSTM_SHIFT_G {{ lstm_shifts[2] }}
+#define LSTM_SHIFT_O {{ lstm_shifts[3] }}
+{% endif %}
+
 #include "tinymlc.h"
 {{ includes }}
 #include "model.h"

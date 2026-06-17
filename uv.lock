@@ -12,6 +12,29 @@ wheels = [
 ]
 
 [[package]]
+name = "ai-edge-litert"
+version = "2.1.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "backports-strenum" },
+    { name = "flatbuffers" },
+    { name = "numpy" },
+    { name = "protobuf" },
+    { name = "tqdm" },
+    { name = "typing-extensions" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3d/fd/28f24305904954f31ee1a979eea39b670c6a1ab13cf6e5e4fe5f128e9eff/ai_edge_litert-2.1.5-cp313-cp313-macosx_12_0_arm64.whl", hash = "sha256:2af16685a4cc8923d9a89ee5c732b8c66ae2c4d0cb538dbcebba3b93afb662ca", size = 9713185, upload-time = "2026-05-15T23:34:19.431Z" },
+    { url = "https://files.pythonhosted.org/packages/d3/88/e7e32b37f972b4877df788d1ad0995388f823d74dc2743b200bf71a25a53/ai_edge_litert-2.1.5-cp313-cp313-manylinux_2_27_aarch64.whl", hash = "sha256:57506e9e9b91ee04e4cf3e986d184b0c92f1aa9f510c32841835c0d719a7fbb5", size = 12867247, upload-time = "2026-05-15T23:11:24.667Z" },
+    { url = "https://files.pythonhosted.org/packages/7d/c1/5192c360a467dd6e09fa28388022c37bca5d9777e616da40dc5d517186a9/ai_edge_litert-2.1.5-cp313-cp313-manylinux_2_27_x86_64.whl", hash = "sha256:b7825e13454a90e7a4782ecdb6f6d987a2bcc9147aa90eb181193867bf696f24", size = 17570488, upload-time = "2026-05-15T23:05:36.078Z" },
+    { url = "https://files.pythonhosted.org/packages/d5/ba/154599984a8eccbdd14bcd89fabc2e9cbdfcbf537a3c1ab08712c7ce7d02/ai_edge_litert-2.1.5-cp313-cp313-win_amd64.whl", hash = "sha256:602fc90f6baf396df0fe4b0317b35627305c2233beb48db194b79e7e420bafa7", size = 17755085, upload-time = "2026-05-15T23:39:26.901Z" },
+    { url = "https://files.pythonhosted.org/packages/5e/51/34f0ad0def8b15093d602ca6904b129d3ab242ae4711c872190d5c95c010/ai_edge_litert-2.1.5-cp314-cp314-macosx_12_0_arm64.whl", hash = "sha256:597ea79f947452c79ca7e9dd7abfedad6179302851df4a4bb4c755069a2f5ffe", size = 9712496, upload-time = "2026-05-15T23:34:21.36Z" },
+    { url = "https://files.pythonhosted.org/packages/42/43/2b8ef317dca3096372cbf820aa5a3a6c8857dad67f31840a1e17a951e2d3/ai_edge_litert-2.1.5-cp314-cp314-manylinux_2_27_aarch64.whl", hash = "sha256:41d2e8267f047ed14f14a5ff4e0f677a9c5143dd17a36991513f8cc5ef580a3b", size = 12867899, upload-time = "2026-05-15T23:11:26.584Z" },
+    { url = "https://files.pythonhosted.org/packages/c2/d5/9640952de755409c84e09eec5d107675c59fe4f4859391464275eb2c3db6/ai_edge_litert-2.1.5-cp314-cp314-manylinux_2_27_x86_64.whl", hash = "sha256:4fa10d99b2f8647678850684d31075fbb304f50535d5788c2ca93e273ce727a8", size = 17570849, upload-time = "2026-05-15T23:05:37.981Z" },
+    { url = "https://files.pythonhosted.org/packages/0d/d4/0843e5a41bf71eb99ccd1e54714485df527bec19e8c8e679e1395176345d/ai_edge_litert-2.1.5-cp314-cp314-win_amd64.whl", hash = "sha256:14b35558bfce76146046cc2fc647f3fde97146e8b7622ea7fb02e85ac16cd906", size = 18380722, upload-time = "2026-05-15T23:39:29.365Z" },
+]
+
+[[package]]
 name = "astunparse"
 version = "1.6.3"
 source = { registry = "https://pypi.org/simple" }
@@ -22,6 +45,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/f3/af/4182184d3c338792894f34a62672919db7ca008c89abee9b564dd34d8029/astunparse-1.6.3.tar.gz", hash = "sha256:5ad93a8456f0d084c3456d059fd9a92cce667963232cbf763eac3bc5b7940872", size = 18290, upload-time = "2019-12-22T18:12:13.129Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2b/03/13dde6512ad7b4557eb792fbcf0c653af6076b81e5941d36ec61f7ce6028/astunparse-1.6.3-py2.py3-none-any.whl", hash = "sha256:c2652417f2c8b5bb325c885ae329bdf3f86424075c4fd1a128674bc6fba4b8e8", size = 12732, upload-time = "2019-12-22T18:12:11.297Z" },
+]
+
+[[package]]
+name = "backports-strenum"
+version = "1.3.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/35/c7/2ed54c32fed313591ffb21edbd48db71e68827d43a61938e5a0bc2b6ec91/backports_strenum-1.3.1.tar.gz", hash = "sha256:77c52407342898497714f0596e86188bb7084f89063226f4ba66863482f42414", size = 7257, upload-time = "2023-12-09T14:36:40.937Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d6/50/56cf20e2ee5127b603b81d5a69580a1a325083e2b921aa8f067da83927c0/backports_strenum-1.3.1-py3-none-any.whl", hash = "sha256:cdcfe36dc897e2615dc793b7d3097f54d359918fc448754a517e6f23044ccf83", size = 8304, upload-time = "2023-12-09T14:36:39.905Z" },
 ]
 
 [[package]]
@@ -715,6 +747,7 @@ name = "tinymlc"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "ai-edge-litert" },
     { name = "jinja2" },
     { name = "numpy" },
     { name = "tensorflow" },
@@ -729,6 +762,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "ai-edge-litert", specifier = ">=2.1.5" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "numpy", specifier = ">=2.4.6" },
     { name = "tensorflow", specifier = ">=2.21.0" },
@@ -739,6 +773,18 @@ requires-dist = [
 dev = [
     { name = "black", specifier = ">=26.5.1" },
     { name = "pytest", specifier = ">=9.0.3" },
+]
+
+[[package]]
+name = "tqdm"
+version = "4.68.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/87/d7/0535a28b1f5f24f6612fb3ff1e89fb1a8d160fee0f976e0aa6803862134b/tqdm-4.68.3.tar.gz", hash = "sha256:00dfa48452b6b6cfae3dd9885636c23d3422d1ec97c66d96818cbd5e0821d482", size = 170596, upload-time = "2026-06-17T07:36:52.105Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d8/8e/bb97bb0c71802080bfc8952937d174e49cfc50de5c951dd47b2496f0dcdb/tqdm-4.68.3-py3-none-any.whl", hash = "sha256:39832cc2def2789a6f29df83f172db7416cea70052c0907a57801c5f2fdccb03", size = 78337, upload-time = "2026-06-17T07:36:50.132Z" },
 ]
 
 [[package]]
