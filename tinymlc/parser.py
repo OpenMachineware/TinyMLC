@@ -290,6 +290,7 @@ def parse_model(interpreter):
             op_info["fc_weights_idx"] = matched["weights"]
             op_info["fc_bias_idx"] = matched["bias"]
             op_info["fc_input_idx"] = matched["input"]
+            op_info["data_input_idx"] = op["inputs"][0]  # FC 的数据输入是第一个
             op_info["state"] = "translated"
             op_info["pass_flags"]["fc_match"] = "success"
             op_info["pass_flags"]["fc_weights_method"] = "name" if name_match.get(
@@ -367,6 +368,27 @@ def parse_model(interpreter):
             op_info["add_output"] = op["outputs"][0]
             op_info["state"] = "translated"
             op_info["pass_flags"]["add_check"] = "success"
+
+        # ========== QUANTIZE 算子 ==========
+        elif op["op_name"] == "QUANTIZE":
+            # QUANTIZE 算子：将浮点张量转换为量化张量
+            # 在推理过程中，这通常只是数据格式转换，不需要特殊处理
+            op_info["state"] = "translated"
+            op_info["pass_flags"]["quantize_check"] = "success"
+
+        # ========== SVDF 算子 ==========
+        elif op["op_name"] == "SVDF":
+            # SVDF 算子：用于关键词识别等序列任务
+            # 参数：input, weights, bias, 等
+            if len(op["inputs"]) < 3:
+                fatal_error("SVDF 输入不足", "检查模型是否完整")
+
+            op_info["svdf_weights_idx"] = op["inputs"][1]
+            op_info["svdf_bias_idx"] = op["inputs"][2] if len(
+                op["inputs"]) > 2 else None
+            op_info["data_input_idx"] = op["inputs"][0]  # SVDF 的数据输入也是第一个
+            op_info["state"] = "translated"
+            op_info["pass_flags"]["svdf_check"] = "success"
 
         # ========== DELEGATE 算子跳过 ==========
         elif op["op_name"] == "DELEGATE":

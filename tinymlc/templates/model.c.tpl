@@ -16,12 +16,21 @@
     {% for out_idx in op.output_indices %}
     int8_t tensor_{{ out_idx }}[{{ tensor_sizes[out_idx] }}] __attribute__((section(".bss")));
     {% endfor %}
+    {% if op.op_name == "SVDF" %}
+        {% if op.svdf_weights_idx is not none %}
+    int8_t tensor_{{ op.svdf_weights_idx }}[{{ tensor_sizes[op.svdf_weights_idx] }}] __attribute__((section(".bss")));
+        {% endif %}
+        {% if op.svdf_bias_idx is not none %}
+    int32_t tensor_{{ op.svdf_bias_idx }}[{{ tensor_sizes[op.svdf_bias_idx] }}] __attribute__((section(".bss")));
+        {% endif %}
+    {% endif %}
 {% endfor %}
 
 {% if has_lstm %}
 // LSTM 参数
 #define LSTM_TIME_STEPS {{ lstm_time_steps }}
 #define LSTM_HIDDEN_SIZE {{ lstm_hidden_size }}
+#define TINYMLC_HAS_LSTM
 // ... 其他参数
 {% endif %}
 
@@ -73,6 +82,17 @@ void {{ inference_func }}(const int8_t* input, int8_t* output) {
             {{ op.reshape_target_shape | length }}
         );
     }
+    {% elif op.op_name == "SVDF" %}
+    tmlc_svdf_s8(
+        tensor_{{ op.data_input_idx }},
+        tensor_{{ op.svdf_weights_idx }},
+        tensor_{{ op.svdf_bias_idx }},
+        tensor_{{ op.output_indices[0] }},
+        49,  // time_steps
+        257, // input_size
+        2,   // rank
+        80   // units
+    );
     {% endif %}
     {% endfor %}
 

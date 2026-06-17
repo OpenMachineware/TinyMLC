@@ -44,6 +44,7 @@ void tmlc_softmax_s8(const int8_t* input, int8_t* output, int size) {
     }
 }
 
+#ifdef TINYMLC_HAS_LSTM
 // LSTM 量化参数（从模型元数据提取，这里使用典型值）
 // 实际应该从 tflite 的 quantization 字段读取
 #define LSTM_INPUT_SCALE   0.00390625f   // 1/256
@@ -210,6 +211,7 @@ void tmlc_unidirectional_sequence_lstm_s8(
         }
     }
 }
+#endif
 
 void tmlc_reshape_s8(const int8_t* input, int8_t* output,
                      int input_size, const int* new_shape, int shape_size)
@@ -240,5 +242,16 @@ void tmlc_add_s8(const int8_t* input1, const int8_t* input2, int8_t* output, int
         int32_t sum = (int32_t)input1[i] + (int32_t)input2[i];
         // 简单的量化缩放（根据实际量化参数调整）
         output[i] = (int8_t)(sum >> 1);
+    }
+}
+
+void tmlc_svdf_s8(const int8_t* input, const int8_t* weights,
+                  const int32_t* bias, int8_t* output, int time_steps,
+                  int input_size, int rank, int units)
+{
+    // 简化实现：直接复制输入到输出（占位）
+    // TODO: 实现完整的 SVDF
+    for (int i = 0; i < units; i++) {
+        output[i] = input[i % input_size];
     }
 }

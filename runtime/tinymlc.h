@@ -43,4 +43,9 @@ void tmlc_reshape_s8(const int8_t* input, int8_t* output,
 // ADD 算子：逐元素相加
 void tmlc_add_s8(const int8_t* input1, const int8_t* input2, int8_t* output, int size);
 
+// SVDF 算子：用于关键词识别等序列任务
+void tmlc_svdf_s8(const int8_t* input, const int8_t* weights,
+                  const int32_t* bias, int8_t* output, int time_steps,
+                  int input_size, int rank, int units);
+
 #endif
