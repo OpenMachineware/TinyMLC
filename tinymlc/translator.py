@@ -202,8 +202,6 @@ def generate_c_code(model_info, output_dir,
         tensor_sizes[int(tensor_idx)] = size
         tensor_shapes[int(tensor_idx)] = [int(dim) for dim in shape]
 
-    print(f"tensor_sizes keys: {list(tensor_sizes.keys())}")
-
     # 提取所有 Reshape 算子的目标形状
     reshape_targets = []
     for op in execution_order:

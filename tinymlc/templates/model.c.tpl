@@ -22,10 +22,20 @@
 // 中间张量内存（静态分配，放在函数外部）
 {% for op in execution_order %}
     {% for out_idx in op.output_indices %}
-        int8_t tensor_{{ out_idx }}[{{ tensor_sizes[out_idx] }}] __attribute__((section(".bss")));
+        {% if out_idx in tensor_sizes %}
+            int8_t tensor_{{ out_idx }}[{{ tensor_sizes[out_idx] }}] __attribute__((section(".bss")));
+        {% else %}
+            /* 警告: 张量 {{ out_idx }} 在 tensor_sizes 中未找到 */
+            /* 跳过张量 {{ out_idx }}: 尺寸为 0 或未定义 */
+        {% endif %}
     {% endfor %}
     {% if op.data_input_idx is not none and op.data_input_idx not in op.output_indices %}
-        int8_t tensor_{{ op.data_input_idx }}[{{ tensor_sizes[op.data_input_idx] }}] __attribute__((section(".bss")));
+        {% if op.data_input_idx in tensor_sizes %}
+            int8_t tensor_{{ op.data_input_idx }}[{{ tensor_sizes[op.data_input_idx] }}] __attribute__((section(".bss")));
+        {% else %}
+            /* 警告: data_input_idx {{ op.data_input_idx }} 在 tensor_sizes 中未找到 */
+            /* 跳过 data_input_idx {{ op.data_input_idx }}: 尺寸为 0 或未定义 */
+        {% endif %}
     {% endif %}
     {% if op.op_name == "SVDF" %}
         {% if op.svdf_weights_idx is not none %}
