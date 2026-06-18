@@ -349,6 +349,14 @@ def parse_model(model_path: str):
 
             op_info["state"] = "translated"
             op_info["pass_flags"]["dw_check"] = "success"
+        elif op["op_name"] == "RELU":
+            # ReLU 只需要输入输出，没有额外参数
+            if len(op_info["input_indices"]) < 1:
+                fatal_error("RELU 缺少输入", "检查模型格式")
+            if len(op_info["output_indices"]) < 1:
+                fatal_error("RELU 缺少输出", "检查模型格式")
+            op_info["state"] = "translated"
+            op_info["pass_flags"]["relu_check"] = "success"
         elif op["op_name"] == "QUANTIZE":
             op_info["state"] = "translated"
             op_info["pass_flags"]["quantize_check"] = "success"

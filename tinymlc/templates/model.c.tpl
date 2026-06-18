@@ -149,6 +149,30 @@ void {{ inference_func }}(const int8_t* input1, const int8_t* input2, int8_t* ou
             {{ op.pool_params.stride_w }},
             0, 0
         );
+        {% elif op.op_name == "DEPTHWISE_CONV_2D" %}
+        tmlc_depthwise_conv_2d_s8(
+            tensor_{{ op.data_input_idx }},
+            dw_weights,
+            dw_bias,
+            tensor_{{ op.output_indices[0] }},
+            {{ op.dw_params.input_h }},
+            {{ op.dw_params.input_w }},
+            {{ op.dw_params.input_c }},
+            {{ op.dw_params.output_h }},
+            {{ op.dw_params.output_w }},
+            {{ op.dw_params.output_c }},
+            {{ op.dw_params.kernel_h }},
+            {{ op.dw_params.kernel_w }},
+            1, 1,
+            {{ op.dw_params.depth_multiplier }},
+            0, 0
+        );
+        {% elif op.op_name == "RELU" %}
+        tmlc_relu_s8(
+            tensor_{{ op.input_indices[0] }},
+            tensor_{{ op.output_indices[0] }},
+            {{ tensor_sizes[op.input_indices[0]] }}
+        );
         {% endif %}
     {% endfor %}
 
