@@ -189,6 +189,15 @@ void {{ inference_func }}(const int8_t* input1, const int8_t* input2, int8_t* ou
             {{ op.pool_params.stride_w }},
             0, 0
         );
+        {% elif op.op_name == "TRANSPOSE" %}
+        tmlc_transpose_s8(
+            tensor_{{ op.data_input_idx }},
+            NULL,  // perm 暂时传 NULL
+            tensor_{{ op.output_indices[0] }},
+            {{ op.transpose_params.input_dims }},
+            (const int[]){ {% for s in tensor_sizes[op.data_input_idx] %}{{ s }}{% if not loop.last %}, {% endif %}{% endfor %} },
+            (const int[]){ {% for s in tensor_sizes[op.output_indices[0]] %}{{ s }}{% if not loop.last %}, {% endif %}{% endfor %} }
+        );
         {% endif %}
     {% endfor %}
 

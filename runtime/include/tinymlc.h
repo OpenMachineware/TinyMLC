@@ -81,4 +81,11 @@ void tmlc_avg_pool_2d_s8(const int8_t* input,
                          int stride_h, int stride_w,
                          int padding_h, int padding_w);
 
+void tmlc_transpose_s8(const int8_t* input,
+                       const int32_t* perm,
+                       int8_t* output,
+                       int input_dims,
+                       const int* input_shape);
+
+
 #endif

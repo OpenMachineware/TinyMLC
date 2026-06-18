@@ -100,8 +100,9 @@ def generate_c_code(model_info, output_dir,
     for op in execution_order:
         info(f"  {op['index']}: {op['op_name']}")
 
+    # 生成前检查所有算子
     for op in ops:
-        if op["state"] != "translated":
+        if op["state"] != "translated" and op["state"] != "generated":
             fatal_error(
                 f"算子 {op['op_name']} 状态为 {op.get('state')}，无法生成代码",
                 f"Pass flags: {op.get('pass_flags', {})}")

@@ -403,6 +403,30 @@ def parse_model(model_path: str):
 
             op_info["state"] = "translated"
             op_info["pass_flags"]["avg_pool_check"] = "success"
+        elif op["op_name"] == "TRANSPOSE":
+            inputs = op_info["input_indices"]
+            if len(inputs) < 2:
+                fatal_error("TRANSPOSE 缺少 perm 参数", "检查模型格式")
+
+            # inputs[0] = 输入数据, inputs[1] = perm (转置顺序)
+            op_info["data_input_idx"] = inputs[0]
+            op_info["transpose_perm_idx"] = inputs[1]
+
+            # 从输入输出形状推断转置参数
+            input_idx = inputs[0]
+            output_idx = op_info["output_indices"][0]
+            input_tensor = tensor_map.get(input_idx, {})
+            output_tensor = tensor_map.get(output_idx, {})
+            input_shape = input_tensor.get("shape", [])
+            output_shape = output_tensor.get("shape", [])
+
+            op_info["transpose_params"] = {
+                "input_dims": len(input_shape),
+                "output_dims": len(output_shape),
+            }
+
+            op_info["state"] = "translated"
+            op_info["pass_flags"]["transpose_check"] = "success"
         elif op["op_name"] == "QUANTIZE":
             op_info["state"] = "translated"
             op_info["pass_flags"]["quantize_check"] = "success"
@@ -411,7 +435,8 @@ def parse_model(model_path: str):
         else:
             # 未知算子，保持 created
             warning('出现未知算子，可以提交issue或者patch set了')
-            pass
+            op_info["state"] = "created"
+            op_info["pass_flags"]["unknown"] = "needs_implementation"
 
         # 添加输入输出详细信息
         for inp_idx in op_info["input_indices"]:
