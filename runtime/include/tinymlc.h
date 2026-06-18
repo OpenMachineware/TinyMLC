@@ -60,4 +60,16 @@ void tmlc_max_pool_2d_s8(const int8_t* input,
                          int stride_h, int stride_w,
                          int padding_h, int padding_w);
 
+void tmlc_depthwise_conv_2d_s8(const int8_t* input,
+                               const int8_t* weights,
+                               const int32_t* bias,
+                               int8_t* output,
+                               int input_h, int input_w, int input_c,
+                               int output_h, int output_w, int output_c,
+                               int kernel_h, int kernel_w,
+                               int stride_h, int stride_w,
+                               int depth_multiplier,
+                               int padding_h, int padding_w);
+
+
 #endif
