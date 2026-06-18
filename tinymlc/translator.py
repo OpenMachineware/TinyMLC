@@ -14,13 +14,15 @@ from ai_edge_litert.interpreter import Interpreter as LiteRTInterpreter
 from tinymlc.extract_weights import (extract_fc_weights, extract_lstm_weights,
                                      export_weights_to_c, export_bias_to_c,
                                      export_concatenated_weights,
-                                     export_concatenated_bias)
+                                     export_concatenated_bias,
+                                     extract_conv_weights)
 from tinymlc.generate_lut import generate_lut
 from tinymlc.parser_litert import parse_model
 from tinymlc.utils import fatal_error, warning, info
 
 
-SUPPORTED_OPS = ["FULLY_CONNECTED", "UNIDIRECTIONAL_SEQUENCE_LSTM", "ADD", "SOFTMAX", "RESHAPE", "QUANTIZE", "SVDF"]
+SUPPORTED_OPS = ["FULLY_CONNECTED", "UNIDIRECTIONAL_SEQUENCE_LSTM", "ADD",
+                 "SOFTMAX", "RESHAPE", "QUANTIZE", "SVDF", "CONV_2D"]
 # 回退值，仅在无法从模型读取有效 scale 时使用
 DEFAULT_SCALE = 0.01  # 经验值
 DEFAULT_SHIFT = 8     # 经验值
@@ -136,6 +138,7 @@ def generate_c_code(model_info, output_dir,
     # 检测模型包含的算子类型
     has_fc = False
     has_lstm = False
+    has_conv = False
 
     # 查找 LSTM 参数
     lstm_params = None
@@ -146,6 +149,8 @@ def generate_c_code(model_info, output_dir,
         elif op_name == "UNIDIRECTIONAL_SEQUENCE_LSTM":
             has_lstm = True
             lstm_params = op.get("lstm_params")
+        elif op_name == "CONV_2D":
+            has_conv = True
 
     if has_lstm and lstm_params is None:
         fatal_error("模型包含 LSTM 算子但未提取到参数",
@@ -179,6 +184,8 @@ def generate_c_code(model_info, output_dir,
         includes.append('#include "fc_weights.h"')
     if has_lstm:
         includes.append('#include "lstm_weights.h"')
+    if has_conv:
+        includes.append('#include "conv_weights.h"')
 
     tensor_sizes = {}
     for tensor_idx, tensor_info in tensors.items():
@@ -245,6 +252,7 @@ def generate_c_code(model_info, output_dir,
         "includes": "\n".join(includes),
         "has_fc": has_fc,
         "has_lstm": has_lstm,
+        "has_conv": has_conv,
         "model_header": "model.h",  # 固定名称，用于 main_test.c 包含
         "lstm_time_steps": lstm_params["time_steps"],
         "lstm_batch_size": lstm_params["batch_size"],
@@ -360,14 +368,17 @@ def main():
 
     # 提取并生成权重文件
     info("正在提取权重...")
-    # 找到 FC 算子的 op_info
+    # 找到算子的 op_info
     fc_op_info = None
     lstm_op_info = None
+    conv_op_info = None
     for op in model_info["ops"]:
         if op["op_name"] == "FULLY_CONNECTED":
             fc_op_info = op
         elif op["op_name"] == "UNIDIRECTIONAL_SEQUENCE_LSTM":
             lstm_op_info = op
+        elif op["op_name"] == "CONV_2D":
+            conv_op_info = op
 
     # 提取权重
     if fc_op_info:
@@ -382,12 +393,20 @@ def main():
     else:
         lstm_weights = None
 
+    if conv_op_info:
+        conv_weights, conv_bias = extract_conv_weights(interpreter,
+                                                       conv_op_info)
+    else:
+        conv_weights, conv_bias = None, None
+
     # 检查是否有任何权重被提取
     has_fc = fc_weights is not None
     has_lstm = lstm_weights is not None and any(
         v is not None for v in lstm_weights['input'].values())
+    has_conv = conv_weights is not None
+
     # 如果没有权重，检查模型是否有不需要权重的算子
-    if not (has_fc or has_lstm):
+    if not (has_fc or has_lstm or has_conv):
         has_weightless_op = False
         for op in model_info["ops"]:
             if op["op_name"] in ["ADD", "SOFTMAX", "RESHAPE", "QUANTIZE"]:

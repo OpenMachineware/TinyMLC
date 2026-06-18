@@ -42,7 +42,6 @@
 #define LSTM_TIME_STEPS {{ lstm_time_steps }}
 #define LSTM_HIDDEN_SIZE {{ lstm_hidden_size }}
 #define TINYMLC_HAS_LSTM
-// ... 其他参数
 {% endif %}
 
 // 推理函数
@@ -115,6 +114,24 @@ void {{ inference_func }}(const int8_t* input1, const int8_t* input2, int8_t* ou
             257, // input_size
             2,   // rank
             80   // units
+        );
+        {% elif op.op_name == "CONV_2D" %}
+        tmlc_conv2d_s8(
+            tensor_{{ op.data_input_idx }},
+            conv_weights,
+            conv_bias,
+            tensor_{{ op.output_indices[0] }},
+            {{ op.conv_params.input_h }},
+            {{ op.conv_params.input_w }},
+            {{ op.conv_params.input_c }},
+            {{ op.conv_params.output_h }},
+            {{ op.conv_params.output_w }},
+            {{ op.conv_params.output_c }},
+            {{ op.conv_params.kernel_h }},
+            {{ op.conv_params.kernel_w }},
+            {{ op.conv_params.stride_h }},
+            {{ op.conv_params.stride_w }},
+            0, 0
         );
         {% endif %}
     {% endfor %}

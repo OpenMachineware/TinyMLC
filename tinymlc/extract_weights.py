@@ -50,6 +50,7 @@ def extract_fc_weights(interpreter, op_info):
     info(f"FC bias: shape={bias.shape}, dtype={bias.dtype}")
     return weights, bias
 
+
 def extract_lstm_weights(interpreter, op_info):
     """提取 LSTM 各门的权重和 bias"""
     indices = op_info.get("lstm_weight_indices", {})
@@ -98,41 +99,6 @@ def extract_lstm_weights(interpreter, op_info):
             lstm_weights['bias'][gate] = None
 
     return lstm_weights
-
-
-def export_weights_to_c(weights, name, output_file):
-    """导出 int8 权重"""
-    if weights is None:
-        output_file.write(f"// {name} 未找到，使用占位符\n")
-        output_file.write(f"static const int8_t {name}[1] = {{0}};\n\n")
-        return
-
-    flat = weights.flatten()
-    output_file.write(f"static const int8_t {name}[{flat.size}] = {{\n    ")
-    for i, val in enumerate(flat):
-        output_file.write(f"{int(val)}")
-        if i < flat.size - 1:
-            output_file.write(", ")
-        if (i + 1) % 16 == 0:
-            output_file.write("\n    ")
-    output_file.write("\n};\n\n")
-
-
-def export_bias_to_c(bias, name, output_file):
-    """导出 int32 bias"""
-    if bias is None:
-        output_file.write(f"// {name} 未找到，使用占位符\n")
-        output_file.write(f"static const int32_t {name}[1] = {{0}};\n\n")
-        return
-
-    output_file.write(f"static const int32_t {name}[{bias.size}] = {{\n    ")
-    for i, val in enumerate(bias):
-        output_file.write(f"{int(val)}")
-        if i < bias.size - 1:
-            output_file.write(", ")
-        if (i + 1) % 8 == 0:
-            output_file.write("\n    ")
-    output_file.write("\n};\n\n")
 
 
 def export_concatenated_weights(weights_list, output_file, array_name,
@@ -222,6 +188,64 @@ def export_concatenated_bias(bias_list, output_file, array_name):
     info(f"  生成 {array_name}[{total_size}]")
 
 
+def extract_conv_weights(interpreter, op_info):
+    """提取 CONV_2D 层的权重和 bias"""
+    weights_idx = op_info.get("conv_weights_idx")
+    bias_idx = op_info.get("conv_bias_idx")
+
+    if weights_idx is None:
+        fatal_error(
+            "CONV_2D 权重索引未找到",
+            "检查模型转换时是否保留了张量名称"
+        )
+
+    try:
+        weights = interpreter.get_tensor(weights_idx)
+        bias = interpreter.get_tensor(bias_idx) if bias_idx is not None else None
+    except ValueError as e:
+        fatal_error(f"无法获取 CONV_2D 张量: {e}", "请确保模型已正确加载")
+
+    info(f"CONV_2D 权重: shape={weights.shape}, dtype={weights.dtype}")
+    if bias is not None:
+        info(f"CONV_2D bias: shape={bias.shape}, dtype={bias.dtype}")
+    return weights, bias
+
+
+def export_weights_to_c(weights, name, output_file):
+    """导出 int8 权重"""
+    if weights is None:
+        output_file.write(f"// {name} 未找到，使用占位符\n")
+        output_file.write(f"static const int8_t {name}[1] = {{0}};\n\n")
+        return
+
+    flat = weights.flatten()
+    output_file.write(f"static const int8_t {name}[{flat.size}] = {{\n    ")
+    for i, val in enumerate(flat):
+        output_file.write(f"{int(val)}")
+        if i < flat.size - 1:
+            output_file.write(", ")
+        if (i + 1) % 16 == 0:
+            output_file.write("\n    ")
+    output_file.write("\n};\n\n")
+
+
+def export_bias_to_c(bias, name, output_file):
+    """导出 int32 bias"""
+    if bias is None:
+        output_file.write(f"// {name} 未找到，使用占位符\n")
+        output_file.write(f"static const int32_t {name}[1] = {{0}};\n\n")
+        return
+
+    output_file.write(f"static const int32_t {name}[{bias.size}] = {{\n    ")
+    for i, val in enumerate(bias):
+        output_file.write(f"{int(val)}")
+        if i < bias.size - 1:
+            output_file.write(", ")
+        if (i + 1) % 8 == 0:
+            output_file.write("\n    ")
+    output_file.write("\n};\n\n")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='从 tflite 模型提取 FC 和 LSTM 权重')
@@ -240,11 +264,14 @@ def main():
     # 2. 查找算子信息
     fc_op_info = None
     lstm_op_info = None
+    conv_op_info = None
     for op in model_info["ops"]:
         if op["op_name"] == "FULLY_CONNECTED":
             fc_op_info = op
         elif op["op_name"] == "UNIDIRECTIONAL_SEQUENCE_LSTM":
             lstm_op_info = op
+        elif op["op_name"] == "CONV_2D":
+            conv_op_info = op
 
     # 3. 提取权重
     info("\n正在提取权重...")
@@ -256,12 +283,19 @@ def main():
     if lstm_op_info:
         lstm_weights = extract_lstm_weights(interpreter, lstm_op_info)
 
+    conv_weights = None
+    conv_bias = None
+    if conv_op_info:
+        conv_weights, conv_bias = extract_conv_weights(interpreter,
+                                                       conv_op_info)
+
     # 4. 检查是否有任何权重被提取
     has_fc = fc_weights is not None
     has_lstm = lstm_weights is not None and any(v is not None for v in lstm_weights['input'].values())
+    has_conv = conv_weights is not None
 
-    if not (has_fc or has_lstm):
-        # 检查是否有 ADD、SOFTMAX 等不需要权重的算子
+    if not (has_fc or has_lstm or has_conv):
+        # 检查无权重算子
         has_weightless_op = False
         for op in model_info["ops"]:
             if op["op_name"] in WEIGHTLESS_OPS:
@@ -306,6 +340,17 @@ def main():
 
         info(f"已生成: {output_path}")
 
+    # 生成 CONV 权重文件 conv_weights.h
+    if conv_weights is not None:
+        output_path = output_dir / 'conv_weights.h'
+        with open(output_path, 'w') as f:
+            f.write("// 自动从 tflite 提取的 CONV_2D 权重和 bias\n")
+            f.write("// 请勿手动修改\n\n")
+            export_weights_to_c(conv_weights, "conv_weights", f)
+            if conv_bias is not None:
+                export_bias_to_c(conv_bias, "conv_bias", f)
+        info(f"已生成: {output_path}")
+
     # 8. 打印统计信息
     info("\n=== 提取统计 ===")
     if fc_weights is not None:
@@ -324,6 +369,10 @@ def main():
                 b_size = b.size if b is not None else 0
                 info(
                     f"LSTM {gate} 门: input={w_size}, recurrent={r_size}, bias={b_size}")
+
+    if conv_weights is not None:
+        info(
+            f"CONV 权重: {conv_weights.size} 个 int8, bias: {conv_weights.size} 个 int32")
 
     return 0
 

@@ -191,6 +191,77 @@ def parse_model(model_path: str):
                 op_info["svdf_bias_idx"] = inputs[2]
             op_info["state"] = "translated"
             op_info["pass_flags"]["svdf_check"] = "success"
+        elif op["op_name"] == "CONV_2D":
+            inputs = op_info["input_indices"]
+            if len(inputs) >= 3:
+                op_info["data_input_idx"] = inputs[0]
+                op_info["conv_weights_idx"] = inputs[1]
+                op_info["conv_bias_idx"] = inputs[2]
+            else:
+                fatal_error("CONV_2D 输入不完整", "检查模型格式")
+
+            # 提取卷积参数
+            # 从输入输出形状计算 stride, padding 等
+            input_idx = inputs[0]
+            output_idx = op_info["output_indices"][0]
+
+            input_tensor = tensor_map.get(input_idx, {})
+            output_tensor = tensor_map.get(output_idx, {})
+
+            input_shape = input_tensor.get("shape", [])
+            output_shape = output_tensor.get("shape", [])
+
+            # 权重 shape: [out_channels, kernel_h, kernel_w, in_channels]
+            weights_tensor = tensor_map.get(inputs[1], {})
+            weights_shape = weights_tensor.get("shape", [])
+
+            # 默认参数
+            stride_h = 1
+            stride_w = 1
+            padding = "VALID"
+
+            # 从输入输出形状推断 stride 和 padding
+            if len(input_shape) >= 4 and len(output_shape) >= 4 and len(
+                    weights_shape) >= 4:
+                input_h = input_shape[1]
+                input_w = input_shape[2]
+                output_h = output_shape[1]
+                output_w = output_shape[2]
+                kernel_h = weights_shape[1]
+                kernel_w = weights_shape[2]
+
+                # 计算 stride（假设 stride_h == stride_w）
+                if input_h > output_h:
+                    stride_h = (input_h - kernel_h) // (
+                                output_h - 1) if output_h > 1 else 1
+                    stride_w = (input_w - kernel_w) // (
+                                output_w - 1) if output_w > 1 else 1
+
+                # 判断 padding
+                # 如果输出尺寸 = ceil(input / stride)，通常是 SAME padding
+                # 否则是 VALID
+                expected_h = (input_h + stride_h - 1) // stride_h
+                if output_h == expected_h:
+                    padding = "SAME"
+                else:
+                    padding = "VALID"
+
+            op_info["conv_params"] = {
+                "input_h": input_shape[1] if len(input_shape) >= 4 else 0,
+                "input_w": input_shape[2] if len(input_shape) >= 4 else 0,
+                "input_c": input_shape[3] if len(input_shape) >= 4 else 0,
+                "output_h": output_shape[1] if len(output_shape) >= 4 else 0,
+                "output_w": output_shape[2] if len(output_shape) >= 4 else 0,
+                "output_c": output_shape[3] if len(output_shape) >= 4 else 0,
+                "kernel_h": weights_shape[1] if len(weights_shape) >= 4 else 0,
+                "kernel_w": weights_shape[2] if len(weights_shape) >= 4 else 0,
+                "stride_h": stride_h,
+                "stride_w": stride_w,
+                "padding": padding,
+            }
+
+            op_info["state"] = "translated"
+            op_info["pass_flags"]["conv_check"] = "success"
         elif op["op_name"] == "QUANTIZE":
             op_info["state"] = "translated"
             op_info["pass_flags"]["quantize_check"] = "success"
