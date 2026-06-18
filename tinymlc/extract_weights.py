@@ -246,6 +246,29 @@ def export_bias_to_c(bias, name, output_file):
     output_file.write("\n};\n\n")
 
 
+def extract_dw_weights(interpreter, op_info):
+    """提取 DEPTHWISE_CONV_2D 层的权重和 bias"""
+    weights_idx = op_info.get("dw_weights_idx")
+    bias_idx = op_info.get("dw_bias_idx")
+
+    if weights_idx is None:
+        fatal_error(
+            "DEPTHWISE_CONV_2D 权重索引未找到",
+            "检查模型转换时是否保留了张量名称"
+        )
+
+    try:
+        weights = interpreter.get_tensor(weights_idx)
+        bias = interpreter.get_tensor(bias_idx) if bias_idx is not None else None
+    except ValueError as e:
+        fatal_error(f"无法获取 DEPTHWISE_CONV_2D 张量: {e}", "请确保模型已正确加载")
+
+    info(f"DEPTHWISE_CONV_2D 权重: shape={weights.shape}, dtype={weights.dtype}")
+    if bias is not None:
+        info(f"DEPTHWISE_CONV_2D bias: shape={bias.shape}, dtype={bias.dtype}")
+    return weights, bias
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='从 tflite 模型提取 FC 和 LSTM 权重')
@@ -265,6 +288,7 @@ def main():
     fc_op_info = None
     lstm_op_info = None
     conv_op_info = None
+    dw_op_info = None
     for op in model_info["ops"]:
         if op["op_name"] == "FULLY_CONNECTED":
             fc_op_info = op
@@ -272,29 +296,34 @@ def main():
             lstm_op_info = op
         elif op["op_name"] == "CONV_2D":
             conv_op_info = op
+        elif op["op_name"] == "DEPTHWISE_CONV_2D":
+            dw_op_info = op
 
     # 3. 提取权重
     info("\n正在提取权重...")
     fc_weights = fc_bias = None
     if fc_op_info:
         fc_weights, fc_bias = extract_fc_weights(interpreter, fc_op_info)
-
     lstm_weights = None
     if lstm_op_info:
         lstm_weights = extract_lstm_weights(interpreter, lstm_op_info)
-
     conv_weights = None
     conv_bias = None
     if conv_op_info:
         conv_weights, conv_bias = extract_conv_weights(interpreter,
                                                        conv_op_info)
+    dw_weights = None
+    dw_bias = None
+    if dw_op_info:
+        dw_weights, dw_bias = extract_dw_weights(interpreter, dw_op_info)
 
     # 4. 检查是否有任何权重被提取
     has_fc = fc_weights is not None
     has_lstm = lstm_weights is not None and any(v is not None for v in lstm_weights['input'].values())
     has_conv = conv_weights is not None
+    has_dw = dw_weights is not None
 
-    if not (has_fc or has_lstm or has_conv):
+    if not (has_fc or has_lstm or has_conv or has_dw):
         # 检查无权重算子
         has_weightless_op = False
         for op in model_info["ops"]:
@@ -340,7 +369,7 @@ def main():
 
         info(f"已生成: {output_path}")
 
-    # 生成 CONV 权重文件 conv_weights.h
+    # 8. 生成 CONV 权重文件 conv_weights.h
     if conv_weights is not None:
         output_path = output_dir / 'conv_weights.h'
         with open(output_path, 'w') as f:
@@ -351,7 +380,18 @@ def main():
                 export_bias_to_c(conv_bias, "conv_bias", f)
         info(f"已生成: {output_path}")
 
-    # 8. 打印统计信息
+    # 9. 生成 CONV 权重文件
+    if dw_weights is not None:
+        output_path = output_dir / 'dw_weights.h'
+        with open(output_path, 'w') as f:
+            f.write("// 自动从 tflite 提取的 DEPTHWISE_CONV_2D 权重和 bias\n")
+            f.write("// 请勿手动修改\n\n")
+            export_weights_to_c(dw_weights, "dw_weights", f)
+            if dw_bias is not None:
+                export_bias_to_c(dw_bias, "dw_bias", f)
+        info(f"已生成: {output_path}")
+
+    # 打印统计信息
     info("\n=== 提取统计 ===")
     if fc_weights is not None:
         info(

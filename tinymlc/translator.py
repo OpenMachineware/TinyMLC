@@ -140,8 +140,8 @@ def generate_c_code(model_info, output_dir,
     has_fc = False
     has_lstm = False
     has_conv = False
+    has_dw = False
 
-    # 查找 LSTM 参数
     lstm_params = None
     for op in model_info.get("ops", []):
         op_name = op.get("op_name")
@@ -152,6 +152,8 @@ def generate_c_code(model_info, output_dir,
             lstm_params = op.get("lstm_params")
         elif op_name == "CONV_2D":
             has_conv = True
+        elif op_name == "DEPTHWISE_CONV_2D":
+            has_dw = True
 
     if has_lstm and lstm_params is None:
         fatal_error("模型包含 LSTM 算子但未提取到参数",
@@ -187,6 +189,8 @@ def generate_c_code(model_info, output_dir,
         includes.append('#include "lstm_weights.h"')
     if has_conv:
         includes.append('#include "conv_weights.h"')
+    if has_dw:
+        includes.append('#include "dw_weights.h"')
 
     tensor_sizes = {}
     tensor_shapes = {}
@@ -197,6 +201,8 @@ def generate_c_code(model_info, output_dir,
             size *= int(dim)
         tensor_sizes[int(tensor_idx)] = size
         tensor_shapes[int(tensor_idx)] = [int(dim) for dim in shape]
+
+    print(f"tensor_sizes keys: {list(tensor_sizes.keys())}")
 
     # 提取所有 Reshape 算子的目标形状
     reshape_targets = []
@@ -257,6 +263,7 @@ def generate_c_code(model_info, output_dir,
         "has_fc": has_fc,
         "has_lstm": has_lstm,
         "has_conv": has_conv,
+        "has_dw": has_dw,
         "model_header": "model.h",  # 固定名称，用于 main_test.c 包含
         "lstm_time_steps": lstm_params["time_steps"],
         "lstm_batch_size": lstm_params["batch_size"],

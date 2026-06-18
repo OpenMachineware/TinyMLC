@@ -24,6 +24,9 @@
     {% for out_idx in op.output_indices %}
         int8_t tensor_{{ out_idx }}[{{ tensor_sizes[out_idx] }}] __attribute__((section(".bss")));
     {% endfor %}
+    {% if op.data_input_idx is not none and op.data_input_idx not in op.output_indices %}
+        int8_t tensor_{{ op.data_input_idx }}[{{ tensor_sizes[op.data_input_idx] }}] __attribute__((section(".bss")));
+    {% endif %}
     {% if op.op_name == "SVDF" %}
         {% if op.svdf_weights_idx is not none %}
             int8_t tensor_{{ op.svdf_weights_idx }}[{{ tensor_sizes[op.svdf_weights_idx] }}] __attribute__((section(".bss")));
@@ -192,11 +195,10 @@ void {{ inference_func }}(const int8_t* input1, const int8_t* input2, int8_t* ou
         {% elif op.op_name == "TRANSPOSE" %}
         tmlc_transpose_s8(
             tensor_{{ op.data_input_idx }},
-            NULL,  // perm 暂时传 NULL
+            NULL,
             tensor_{{ op.output_indices[0] }},
             {{ op.transpose_params.input_dims }},
-            (const int[]){ {% for s in tensor_shapes[op.data_input_idx] %}{{ s }}{% if not loop.last %}, {% endif %}{% endfor %} },
-            (const int[]){ {% for s in tensor_shapes[op.output_indices[0]] %}{{ s }}{% if not loop.last %}, {% endif %}{% endfor %} }
+            (const int[]){ {% for s in tensor_shapes[op.data_input_idx] %}{{ s }}{% if not loop.last %}, {% endif %}{% endfor %} }
         );
         {% elif op.op_name == "PAD" %}
         tmlc_pad_s8(
