@@ -19,22 +19,32 @@ def parse_model(model_path: str):
     input_details = interpreter.get_input_details()
     output_details = interpreter.get_output_details()
 
-    # 3. 获取所有张量信息
+    # 3. 获取所有张量信息 获取张量详情后，尝试读取常量张量的数据
     tensor_details = interpreter.get_tensor_details()
     tensor_map = {}
 
     for tensor in tensor_details:
         shape = tensor["shape"]
-        tensor_map[tensor["index"]] = {
+        tensor_info = {
             "name": tensor["name"],
             "shape": list(tensor["shape"]),
             "dtype": str(tensor["dtype"]),
-            "size": int(np.prod(shape)) if shape is not None and len(shape) > 0 else 1,
+            "size": int(np.prod(shape)) if shape is not None and len(
+                shape) > 0 else 1,
             "scale": tensor["quantization"][0] if tensor["quantization"][
                                                       0] is not None else 1.0,
             "zero_point": tensor["quantization"][1] if tensor["quantization"][
                                                            1] is not None else 0,
         }
+
+        # 尝试读取常量张量的数据（用于 Reshape 的目标形状等）
+        try:
+            data = interpreter.get_tensor(tensor["index"])
+            tensor_info["data"] = data
+        except:
+            pass
+
+        tensor_map[tensor["index"]] = tensor_info
 
     # 4. 获取算子列表
     ops = []
@@ -85,9 +95,47 @@ def parse_model(model_path: str):
             op_info["state"] = "translated"
             op_info["pass_flags"]["fc_check"] = "success"
         elif op["op_name"] == "SOFTMAX":
+            if len(op_info["input_indices"]) < 1:
+                fatal_error("SOFTMAX 缺少输入", "检查模型格式")
+            if len(op_info["output_indices"]) < 1:
+                fatal_error("SOFTMAX 缺少输出", "检查模型格式")
             op_info["state"] = "translated"
             op_info["pass_flags"]["softmax_check"] = "success"
         elif op["op_name"] == "RESHAPE":
+            inputs = op_info["input_indices"]
+            if len(inputs) < 2:
+                fatal_error("RESHAPE 缺少目标形状参数", "检查模型格式")
+
+            shape_idx = inputs[1]
+            shape_tensor = tensor_map.get(shape_idx, {})
+
+            # 优先从 data 读取实际值
+            if "data" in shape_tensor:
+                target_shape = [int(s) for s in shape_tensor["data"].flatten()]
+            else:
+                target_shape = shape_tensor.get("shape", [])
+
+            if not target_shape:
+                fatal_error("RESHAPE 无法提取目标形状", "检查模型格式")
+
+            # 处理动态维度 -1
+            if -1 in target_shape:
+                # 获取输入张量的大小
+                input_idx = inputs[0]
+                input_tensor = tensor_map.get(input_idx, {})
+                input_size = input_tensor.get("size", 1)
+
+                # 计算 -1 的实际值
+                other_dims = 1
+                for s in target_shape:
+                    if s != -1:
+                        other_dims *= s
+                if other_dims > 0:
+                    dynamic_size = input_size // other_dims
+                    target_shape = [dynamic_size if s == -1 else s for s in
+                                    target_shape]
+
+            op_info["reshape_target_shape"] = [int(s) for s in target_shape]
             op_info["state"] = "translated"
             op_info["pass_flags"]["reshape_check"] = "success"
         elif op["op_name"] == "UNIDIRECTIONAL_SEQUENCE_LSTM":
