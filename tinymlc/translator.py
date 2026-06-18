@@ -94,9 +94,7 @@ def generate_c_code(model_info,
     info("算子执行顺序:")
     for op in execution_order:
         info(f"  {op['index']}: {op['op_name']}")
-    for op in execution_order:
-        print(
-            f"算子 {op['op_name']} output_indices: {op.get('output_indices', [])}")
+
     for op in ops:
         if op["state"] != "translated":
             fatal_error(

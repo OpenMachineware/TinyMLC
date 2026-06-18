@@ -39,8 +39,6 @@ def parse_model(model_path: str):
     # 4. 获取算子列表
     ops = []
     for op in interpreter._get_ops_details():
-        print(f"op type: {type(op)}")
-        print(f"op keys: {op.keys() if isinstance(op, dict) else dir(op)}")
         # 跳过 DELEGATE 算子
         if op["op_name"] == "DELEGATE":
             continue
@@ -117,10 +115,6 @@ def parse_model(model_path: str):
             op_info["state"] = "translated"
             op_info["pass_flags"]["lstm_check"] = "success"
         elif op["op_name"] == "SVDF":
-            print(f"SVDF inputs: {op['inputs']}")
-            print(f"SVDF outputs: {op['outputs']}")
-            print(f"SVDF input_indices: {op_info['input_indices']}")
-            print(f"SVDF output_indices: {op_info['output_indices']}")
             # SVDF 需要记录权重索引
             inputs = op_info["input_indices"]
             if len(inputs) >= 3:
