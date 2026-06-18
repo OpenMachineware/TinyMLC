@@ -87,5 +87,12 @@ void tmlc_transpose_s8(const int8_t* input,
                        int input_dims,
                        const int* input_shape);
 
+void tmlc_pad_s8(const int8_t* input,
+                 const int32_t* paddings,
+                 int8_t* output,
+                 int input_dims,
+                 const int* input_shape,
+                 const int* output_shape);
+
 
 #endif

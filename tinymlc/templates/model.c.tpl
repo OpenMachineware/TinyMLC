@@ -198,6 +198,15 @@ void {{ inference_func }}(const int8_t* input1, const int8_t* input2, int8_t* ou
             (const int[]){ {% for s in tensor_sizes[op.data_input_idx] %}{{ s }}{% if not loop.last %}, {% endif %}{% endfor %} },
             (const int[]){ {% for s in tensor_sizes[op.output_indices[0]] %}{{ s }}{% if not loop.last %}, {% endif %}{% endfor %} }
         );
+        {% elif op.op_name == "PAD" %}
+        tmlc_pad_s8(
+            tensor_{{ op.data_input_idx }},
+            NULL,  // paddings 暂时传 NULL
+            tensor_{{ op.output_indices[0] }},
+            4,
+            (const int[]){ {% for s in tensor_sizes[op.data_input_idx] %}{{ s }}{% if not loop.last %}, {% endif %}{% endfor %} },
+            (const int[]){ {% for s in tensor_sizes[op.output_indices[0]] %}{{ s }}{% if not loop.last %}, {% endif %}{% endfor %} }
+        );
         {% endif %}
     {% endfor %}
 

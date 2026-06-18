@@ -430,6 +430,15 @@ def parse_model(model_path: str):
         elif op["op_name"] == "QUANTIZE":
             op_info["state"] = "translated"
             op_info["pass_flags"]["quantize_check"] = "success"
+        elif op["op_name"] == "PAD":
+            inputs = op_info["input_indices"]
+            if len(inputs) < 2:
+                fatal_error("PAD 缺少 padding 参数", "检查模型格式")
+
+            op_info["data_input_idx"] = inputs[0]
+            op_info["pad_paddings_idx"] = inputs[1]
+            op_info["state"] = "translated"
+            op_info["pass_flags"]["pad_check"] = "success"
         elif op["op_name"] == "DELEGATE":
             continue  # 跳过
         else:
