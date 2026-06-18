@@ -21,6 +21,9 @@ from tinymlc.utils import fatal_error, warning, info
 
 
 SUPPORTED_OPS = ["FULLY_CONNECTED", "UNIDIRECTIONAL_SEQUENCE_LSTM", "ADD", "SOFTMAX", "RESHAPE", "QUANTIZE", "SVDF"]
+# 回退值，仅在无法从模型读取有效 scale 时使用
+DEFAULT_SCALE = 0.01  # 经验值
+DEFAULT_SHIFT = 8     # 经验值
 
 
 def build_execution_order(ops, tensors):
@@ -84,9 +87,9 @@ def build_execution_order(ops, tensors):
     return order
 
 
-def generate_c_code(model_info,
+def generate_c_code(model_info, output_dir,
                     inference_func="tinymlc_inference",
-                    with_test_main=False, output_dir="."):
+                    with_test_main=False):
     ops = model_info.get("ops", [])
     tensors = model_info.get("tensors", {})
 
@@ -117,12 +120,18 @@ def generate_c_code(model_info,
 
     # 计算输入输出大小
     input_size = 1
-    for dim in model_info['input'][0]['shape']:
-        input_size *= dim
+    for inp in model_info['input']:
+        size = 1
+        for dim in inp['shape']:
+            size *= dim
+        input_size *= size
 
     output_size = 1
-    for dim in model_info['output'][0]['shape']:
-        output_size *= dim
+    for out in model_info['output']:
+        size = 1
+        for dim in out['shape']:
+            size *= dim
+        output_size *= size
 
     # 检测模型包含的算子类型
     has_fc = False
@@ -138,44 +147,38 @@ def generate_c_code(model_info,
             has_lstm = True
             lstm_params = op.get("lstm_params")
 
+    if has_lstm and lstm_params is None:
+        fatal_error("模型包含 LSTM 算子但未提取到参数",
+                    "请检查模型是否为标准 TFLite LSTM 格式")
+    elif has_lstm and lstm_params is not None:
+        # 有 LSTM，计算右移位数
+        input_scales = lstm_params.get("input_scales",
+                                       [DEFAULT_SCALE, DEFAULT_SCALE, DEFAULT_SCALE, DEFAULT_SCALE])
+        recurrent_scales = lstm_params.get("recurrent_scales",
+                                           [DEFAULT_SCALE, DEFAULT_SCALE, DEFAULT_SCALE, DEFAULT_SCALE])
+
+        shifts = []
+        for in_s, rec_s in zip(input_scales, recurrent_scales):
+            gate_scale = in_s * rec_s
+            if gate_scale > 0:
+                shift = int(np.log2(1.0 / gate_scale))
+            else:
+                shift = DEFAULT_SHIFT
+            # 限制 shift 范围，防止 LUT 索引越界
+            shift = max(4, min(shift, 12))  # 经验范围，基于常见模型统计
+            shifts.append(shift)
+
+        lstm_params["shifts"] = shifts
+        info(f"LSTM 右移位数: i={shifts[0]}, f={shifts[1]}, g={shifts[2]}, o={shifts[3]}")
+    else:
+        pass
+
     # 构建 include 列表
     includes = []
     if has_fc:
         includes.append('#include "fc_weights.h"')
     if has_lstm:
         includes.append('#include "lstm_weights.h"')
-
-    if lstm_params is None:
-        warning("未找到 LSTM 参数，使用默认值（可能出错）")
-        lstm_params = {
-            "time_steps": 28,
-            "batch_size": 1,
-            "input_size": 28,
-            "hidden_size": 20,
-            "shifts": [8, 8, 8, 8],  # 默认右移 8 位
-        }
-    else:
-        # 计算每个 gate 的右移位数
-        # 输入权重 scale (i,f,g,o) 和递归权重 scale (i,f,g,o)
-        input_scales = lstm_params.get("input_scales", [0.01, 0.01, 0.01, 0.01])
-        recurrent_scales = lstm_params.get("recurrent_scales",
-                                           [0.01, 0.01, 0.01, 0.01])
-
-        shifts = []
-        for in_s, rec_s in zip(input_scales, recurrent_scales):
-            gate_scale = in_s * rec_s
-            # 计算右移位数：希望 gate >> shift 落在 [-128,127] 范围
-            # shift = floor(log2(1 / gate_scale))
-            if gate_scale > 0:
-                shift = int(np.log2(1.0 / gate_scale))
-            else:
-                shift = 8
-            # 限制范围 4-12，避免溢出
-            shift = max(4, min(shift, 12))
-            shifts.append(shift)
-
-        lstm_params["shifts"] = shifts
-        info(f"LSTM 右移位数: i={shifts[0]}, f={shifts[1]}, g={shifts[2]}, o={shifts[3]}")
 
     tensor_sizes = {}
     for tensor_idx, tensor_info in tensors.items():
@@ -210,19 +213,31 @@ def generate_c_code(model_info,
             }
 
     # 计算输入大小
+    input_size_1 = 0
+    input_size_2 = 0
     if len(model_info["input"]) == 1:
-        input_size_1 = 1
         for dim in model_info["input"][0]["shape"]:
-            input_size_1 *= dim
-        input_size_2 = 0
+            input_size_1 = input_size_1 * dim if input_size_1 else dim
     elif len(model_info["input"]) == 2:
-        input_size_1 = 1
         for dim in model_info["input"][0]["shape"]:
-            input_size_1 *= dim
-        input_size_2 = 1
+            input_size_1 = input_size_1 * dim if input_size_1 else dim
         for dim in model_info["input"][1]["shape"]:
-            input_size_2 *= dim
+            input_size_2 = input_size_2 * dim if input_size_2 else dim
+    else:
+        fatal_error(f"不支持 {len(model_info['input'])} 个输入的模型",
+                    "当前支持 1 或 2 个输入")
 
+    # 确保 lstm_params 有默认值，不为 None（即使没有 LSTM）
+    if lstm_params is None:
+        lstm_params = {
+            "time_steps": 0,
+            "batch_size": 0,
+            "input_size": 0,
+            "hidden_size": 0,
+            "shifts": [8, 8, 8, 8],
+            "input_scale": 0.00390625,
+            "input_zp": 0,
+        }
     context = {
         "input_size": input_size,
         "output_size": output_size,
@@ -247,6 +262,15 @@ def generate_c_code(model_info,
         "INPUT_SIZE_1": input_size_1,
         "INPUT_SIZE_2": input_size_2,
     }
+
+    # 先生成文件，决定是否编译LSTM算子
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    with open(output_dir / "model_features.txt", "w") as f:
+        if has_lstm:
+            f.write("HAS_LSTM\n")
+        if has_fc:
+            f.write("HAS_FC\n")
 
     # 生成 model.c
     with open(template_dir / 'model.c.tpl', 'r') as f:
@@ -402,7 +426,7 @@ def main():
 
     info("正在生成 C 代码...")
     generated_files = generate_c_code(
-        model_info,
+        model_info, output_dir,
         inference_func=args.entry_point,
         with_test_main=args.with_test_main
     )

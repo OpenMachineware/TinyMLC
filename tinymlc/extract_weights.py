@@ -15,6 +15,12 @@ from tinymlc.parser import parse_model
 from tinymlc.utils import fatal_error, warning, info
 
 
+GATE_ORDER = ['i', 'f', 'g', 'o']
+WEIGHTLESS_OPS = ["ADD", "SOFTMAX", "RESHAPE", "QUANTIZE"]
+EXPORT_LINE_WIDTH = 16  # int8 数组每行显示 16 个
+EXPORT_BIAS_LINE_WIDTH = 8  # int32 数组每行显示 8 个
+
+
 def extract_fc_weights(interpreter, op_info):
     """提取 FULLY_CONNECTED 层的权重和 bias"""
     weights_idx = op_info.get("fc_weights_idx")
@@ -129,25 +135,6 @@ def export_bias_to_c(bias, name, output_file):
     output_file.write("\n};\n\n")
 
 
-def extract_quant_params(interpreter):
-    """提取 LSTM 各门的量化参数"""
-    tensor_details = interpreter.get_tensor_details()
-    tensor_map = {t['index']: t for t in tensor_details}
-
-    gate_indices = {'i': 15, 'f': 14, 'g': 13, 'o': 12}
-    quant_params = {}
-
-    for gate, idx in gate_indices.items():
-        tensor = tensor_map.get(idx)
-        if tensor and tensor['quantization']:
-            scale = tensor['quantization'][0]
-            zero_point = tensor['quantization'][1]
-            quant_params[gate] = {'scale': scale, 'zero_point': zero_point}
-            info(f"LSTM gate {gate}: scale={scale}, zero_point={zero_point}")
-
-    return quant_params
-
-
 def export_concatenated_weights(weights_list, output_file, array_name,
                                 dtype='int8'):
     """导出拼接后的权重数组（缺失的门跳过，用零数组补齐）"""
@@ -155,7 +142,7 @@ def export_concatenated_weights(weights_list, output_file, array_name,
     total_size = 0
     missing_gates = []
 
-    for gate in ['i', 'f', 'g', 'o']:
+    for gate in GATE_ORDER:
         w = weights_list.get(gate)
         if w is None:
             missing_gates.append(gate)
@@ -169,7 +156,7 @@ def export_concatenated_weights(weights_list, output_file, array_name,
     if missing_gates:
         warning(f"警告: {missing_gates} 门权重缺失，使用零数组补齐")
         # 从第一个非 None 的权重获取形状
-        for gate in ['i', 'f', 'g', 'o']:
+        for gate in GATE_ORDER:
             w = weights_list.get(gate)
             if w is not None:
                 shape = w.shape
@@ -277,7 +264,7 @@ def main():
         # 检查是否有 ADD、SOFTMAX 等不需要权重的算子
         has_weightless_op = False
         for op in model_info["ops"]:
-            if op["op_name"] in ["ADD", "SOFTMAX", "RESHAPE"]:
+            if op["op_name"] in WEIGHTLESS_OPS:
                 has_weightless_op = True
                 break
 
@@ -326,7 +313,7 @@ def main():
             f"FC 权重: {fc_weights.size} 个 int8, bias: {fc_bias.size} 个 int32")
 
     if lstm_weights:
-        for gate in ['i', 'f', 'g', 'o']:
+        for gate in GATE_ORDER:
             w = lstm_weights['input'].get(gate)
             r = lstm_weights['recurrent'].get(gate)
             b = lstm_weights['bias'].get(gate)

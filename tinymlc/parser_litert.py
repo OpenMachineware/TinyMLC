@@ -54,13 +54,12 @@ def parse_model(model_path: str):
             "pass_flags": {},
             "input_details": [],
             "output_details": [],
-            "state": "created",
-            "pass_flags": {},
         }
 
         # 根据算子类型设置状态
         if op["op_name"] == "ADD":
             inputs = op_info["input_indices"]
+            # 输入数量判断是基于算子规范的，inputs[0] inputs[1] 属合理。
             if len(inputs) >= 2:
                 op_info["add_input1_idx"] = inputs[0]
                 op_info["add_input2_idx"] = inputs[1]
@@ -68,15 +67,18 @@ def parse_model(model_path: str):
             op_info["pass_flags"]["add_check"] = "success"
         elif op["op_name"] == "FULLY_CONNECTED":
             inputs = op_info["input_indices"]
+            # 输入数量判断是基于算子规范的，inputs[0] inputs[1] inputs[2] 属合理。
             if len(inputs) >= 3:
                 op_info["data_input_idx"] = inputs[0]
                 op_info["fc_weights_idx"] = inputs[1]
                 op_info["fc_bias_idx"] = inputs[2]
+            # 输入数量判断是基于算子规范的，inputs[0] inputs[1] 属合理。
             elif len(inputs) >= 2:
                 op_info["data_input_idx"] = inputs[0]
                 op_info["fc_weights_idx"] = inputs[1]
                 op_info["fc_bias_idx"] = None
             else:
+                # 输入数量判断是基于算子规范的，inputs[0] 属合理。
                 op_info["data_input_idx"] = inputs[0]
                 op_info["fc_weights_idx"] = None
                 op_info["fc_bias_idx"] = None
@@ -91,32 +93,50 @@ def parse_model(model_path: str):
         elif op["op_name"] == "UNIDIRECTIONAL_SEQUENCE_LSTM":
             inputs = op_info["input_indices"]
             if len(inputs) >= 13:
+                # TFLite/LiteRT LSTM 输入顺序：
+                # [0] 输入数据, [1-4] 输入门权重, [5-8] 递归权重, [9-12] 偏置
+                # TFLite/LiteRT UNIDIRECTIONAL_SEQUENCE_LSTM 算子的输入顺序：
+                # [0] 输入数据
+                # [1-4] 输入门权重 (i, f, g, o)
+                # [5-8] 递归权重 (i, f, g, o)
+                # [9-12] 偏置 (i, f, g, o)
+                # [13+] 其他参数
                 op_info["lstm_weight_indices"] = {
-                    "input": inputs[1:5],  # [15,14,13,12]
-                    "recurrent": inputs[5:9],  # [11,10,9,8]
-                    "bias": inputs[9:13],  # [7,6,5,4]
+                    "input": inputs[1:5],
+                    "recurrent": inputs[5:9],
+                    "bias": inputs[9:13],
                 }
+
+                # 从输出形状提取 hidden_size
+                output_shape = tensor_map.get(op_info["output_indices"][0],
+                                              {}).get("shape", [])
+                if len(output_shape) >= 3:
+                    hidden_size = output_shape[2]
+                else:
+                    fatal_error("无法从 LSTM 输出形状提取 hidden_size",
+                                "检查模型格式")
+
+                # 从输入形状提取 time_steps, batch_size, input_size
+                input_shape = tensor_map.get(inputs[0], {}).get("shape", [])
+                if len(input_shape) >= 3:
+                    op_info["lstm_params"] = {
+                        "time_steps": input_shape[1],
+                        # [batch, time_steps, input_size]
+                        "batch_size": input_shape[0],
+                        "input_size": input_shape[2],
+                        "hidden_size": hidden_size,
+                    }
+                else:
+                    fatal_error("无法从 LSTM 输入形状提取参数", "检查模型格式")
+
                 op_info["state"] = "translated"
                 op_info["pass_flags"]["lstm_check"] = "success"
             else:
                 fatal_error("LSTM 输入不完整", "检查模型格式")
-
-            # 从输入张量形状提取 LSTM 参数
-            input_shape = tensor_map.get(inputs[0], {}).get("shape", [])
-            if len(input_shape) >= 3:
-                op_info["lstm_params"] = {
-                    "time_steps": input_shape[0],
-                    "batch_size": input_shape[1],
-                    "input_size": input_shape[2],
-                    "hidden_size": 20,  # 从输出形状获取
-                }
-            # 记录 LSTM 参数（从张量形状中提取）
-            # time_steps, input_size, hidden_size 可以从输入/输出张量形状计算
-            op_info["state"] = "translated"
-            op_info["pass_flags"]["lstm_check"] = "success"
         elif op["op_name"] == "SVDF":
             # SVDF 需要记录权重索引
             inputs = op_info["input_indices"]
+            # 输入数量判断是基于算子规范的，inputs[0] inputs[1] inputs[2] 属合理。
             if len(inputs) >= 3:
                 op_info["data_input_idx"] = inputs[0]
                 op_info["svdf_weights_idx"] = inputs[1]
