@@ -1,5 +1,4 @@
 #include "tinymlc.h"
-#include "model.h"
 #include "debug_print.h"
 #include <stddef.h>
 #include "lut.h"

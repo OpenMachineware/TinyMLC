@@ -39,6 +39,8 @@ def parse_model(model_path: str):
     # 4. 获取算子列表
     ops = []
     for op in interpreter._get_ops_details():
+        print(f"op type: {type(op)}")
+        print(f"op keys: {op.keys() if isinstance(op, dict) else dir(op)}")
         # 跳过 DELEGATE 算子
         if op["op_name"] == "DELEGATE":
             continue
@@ -46,10 +48,10 @@ def parse_model(model_path: str):
         op_info = {
             "index": op["index"],
             "op_name": op["op_name"],
-            "inputs": [i for i in op["inputs"] if i != -1],
-            "outputs": [o for o in op["outputs"] if o != -1],
-            "input_indices": [i for i in op["inputs"] if i != -1],
-            "output_indices": [o for o in op["outputs"] if o != -1],
+            "inputs": [inp for inp in op["inputs"] if inp != -1],
+            "outputs": [out for out in op["outputs"] if out != -1],
+            "input_indices": [inp for inp in op["inputs"] if inp != -1],
+            "output_indices": [out for out in op["outputs"] if out != -1],
             "state": "created",
             "pass_flags": {},
             "input_details": [],
@@ -60,21 +62,24 @@ def parse_model(model_path: str):
 
         # 根据算子类型设置状态
         if op["op_name"] == "ADD":
+            inputs = op_info["input_indices"]
+            if len(inputs) >= 2:
+                op_info["add_input1_idx"] = inputs[0]
+                op_info["add_input2_idx"] = inputs[1]
             op_info["state"] = "translated"
             op_info["pass_flags"]["add_check"] = "success"
         elif op["op_name"] == "FULLY_CONNECTED":
-            # FC 的输入顺序通常是: [data, weights, bias]
             inputs = op_info["input_indices"]
             if len(inputs) >= 3:
-                op_info["fc_input_idx"] = inputs[0]
+                op_info["data_input_idx"] = inputs[0]
                 op_info["fc_weights_idx"] = inputs[1]
                 op_info["fc_bias_idx"] = inputs[2]
             elif len(inputs) >= 2:
-                op_info["fc_input_idx"] = inputs[0]
+                op_info["data_input_idx"] = inputs[0]
                 op_info["fc_weights_idx"] = inputs[1]
                 op_info["fc_bias_idx"] = None
             else:
-                op_info["fc_input_idx"] = inputs[0]
+                op_info["data_input_idx"] = inputs[0]
                 op_info["fc_weights_idx"] = None
                 op_info["fc_bias_idx"] = None
             op_info["state"] = "translated"
@@ -111,6 +116,22 @@ def parse_model(model_path: str):
             # time_steps, input_size, hidden_size 可以从输入/输出张量形状计算
             op_info["state"] = "translated"
             op_info["pass_flags"]["lstm_check"] = "success"
+        elif op["op_name"] == "SVDF":
+            print(f"SVDF inputs: {op['inputs']}")
+            print(f"SVDF outputs: {op['outputs']}")
+            print(f"SVDF input_indices: {op_info['input_indices']}")
+            print(f"SVDF output_indices: {op_info['output_indices']}")
+            # SVDF 需要记录权重索引
+            inputs = op_info["input_indices"]
+            if len(inputs) >= 3:
+                op_info["data_input_idx"] = inputs[0]
+                op_info["svdf_weights_idx"] = inputs[1]
+                op_info["svdf_bias_idx"] = inputs[2]
+            op_info["state"] = "translated"
+            op_info["pass_flags"]["svdf_check"] = "success"
+        elif op["op_name"] == "QUANTIZE":
+            op_info["state"] = "translated"
+            op_info["pass_flags"]["quantize_check"] = "success"
         elif op["op_name"] == "DELEGATE":
             continue  # 跳过
         else:
