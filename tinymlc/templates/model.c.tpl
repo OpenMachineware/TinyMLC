@@ -133,6 +133,22 @@ void {{ inference_func }}(const int8_t* input1, const int8_t* input2, int8_t* ou
             {{ op.conv_params.stride_w }},
             0, 0
         );
+        {% elif op.op_name == "MAX_POOL_2D" %}
+        tmlc_max_pool_2d_s8(
+            tensor_{{ op.data_input_idx }},
+            tensor_{{ op.output_indices[0] }},
+            {{ op.pool_params.input_h }},
+            {{ op.pool_params.input_w }},
+            {{ op.pool_params.input_c }},
+            {{ op.pool_params.output_h }},
+            {{ op.pool_params.output_w }},
+            {{ op.pool_params.output_c }},
+            {{ op.pool_params.pool_size_h }},
+            {{ op.pool_params.pool_size_w }},
+            {{ op.pool_params.stride_h }},
+            {{ op.pool_params.stride_w }},
+            0, 0
+        );
         {% endif %}
     {% endfor %}
 

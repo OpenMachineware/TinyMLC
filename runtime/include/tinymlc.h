@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-// 数据类型别名
+
 typedef int8_t  s8;
 typedef uint8_t u8;
 typedef int16_t s16;
@@ -11,7 +11,6 @@ typedef uint16_t u16;
 typedef int32_t s32;
 typedef uint32_t u32;
 
-// FC
 void tmlc_fully_connected_s8(const s8* input,
                               const s8* weights,
                               const s32* bias,
@@ -19,10 +18,8 @@ void tmlc_fully_connected_s8(const s8* input,
                               int input_size,
                               int output_size);
 
-// Softmax
 void tmlc_softmax_s8(const s8* input, s8* output, int size);
 
-// LSTM
 void tmlc_unidirectional_sequence_lstm_s8(
     const int8_t* input,
     const int8_t* input_weights,
@@ -36,19 +33,15 @@ void tmlc_unidirectional_sequence_lstm_s8(
     int input_size,
     int hidden_size);
 
-// Reshape
 void tmlc_reshape_s8(const int8_t* input, int8_t* output,
                      int input_size, const int* new_shape, int shape_size);
 
-// ADD 算子：逐元素相加
 void tmlc_add_s8(const int8_t* input1, const int8_t* input2, int8_t* output, int size);
 
-// SVDF 算子：用于关键词识别等序列任务
 void tmlc_svdf_s8(const int8_t* input, const int8_t* weights,
                   const int32_t* bias, int8_t* output, int time_steps,
                   int input_size, int rank, int units);
 
-// Conv2D
 void tmlc_conv2d_s8(const int8_t* input,
                     const int8_t* weights,
                     const int32_t* bias,
@@ -58,5 +51,13 @@ void tmlc_conv2d_s8(const int8_t* input,
                     int kernel_h, int kernel_w,
                     int stride_h, int stride_w,
                     int padding_h, int padding_w);
+
+void tmlc_max_pool_2d_s8(const int8_t* input,
+                         int8_t* output,
+                         int input_h, int input_w, int input_c,
+                         int output_h, int output_w, int output_c,
+                         int pool_h, int pool_w,
+                         int stride_h, int stride_w,
+                         int padding_h, int padding_w);
 
 #endif

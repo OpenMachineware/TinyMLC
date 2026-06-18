@@ -5,7 +5,7 @@ from ai_edge_litert.interpreter import Interpreter
 from ai_edge_litert.compiled_model import CompiledModel
 import numpy as np
 
-from tinymlc.utils import fatal_error, info
+from tinymlc.utils import fatal_error, info, warning
 
 
 def parse_model(model_path: str):
@@ -262,6 +262,57 @@ def parse_model(model_path: str):
 
             op_info["state"] = "translated"
             op_info["pass_flags"]["conv_check"] = "success"
+        elif op["op_name"] == "MAX_POOL_2D":
+            inputs = op_info["input_indices"]
+            if len(inputs) < 1:
+                fatal_error("MAX_POOL_2D 缺少输入", "检查模型格式")
+
+            op_info["data_input_idx"] = inputs[0]
+
+            # 从输入输出形状提取参数
+            input_idx = inputs[0]
+            output_idx = op_info["output_indices"][0]
+
+            input_tensor = tensor_map.get(input_idx, {})
+            output_tensor = tensor_map.get(output_idx, {})
+
+            input_shape = input_tensor.get("shape", [])
+            output_shape = output_tensor.get("shape", [])
+
+            # 默认参数
+            pool_size_h = 2
+            pool_size_w = 2
+            stride_h = 2
+            stride_w = 2
+            padding = "VALID"
+
+            if len(input_shape) >= 4 and len(output_shape) >= 4:
+                input_h = input_shape[1]
+                input_w = input_shape[2]
+                output_h = output_shape[1]
+                output_w = output_shape[2]
+
+                # 从输入输出推断 stride
+                if input_h > output_h:
+                    stride_h = input_h // output_h if output_h > 0 else 1
+                    stride_w = input_w // output_w if output_w > 0 else 1
+
+            op_info["pool_params"] = {
+                "input_h": input_shape[1] if len(input_shape) >= 4 else 0,
+                "input_w": input_shape[2] if len(input_shape) >= 4 else 0,
+                "input_c": input_shape[3] if len(input_shape) >= 4 else 0,
+                "output_h": output_shape[1] if len(output_shape) >= 4 else 0,
+                "output_w": output_shape[2] if len(output_shape) >= 4 else 0,
+                "output_c": output_shape[3] if len(output_shape) >= 4 else 0,
+                "pool_size_h": pool_size_h,
+                "pool_size_w": pool_size_w,
+                "stride_h": stride_h,
+                "stride_w": stride_w,
+                "padding": padding,
+            }
+
+            op_info["state"] = "translated"
+            op_info["pass_flags"]["pool_check"] = "success"
         elif op["op_name"] == "QUANTIZE":
             op_info["state"] = "translated"
             op_info["pass_flags"]["quantize_check"] = "success"
@@ -269,6 +320,7 @@ def parse_model(model_path: str):
             continue  # 跳过
         else:
             # 未知算子，保持 created
+            warning('出现未知算子，可以提交issue或者patch set了')
             pass
 
         # 添加输入输出详细信息
