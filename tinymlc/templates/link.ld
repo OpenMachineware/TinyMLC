@@ -3,20 +3,20 @@ ENTRY(_start)
 
 MEMORY
 {
-    RAM (rwx) : ORIGIN = 0x80000000, LENGTH = 32M
+    RAM_CODE (rx)  : ORIGIN = 0x80000000, LENGTH = 16M
+    RAM_DATA (rw)  : ORIGIN = 0x81000000, LENGTH = 16M
 }
 
 SECTIONS
 {
-    .text : { *(.text*) } > RAM
-    .rodata : { *(.rodata*) } > RAM
-    .data : { *(.data*) } > RAM
-
+    .text : { *(.text*) } > RAM_CODE
+    .rodata : { *(.rodata*) } > RAM_DATA
+    .data : { *(.data*) } > RAM_DATA
     .bss : {
         _sbss = .;
         *(.bss*)
         *(COMMON)
         . = ALIGN(4);
         _ebss = .;
-    } > RAM
+    } > RAM_DATA
 }
