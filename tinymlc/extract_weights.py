@@ -5,13 +5,13 @@
 
 import sys
 import argparse
-import tensorflow as tf
 import numpy as np
 from pathlib import Path
+from ai_edge_litert.interpreter import Interpreter as LiteRTInterpreter
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from tinymlc.parser import parse_model
+from tinymlc.parser_litert import parse_model
 from tinymlc.utils import fatal_error, warning, info
 
 
@@ -232,10 +232,10 @@ def main():
 
     # 1. 加载模型并解析
     info(f"正在加载模型: {args.model}")
-    interpreter = tf.lite.Interpreter(model_path=args.model)
+    interpreter = LiteRTInterpreter(model_path=args.model)
     interpreter.allocate_tensors()
 
-    model_info = parse_model(interpreter)
+    model_info = parse_model(args.model)
 
     # 2. 查找算子信息
     fc_op_info = None

@@ -7,9 +7,9 @@ TinyMLC - TinyML Compiler
 import sys
 import argparse
 import numpy as np
-import tensorflow as tf
 from pathlib import Path
 from jinja2 import Template
+from ai_edge_litert.interpreter import Interpreter as LiteRTInterpreter
 
 from tinymlc.extract_weights import (extract_fc_weights, extract_lstm_weights,
                                      export_weights_to_c, export_bias_to_c,
@@ -324,7 +324,7 @@ def main():
     model_info = parse_model(args.model)
 
     # 2. 创建 interpreter 用于提取权重（暂时保留）
-    interpreter = tf.lite.Interpreter(model_path=args.model)
+    interpreter = LiteRTInterpreter(model_path=args.model)
     interpreter.allocate_tensors()
 
     if args.verbose:
