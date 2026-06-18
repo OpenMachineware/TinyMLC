@@ -439,6 +439,33 @@ def parse_model(model_path: str):
             op_info["pad_paddings_idx"] = inputs[1]
             op_info["state"] = "translated"
             op_info["pass_flags"]["pad_check"] = "success"
+        elif op["op_name"] == "MEAN":
+            inputs = op_info["input_indices"]
+            if len(inputs) < 1:
+                fatal_error("MEAN 缺少输入", "检查模型格式")
+
+            op_info["data_input_idx"] = inputs[0]
+            # 如果存在 axis 参数，记录它
+            if len(inputs) >= 2:
+                op_info["mean_axis_idx"] = inputs[1]
+
+            # 从输入输出形状提取参数
+            input_idx = inputs[0]
+            output_idx = op_info["output_indices"][0]
+
+            input_tensor = tensor_map.get(input_idx, {})
+            output_tensor = tensor_map.get(output_idx, {})
+
+            input_shape = input_tensor.get("shape", [])
+            output_shape = output_tensor.get("shape", [])
+
+            op_info["mean_params"] = {
+                "input_dims": len(input_shape),
+                "output_dims": len(output_shape),
+            }
+
+            op_info["state"] = "translated"
+            op_info["pass_flags"]["mean_check"] = "success"
         elif op["op_name"] == "DELEGATE":
             continue  # 跳过
         else:

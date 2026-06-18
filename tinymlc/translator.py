@@ -189,11 +189,14 @@ def generate_c_code(model_info, output_dir,
         includes.append('#include "conv_weights.h"')
 
     tensor_sizes = {}
+    tensor_shapes = {}
     for tensor_idx, tensor_info in tensors.items():
         size = 1
-        for dim in tensor_info.get("shape", []):
-            size *= dim
-        tensor_sizes[tensor_idx] = size
+        shape = tensor_info.get("shape", [])
+        for dim in shape:
+            size *= int(dim)
+        tensor_sizes[int(tensor_idx)] = size
+        tensor_shapes[int(tensor_idx)] = [int(dim) for dim in shape]
 
     # 提取所有 Reshape 算子的目标形状
     reshape_targets = []
@@ -263,6 +266,7 @@ def generate_c_code(model_info, output_dir,
         "lstm_input_zp": lstm_params.get("input_zp", 0),
         "lstm_shifts": lstm_params.get("shifts", [8, 8, 8, 8]),  # 默认 8
         "tensor_sizes": tensor_sizes,
+        "tensor_shapes": tensor_shapes,
         "execution_order": execution_order,
         "last_output_tensor": execution_order[-1]["output_indices"][0],
         "reshape_targets": reshape_targets,

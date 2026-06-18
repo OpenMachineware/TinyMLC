@@ -94,5 +94,14 @@ void tmlc_pad_s8(const int8_t* input,
                  const int* input_shape,
                  const int* output_shape);
 
+void tmlc_mean_s8(const int8_t* input,
+                  int8_t* output,
+                  int input_dims,
+                  const int* input_shape,
+                  const int* output_shape,
+                  const int32_t* axis,
+                  int axis_count,
+                  int keep_dims);
+
 
 #endif
