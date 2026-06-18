@@ -320,6 +320,27 @@ def generate_c_code(model_info, output_dir,
     return result
 
 
+def generate_debug_print(output_dir: Path, target: str):
+    """生成 debug_print.c"""
+    # 根据目标架构选择 UART 地址
+    uart_addresses = {
+        "riscv": "0x10000000",
+        "arm": "0x40000000",  # ARM 的 UART 地址（示例）
+    }
+    uart_address = uart_addresses.get(target, "0x10000000")
+
+    template_path = Path(__file__).parent / 'templates' / 'debug_print.c.tpl'
+    with open(template_path, 'r') as f:
+        template = Template(f.read())
+
+    content = template.render(uart_address=uart_address)
+
+    output_path = output_dir / 'debug_print.c'
+    with open(output_path, 'w') as f:
+        f.write(content)
+    info(f"生成: {output_path}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="tinymlc - TinyML Compiler")
     parser.add_argument("model", help="TFLite 模型文件路径")
@@ -469,6 +490,9 @@ def main():
 
     # 生成 LUT
     generate_lut(output_dir)
+
+    # 生成 debug_print.c
+    generate_debug_print(output_dir, target="riscv")
 
     info(f"完成! 输出目录: {output_dir}")
 
