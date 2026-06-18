@@ -73,5 +73,12 @@ void tmlc_depthwise_conv_2d_s8(const int8_t* input,
 
 void tmlc_relu_s8(const int8_t* input, int8_t* output, int size);
 
+void tmlc_avg_pool_2d_s8(const int8_t* input,
+                         int8_t* output,
+                         int input_h, int input_w, int input_c,
+                         int output_h, int output_w, int output_c,
+                         int pool_h, int pool_w,
+                         int stride_h, int stride_w,
+                         int padding_h, int padding_w);
 
 #endif

@@ -357,6 +357,52 @@ def parse_model(model_path: str):
                 fatal_error("RELU 缺少输出", "检查模型格式")
             op_info["state"] = "translated"
             op_info["pass_flags"]["relu_check"] = "success"
+        elif op["op_name"] == "AVERAGE_POOL_2D":
+            inputs = op_info["input_indices"]
+            if len(inputs) < 1:
+                fatal_error("AVERAGE_POOL_2D 缺少输入", "检查模型格式")
+
+            op_info["data_input_idx"] = inputs[0]
+
+            input_idx = inputs[0]
+            output_idx = op_info["output_indices"][0]
+
+            input_tensor = tensor_map.get(input_idx, {})
+            output_tensor = tensor_map.get(output_idx, {})
+
+            input_shape = input_tensor.get("shape", [])
+            output_shape = output_tensor.get("shape", [])
+
+            pool_h = 2
+            pool_w = 2
+            stride_h = 2
+            stride_w = 2
+
+            if len(input_shape) >= 4 and len(output_shape) >= 4:
+                input_h = input_shape[1]
+                input_w = input_shape[2]
+                output_h = output_shape[1]
+                output_w = output_shape[2]
+                if input_h > output_h and output_h > 0:
+                    stride_h = input_h // output_h
+                    stride_w = input_w // output_w
+
+            op_info["pool_params"] = {
+                "input_h": input_shape[1] if len(input_shape) >= 4 else 0,
+                "input_w": input_shape[2] if len(input_shape) >= 4 else 0,
+                "input_c": input_shape[3] if len(input_shape) >= 4 else 0,
+                "output_h": output_shape[1] if len(output_shape) >= 4 else 0,
+                "output_w": output_shape[2] if len(output_shape) >= 4 else 0,
+                "output_c": output_shape[3] if len(output_shape) >= 4 else 0,
+                "pool_h": pool_h,
+                "pool_w": pool_w,
+                "stride_h": stride_h,
+                "stride_w": stride_w,
+                "padding": "VALID",
+            }
+
+            op_info["state"] = "translated"
+            op_info["pass_flags"]["avg_pool_check"] = "success"
         elif op["op_name"] == "QUANTIZE":
             op_info["state"] = "translated"
             op_info["pass_flags"]["quantize_check"] = "success"
