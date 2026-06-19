@@ -322,7 +322,7 @@ def generate_c_code(model_info, output_dir,
     return result
 
 
-def generate_debug_print(output_dir: Path, target: str):
+def generate_debug_print(output_dir, target):
     """生成 debug_print.c"""
     # 根据目标架构选择 UART 地址
     uart_addresses = {
@@ -343,9 +343,15 @@ def generate_debug_print(output_dir: Path, target: str):
     info(f"生成: {output_path}")
 
 
-def generate_build_script(output_dir: Path, target: str, model_path:Path,
-                          mode: str = "debug"):
-    """生成 build.sh 脚本"""
+def generate_build_script(output_dir, target, model_path, mode,
+                          acc_lib_inc, acc_lib_lib):
+    # 计算库目录
+    acc_lib_dir = str(Path(acc_lib_lib).parent) if acc_lib_lib else ""
+    acc_lib_name = Path(acc_lib_lib).stem if acc_lib_lib else ""
+    # 去掉 "lib" 前缀（如果是静态库）
+    if acc_lib_name.startswith("lib"):
+        acc_lib_name = acc_lib_name[3:]
+
     # 工具链配置
     toolchains = {
         "riscv": {
@@ -353,12 +359,18 @@ def generate_build_script(output_dir: Path, target: str, model_path:Path,
             "sim": "qemu-system-riscv32",
             "arch": "rv32imac",
             "abi": "ilp32",
+            "acc_lib_inc": acc_lib_inc or "",
+            "acc_lib_dir": acc_lib_dir,
+            "acc_lib_name": acc_lib_name,
         },
         "arm": {
             "cc": "arm-none-eabi-gcc",
             "sim": "qemu-system-arm",
             "arch": "armv7-m",
             "abi": "aapcs",
+            "acc_lib_inc": acc_lib_inc or "",
+            "acc_lib_dir": acc_lib_dir,
+            "acc_lib_name": acc_lib_name,
         },
     }
 
@@ -400,7 +412,13 @@ def main():
                         help="生成后自动运行构建脚本")
     parser.add_argument("--arch", default="riscv",
                         help="目标芯片架构 (默认: riscv)")
-    parser.add_argument("-o", "--output_dir", default="tinymlc_generated",
+    parser.add_argument("--acc-lib-inc",
+                        default="third_party/CMSIS-NN-7.0.0/Include",
+                        help="算子加速库头文件路径")
+    parser.add_argument("--acc-lib-lib",
+                        default="third_party/CMSIS-NN-7.0.0/Lib/libcmsis-nn.a",
+                        help="算子加速库静态库路径")
+    parser.add_argument("-o", "--output-dir", default="tinymlc_generated",
                         help="输出目录 (默认: tinymlc_generated)")
     parser.add_argument("-v", "--verbose", action="store_true", help="打印详细信息")
 
@@ -545,13 +563,14 @@ def main():
 
     target = args.arch
     # 生成 debug_print.c
-    generate_debug_print(output_dir, target=target)
+    generate_debug_print(output_dir, target)
 
     mode = "debug" if args.with_test_main else "release"
+    acc_lib_inc = args.acc_lib_inc
+    acc_lib_lib = args.acc_lib_lib
     # 生成 build.sh
-    generate_build_script(output_dir, target=target,
-                          model_path=Path(args.model),
-                          mode=mode)
+    generate_build_script(output_dir, target, Path(args.model), mode,
+                          acc_lib_inc, acc_lib_lib)
 
     script_name = f"build_{target}_{mode}.sh"
 

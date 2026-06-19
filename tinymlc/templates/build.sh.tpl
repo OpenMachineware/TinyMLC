@@ -37,8 +37,23 @@ CFLAGS_ARCH="-march=$ARCH -mabi=$ABI"
 {% elif target == "arm" %}
 CFLAGS_ARCH="-mcpu=cortex-m4 -mthumb -mabi=$ABI"
 {% endif %}
+
+{% if mode == "debug" %}
 CFLAGS_DEBUG="-DTINYMLC_DEBUG"
+{% else %}
+CFLAGS_DEBUG=""
+{% endif %}
+
+{% if target == "arm" and acc_lib_inc and acc_lib_dir and acc_lib_name %}
+CFLAGS_INC="-I../runtime/include -I../runtime/c -I../runtime -I../runtime/lstm/c -I. -I{{ acc_lib_inc }}"
+LDFLAGS="-L{{ acc_lib_dir }} -l{{ acc_lib_name }}"
+{% elif target == "riscv" %}
 CFLAGS_INC="-I../runtime/include -I../runtime/c -I../runtime -I../runtime/lstm/c -I."
+LDFLAGS=""
+{% else %}
+CFLAGS_INC="-I../runtime/include -I../runtime/c -I../runtime -I../runtime/lstm/c -I."
+LDFLAGS=""
+{% endif %}
 
 CFLAGS="$CFLAGS_ARCH $CFLAGS_COMMON $CFLAGS_DEBUG $CFLAGS_INC"
 
@@ -90,6 +105,7 @@ $CC $CFLAGS -c main_test.c -o main_test.o
 {% if mode == "debug" %}
 # ========== 链接 ==========
 $CC -nostartfiles -T $LD_SCRIPT -Wl,--no-dynamic-linker \
+    $LDFLAGS \
     start.o debug_print.o \
     fc.o softmax.o reshape.o add.o svdf.o conv2d.o max_pool2d.o \
     depthwise_conv2d.o relu.o avg_pool2d.o transpose.o pad.o mean.o \
