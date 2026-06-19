@@ -32,11 +32,22 @@ ABI="{{ abi }}"
 
 # ========== 编译选项 ==========
 CFLAGS_COMMON="-nostdlib -ffreestanding -fno-omit-frame-pointer -nostartfiles -nodefaultlibs"
+{% if target == "riscv" %}
 CFLAGS_ARCH="-march=$ARCH -mabi=$ABI"
+{% elif target == "arm" %}
+CFLAGS_ARCH="-mcpu=cortex-m4 -mthumb -mabi=$ABI"
+{% endif %}
 CFLAGS_DEBUG="-DTINYMLC_DEBUG"
 CFLAGS_INC="-I../runtime/include -I../runtime/c -I../runtime -I../runtime/lstm/c -I."
 
 CFLAGS="$CFLAGS_ARCH $CFLAGS_COMMON $CFLAGS_DEBUG $CFLAGS_INC"
+
+# ========== 链接脚本 ==========
+{% if target == "riscv" %}
+LD_SCRIPT="../tinymlc/templates/link_riscv.ld"
+{% elif target == "arm" %}
+LD_SCRIPT="../tinymlc/templates/link_arm.ld"
+{% endif %}
 
 # ========== 编译 C 算子 ==========
 $CC $CFLAGS -c ../runtime/c/fc.c -o fc.o
@@ -78,7 +89,7 @@ $CC $CFLAGS -c main_test.c -o main_test.o
 
 {% if mode == "debug" %}
 # ========== 链接 ==========
-$CC -nostartfiles -T ../tinymlc/templates/link.ld -Wl,--no-dynamic-linker \
+$CC -nostartfiles -T $LD_SCRIPT -Wl,--no-dynamic-linker \
     start.o debug_print.o \
     fc.o softmax.o reshape.o add.o svdf.o conv2d.o max_pool2d.o \
     depthwise_conv2d.o relu.o avg_pool2d.o transpose.o pad.o mean.o \
@@ -87,7 +98,11 @@ $CC -nostartfiles -T ../tinymlc/templates/link.ld -Wl,--no-dynamic-linker \
     -o model.elf
 
 # ========== 模拟运行 ==========
-$SIM -M virt -nographic -bios none -kernel model.elf
+    {% if target == "riscv" %}
+    $SIM -M virt -nographic -bios none -kernel model.elf
+    {% elif target == "arm" %}
+    $SIM -M virt -nographic -kernel model.elf
+    {% endif %}
 {% else %}
 echo -e "${BLUE}[INFO] Release 模式：已生成所有 .o 文件，跳过链接${RESET}"
 echo -e "${BLUE}[INFO] 如需链接，请手动执行：${RESET}"

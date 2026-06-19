@@ -327,7 +327,7 @@ def generate_debug_print(output_dir: Path, target: str):
     # 根据目标架构选择 UART 地址
     uart_addresses = {
         "riscv": "0x10000000",
-        "arm": "0x40000000",  # ARM 的 UART 地址（示例）
+        "arm": "0x09000000",
     }
     uart_address = uart_addresses.get(target, "0x10000000")
 
@@ -358,7 +358,7 @@ def generate_build_script(output_dir: Path, target: str, model_path:Path,
             "cc": "arm-none-eabi-gcc",
             "sim": "qemu-system-arm",
             "arch": "armv7-m",
-            "abi": "eabi",
+            "abi": "aapcs",
         },
     }
 
@@ -368,8 +368,6 @@ def generate_build_script(output_dir: Path, target: str, model_path:Path,
     with open(template_path, 'r') as f:
         template = Template(f.read())
 
-    # debug 模式带 --with-test-main
-    # release 模式不带
     content = template.render(
         target=target,
         cc=config["cc"],
@@ -377,7 +375,7 @@ def generate_build_script(output_dir: Path, target: str, model_path:Path,
         arch=config["arch"],
         abi=config["abi"],
         mode=mode,
-        model_path=model_path,
+        model_path=str(model_path),
     )
 
     script_name = f"build_{target}_{mode}.sh"
@@ -545,10 +543,10 @@ def main():
     # 生成 LUT
     generate_lut(output_dir)
 
-    # 生成 debug_print.c
-    generate_debug_print(output_dir, target="riscv")
-
     target = args.arch
+    # 生成 debug_print.c
+    generate_debug_print(output_dir, target=target)
+
     mode = "debug" if args.with_test_main else "release"
     # 生成 build.sh
     generate_build_script(output_dir, target=target,
