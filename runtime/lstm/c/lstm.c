@@ -1,6 +1,6 @@
 #include "tinymlc.h"
 #include "lut.h"
-#include "../../debug_print.h"
+#include "debug_print.h"
 
 // 默认宏
 #ifndef LSTM_SHIFT_I

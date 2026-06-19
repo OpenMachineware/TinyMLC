@@ -4,6 +4,8 @@ TinyMLC - TinyML Compiler
 将 TFLite 模型转换为 MCU 可执行的 C 代码
 """
 
+import os
+import subprocess
 import sys
 import argparse
 import numpy as np
@@ -341,6 +343,54 @@ def generate_debug_print(output_dir: Path, target: str):
     info(f"生成: {output_path}")
 
 
+def generate_build_script(output_dir: Path, target: str, model_path:Path,
+                          mode: str = "debug"):
+    """生成 build.sh 脚本"""
+    # 工具链配置
+    toolchains = {
+        "riscv": {
+            "cc": "riscv-none-elf-gcc",
+            "sim": "qemu-system-riscv32",
+            "arch": "rv32imac",
+            "abi": "ilp32",
+        },
+        "arm": {
+            "cc": "arm-none-eabi-gcc",
+            "sim": "qemu-system-arm",
+            "arch": "armv7-m",
+            "abi": "eabi",
+        },
+    }
+
+    config = toolchains.get(target, toolchains["riscv"])
+
+    template_path = Path(__file__).parent / 'templates' / 'build.sh.tpl'
+    with open(template_path, 'r') as f:
+        template = Template(f.read())
+
+    # debug 模式带 --with-test-main
+    # release 模式不带
+    content = template.render(
+        target=target,
+        cc=config["cc"],
+        sim=config["sim"],
+        arch=config["arch"],
+        abi=config["abi"],
+        mode=mode,
+        model_path=model_path,
+    )
+
+    script_name = f"build_{target}_{mode}.sh"
+    output_path = output_dir / script_name
+    with open(output_path, 'w') as f:
+        f.write(content)
+    try:
+        os.chmod(output_path, 0o755)
+    except OSError:
+        warning('目前构建脚本生成对Windows支持不是很完善，可以先使用WSL')
+    info(f"生成: {output_path}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="tinymlc - TinyML Compiler")
     parser.add_argument("model", help="TFLite 模型文件路径")
@@ -348,7 +398,11 @@ def main():
                         help="推理函数名称 (默认: tinymlc_inference)")
     parser.add_argument("--with-test-main", action="store_true",
                         help="生成测试用的 main 函数")
-    parser.add_argument("-o", "--output-dir", default="tinymlc_generated",
+    parser.add_argument("--run", action="store_true",
+                        help="生成后自动运行构建脚本")
+    parser.add_argument("--arch", default="riscv",
+                        help="目标芯片架构 (默认: riscv)")
+    parser.add_argument("-o", "--output_dir", default="tinymlc_generated",
                         help="输出目录 (默认: tinymlc_generated)")
     parser.add_argument("-v", "--verbose", action="store_true", help="打印详细信息")
 
@@ -494,12 +548,37 @@ def main():
     # 生成 debug_print.c
     generate_debug_print(output_dir, target="riscv")
 
-    info(f"完成! 输出目录: {output_dir}")
+    target = args.arch
+    mode = "debug" if args.with_test_main else "release"
+    # 生成 build.sh
+    generate_build_script(output_dir, target=target,
+                          model_path=Path(args.model),
+                          mode=mode)
 
+    script_name = f"build_{target}_{mode}.sh"
+
+    # 从脚本直接运行
+    if args.run:
+        script_path = output_dir / script_name
+
+        try:
+            os.chmod(script_path, 0o755)
+        except OSError:
+            pass
+
+        info(f"执行: {script_path} {args.model}")
+        script_abs_path = script_path.resolve()
+        result = subprocess.run(
+            [str(script_abs_path), args.model],
+            cwd=output_dir,
+        )
+        sys.exit(result.returncode)
+
+    info(f"完成! 输出目录: {output_dir}")
     info("\n下一步:")
-    info(f"  1. 查看生成的代码: ls {output_dir}")
-    info(f"  2. 编译: cd {output_dir} && build.sh")
-    info(f"  3. 链接并烧录到 MCU")
+    info(f"  cd {output_dir}")
+    info(f"  {script_name} {args.model}")
+    info(f"  链接并烧录到 MCU")
 
     return 0
 
