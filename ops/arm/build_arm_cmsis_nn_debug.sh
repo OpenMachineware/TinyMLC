@@ -7,10 +7,8 @@ CC="arm-none-eabi-gcc"
 SIM="qemu-system-arm"
 ARCH="cortex-m4"
 ABI="aapcs"
-
-# CMSIS-NN 路径（用户需要修改或通过环境变量设置）
-CMSIS_NN_INC="${CMSIS_NN_INC:-/opt/CMSIS-NN/Include}"
-CMSIS_NN_LIB="${CMSIS_NN_LIB:-/opt/CMSIS-NN/Lib/libcmsisnn.a}"
+CMSIS_NN_INC="../third_party/CMSIS-NN-7.0.0/Include"
+CMSIS_NN_LIB="../third_party/CMSIS-NN-7.0.0/Lib/libcmsisnn.a"
 
 CFLAGS="-mcpu=$ARCH -mthumb -mabi=$ABI -nostdlib -ffreestanding -fno-omit-frame-pointer -DTINYMLC_DEBUG -I./include -I./c -I. -I$CMSIS_NN_INC"
 

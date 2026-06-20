@@ -6,6 +6,8 @@ MODEL_PATH="${1:-trained_lstm_int8.tflite}"
 CC="arm-none-eabi-gcc"
 ARCH="cortex-m4"
 ABI="aapcs"
+CMSIS_NN_INC="../third_party/CMSIS-NN-7.0.0/Include"
+CMSIS_NN_LIB="../third_party/CMSIS-NN-7.0.0/Lib/libcmsisnn.a"
 
 CMSIS_NN_INC="${CMSIS_NN_INC:-/opt/CMSIS-NN/Include}"
 CMSIS_NN_LIB="${CMSIS_NN_LIB:-/opt/CMSIS-NN/Lib/libcmsisnn.a}"
