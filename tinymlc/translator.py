@@ -4,7 +4,7 @@ TinyMLC - TinyML Compiler
 将 TFLite 模型转换为 MCU 可执行的 C 代码
 """
 
-import os
+import stat
 import subprocess
 import sys
 import argparse
@@ -361,12 +361,19 @@ def copy_files_to_build(output_dir: Path, target: str, mode: str, accel: str):
 
     # 4. 拷贝对应的 build 脚本
     if accel != 'none':
-        build_script = src_dir / f"build_{target}_{accel}_{mode}.sh"
+        build_script = src_dir / f"build_{target}_{accel.replace("-", "_")}_{mode}.sh"
     else:
         build_script = src_dir / f"build_{target}_{mode}.sh"
 
     if Path(build_script).exists():
-        shutil.copy2(build_script, output_dir / build_script.name)
+        dest_build_script = output_dir / build_script.name
+        shutil.copy2(build_script, dest_build_script)
+        try:
+            current_mode = dest_build_script.stat().st_mode
+            dest_build_script.chmod(
+                current_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+        except OSError:
+            pass
     else:
         fatal_error(f"构建脚本不存在: {build_script}",
                     suggestion=f"请检查加速器类型 {accel} 是否支持")
@@ -553,7 +560,9 @@ def main():
         script_path = output_dir / script_name
 
         try:
-            os.chmod(script_path, 0o755)
+            current_mode = script_path.stat().st_mode
+            script_path.chmod(
+                current_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
         except OSError:
             pass
 
