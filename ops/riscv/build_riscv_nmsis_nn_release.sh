@@ -12,8 +12,6 @@ NMSIS_NN_LIB="${NMSIS_NN_LIB:-/opt/NMSIS-NN/Lib/libnmsisnn.a}"
 
 CFLAGS="-march=$ARCH -mabi=$ABI -nostdlib -ffreestanding -fno-omit-frame-pointer -nostartfiles -nodefaultlibs -I./include -I./c -I. -I$NMSIS_NN_INC"
 
-cd tinymlc_generated/
-
 # ========== 编译 RISC-V 加速算子 ==========
 $CC $CFLAGS -c riscv/op_fc.c -o op_fc.o
 $CC $CFLAGS -c riscv/op_softmax.c -o op_softmax.o

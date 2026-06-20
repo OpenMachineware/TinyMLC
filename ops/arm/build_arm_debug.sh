@@ -10,8 +10,6 @@ ABI="aapcs"
 
 CFLAGS="-mcpu=$ARCH -mthumb -mabi=$ABI -nostdlib -ffreestanding -fno-omit-frame-pointer -DTINYMLC_DEBUG -I./include -I./c -I."
 
-cd tinymlc_generated/
-
 # ========== 编译 C 算子 ==========
 $CC $CFLAGS -c c/op_fc.c -o op_fc.o
 $CC $CFLAGS -c c/op_softmax.c -o op_softmax.o

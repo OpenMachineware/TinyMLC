@@ -553,7 +553,10 @@ def main():
     # 生成 build.sh
     copy_files_to_build(output_dir, target, mode, args.accel)
 
-    script_name = f"build_{target}_{mode}.sh"
+    if args.accel != 'none':
+        script_name = f"build_{target}_{args.accel.replace("-", "_")}_{mode}.sh"
+    else:
+        script_name = f"build_{target}_{mode}.sh"
 
     # 从脚本直接运行
     if args.run:
@@ -577,7 +580,7 @@ def main():
     info(f"完成! 输出目录: {output_dir}")
     info("\n下一步:")
     info(f"  cd {output_dir}")
-    info(f"  {script_name} {args.model}")
+    info(f"  ./{script_name} {args.model}")
     info(f"  链接并烧录到 MCU")
 
     return 0

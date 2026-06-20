@@ -12,8 +12,6 @@ CMSIS_NN_LIB="${CMSIS_NN_LIB:-/opt/CMSIS-NN/Lib/libcmsisnn.a}"
 
 CFLAGS="-mcpu=$ARCH -mthumb -mabi=$ABI -nostdlib -ffreestanding -fno-omit-frame-pointer -I./include -I./c -I. -I$CMSIS_NN_INC"
 
-cd tinymlc_generated/
-
 # ========== 编译 ARM 加速算子 ==========
 $CC $CFLAGS -c arm/op_fc.c -o op_fc.o
 $CC $CFLAGS -c arm/op_softmax.c -o op_softmax.o
