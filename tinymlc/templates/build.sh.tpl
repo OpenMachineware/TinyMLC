@@ -2,9 +2,6 @@
 # 自动生成的构建脚本，请勿手动修改
 # 由 tinymlc 自动生成
 
-# 用法: ./build.sh <model_path>
-# 示例: ./build.sh ../tflite-micro/.../micro_speech_lstm.tflite
-
 RED="\033[31m"
 YELLOW="\033[33m"
 BLUE="\033[34m"
@@ -64,7 +61,23 @@ LD_SCRIPT="../tinymlc/templates/link_riscv.ld"
 LD_SCRIPT="../tinymlc/templates/link_arm.ld"
 {% endif %}
 
-# ========== 编译 C 算子 ==========
+{% if target == "arm" and acc_lib_inc and acc_lib_dir and acc_lib_name %}
+# ========== ARM 加速版本（CMSIS-NN） ==========
+$CC $CFLAGS -c ../runtime/arm/fc.c -o fc.o
+$CC $CFLAGS -c ../runtime/arm/softmax.c -o softmax.o
+$CC $CFLAGS -c ../runtime/arm/conv2d.c -o conv2d.o
+$CC $CFLAGS -c ../runtime/c/reshape.c -o reshape.o
+$CC $CFLAGS -c ../runtime/c/add.c -o add.o
+$CC $CFLAGS -c ../runtime/c/svdf.c -o svdf.o
+$CC $CFLAGS -c ../runtime/c/max_pool2d.c -o max_pool2d.o
+$CC $CFLAGS -c ../runtime/c/depthwise_conv2d.c -o depthwise_conv2d.o
+$CC $CFLAGS -c ../runtime/c/relu.c -o relu.o
+$CC $CFLAGS -c ../runtime/c/avg_pool2d.c -o avg_pool2d.o
+$CC $CFLAGS -c ../runtime/c/transpose.c -o transpose.o
+$CC $CFLAGS -c ../runtime/c/pad.c -o pad.o
+$CC $CFLAGS -c ../runtime/c/mean.c -o mean.o
+{% else %}
+# ========== 编译 纯 C 参考实现（无加速) ==========
 $CC $CFLAGS -c ../runtime/c/fc.c -o fc.o
 $CC $CFLAGS -c ../runtime/c/softmax.c -o softmax.o
 $CC $CFLAGS -c ../runtime/c/reshape.c -o reshape.o
@@ -78,6 +91,7 @@ $CC $CFLAGS -c ../runtime/c/avg_pool2d.c -o avg_pool2d.o
 $CC $CFLAGS -c ../runtime/c/transpose.c -o transpose.o
 $CC $CFLAGS -c ../runtime/c/pad.c -o pad.o
 $CC $CFLAGS -c ../runtime/c/mean.c -o mean.o
+{% endif %}
 
 # ========== LSTM（按需） ==========
 if grep -q "HAS_LSTM" model_features.txt 2>/dev/null; then
@@ -117,7 +131,7 @@ $CC -nostartfiles -T $LD_SCRIPT -Wl,--no-dynamic-linker \
     {% if target == "riscv" %}
     $SIM -M virt -nographic -bios none -kernel model.elf
     {% elif target == "arm" %}
-    $SIM -M virt -nographic -kernel model.elf
+    $SIM -M mps2-an386 -nographic -semihosting -serial mon:stdio -kernel model.elf
     {% endif %}
 {% else %}
 echo -e "${BLUE}[INFO] Release 模式：已生成所有 .o 文件，跳过链接${RESET}"

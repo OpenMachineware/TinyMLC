@@ -8,6 +8,14 @@
 #define SIFIVE_TEST_ADDR ((volatile uint32_t*)0x100000)
 
 int main() {
+volatile char* uart = (volatile char*)0x09000000;  // ARM virt 板 UART
+    uart[0] = 'S';
+    uart[0] = 'T';
+    uart[0] = 'A';
+    uart[0] = 'R';
+    uart[0] = 'T';
+    uart[0] = '\n';
+
     static int8_t output[OUTPUT_SIZE];
 
     {% if inputs_count == 1 %}

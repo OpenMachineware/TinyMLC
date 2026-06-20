@@ -60,6 +60,12 @@
 // 推理函数
 {% if inputs_count == 1 %}
 void {{ inference_func }}(const int8_t* input, int8_t* output) {
+volatile char* uart = (volatile char*)0x09000000;
+    uart[0] = 'I';
+    uart[0] = 'N';
+    uart[0] = 'F';
+    uart[0] = '\n';
+
     // 输入张量映射
     int8_t* tensor_0 = (int8_t*)input;
 {% elif inputs_count == 2 %}

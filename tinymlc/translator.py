@@ -9,6 +9,8 @@ import subprocess
 import sys
 import argparse
 import numpy as np
+import shutil
+
 from pathlib import Path
 from jinja2 import Template
 from ai_edge_litert.interpreter import Interpreter as LiteRTInterpreter
@@ -322,83 +324,57 @@ def generate_c_code(model_info, output_dir,
     return result
 
 
-def generate_debug_print(output_dir, target):
-    """生成 debug_print.c"""
-    # 根据目标架构选择 UART 地址
-    uart_addresses = {
-        "riscv": "0x10000000",
-        "arm": "0x09000000",
-    }
-    uart_address = uart_addresses.get(target, "0x10000000")
+def copy_files_to_build(output_dir: Path, target: str, mode: str, accel: str):
+    """
+    拷贝构建所需的所有文件到 tinymlc_generated/
 
-    template_path = Path(__file__).parent / 'templates' / 'debug_print.c.tpl'
-    with open(template_path, 'r') as f:
-        template = Template(f.read())
+    Args:
+        output_dir: 输出目录 (tinymlc_generated)
+        target: 目标架构 (riscv / arm)
+        mode: 构建模式 (debug / release)
+        accel: 加速库
+    """
+    # 确定源目录
+    ops_root = Path(__file__).parent.parent / "ops"
+    src_dir = ops_root / target
 
-    content = template.render(uart_address=uart_address)
+    if not src_dir.exists():
+        fatal_error(f"架构目录不存在: {src_dir}", f"支持的架构: riscv, arm")
 
-    output_path = output_dir / 'debug_print.c'
-    with open(output_path, 'w') as f:
-        f.write(content)
-    info(f"生成: {output_path}")
+    # 1. 拷贝公共头文件
+    include_src = ops_root / "include"
+    if include_src.exists():
+        shutil.copytree(include_src, output_dir / "include", dirs_exist_ok=True)
 
+    # 2. 拷贝 C 算子 (ops/c/*.c) 到 output_dir/c/
+    c_src = ops_root / "c"
+    if c_src.exists():
+        shutil.copytree(c_src, output_dir / "c", dirs_exist_ok=True)
 
-def generate_build_script(output_dir, target, model_path, mode,
-                          acc_lib_inc, acc_lib_lib):
-    # 计算库目录
-    acc_lib_dir = str(Path(acc_lib_lib).parent) if acc_lib_lib else ""
-    acc_lib_name = Path(acc_lib_lib).stem if acc_lib_lib else ""
-    # 去掉 "lib" 前缀（如果是静态库）
-    if acc_lib_name.startswith("lib"):
-        acc_lib_name = acc_lib_name[3:]
+    # 3. 拷贝目标架构的 .c 和 .S 文件
+    for file in src_dir.glob("*.c"):
+        shutil.copy2(file, output_dir / file.name)
+    for file in src_dir.glob("*.S"):
+        shutil.copy2(file, output_dir / file.name)
+    for file in src_dir.glob("*.ld"):
+        shutil.copy2(file, output_dir / file.name)
 
-    # 工具链配置
-    toolchains = {
-        "riscv": {
-            "cc": "riscv-none-elf-gcc",
-            "sim": "qemu-system-riscv32",
-            "arch": "rv32imac",
-            "abi": "ilp32",
-            "acc_lib_inc": acc_lib_inc or "",
-            "acc_lib_dir": acc_lib_dir,
-            "acc_lib_name": acc_lib_name,
-        },
-        "arm": {
-            "cc": "arm-none-eabi-gcc",
-            "sim": "qemu-system-arm",
-            "arch": "armv7-m",
-            "abi": "aapcs",
-            "acc_lib_inc": acc_lib_inc or "",
-            "acc_lib_dir": acc_lib_dir,
-            "acc_lib_name": acc_lib_name,
-        },
-    }
+    # 4. 拷贝对应的 build 脚本
+    if accel != 'none':
+        build_script = src_dir / f"build_{target}_{accel}_{mode}.sh"
+    else:
+        build_script = src_dir / f"build_{target}_{mode}.sh"
 
-    config = toolchains.get(target, toolchains["riscv"])
+    if Path(build_script).exists():
+        shutil.copy2(build_script, output_dir / build_script.name)
+    else:
+        fatal_error(f"构建脚本不存在: {build_script}",
+                    suggestion=f"请检查加速器类型 {accel} 是否支持")
 
-    template_path = Path(__file__).parent / 'templates' / 'build.sh.tpl'
-    with open(template_path, 'r') as f:
-        template = Template(f.read())
-
-    content = template.render(
-        target=target,
-        cc=config["cc"],
-        sim=config["sim"],
-        arch=config["arch"],
-        abi=config["abi"],
-        mode=mode,
-        model_path=str(model_path),
-    )
-
-    script_name = f"build_{target}_{mode}.sh"
-    output_path = output_dir / script_name
-    with open(output_path, 'w') as f:
-        f.write(content)
-    try:
-        os.chmod(output_path, 0o755)
-    except OSError:
-        warning('目前构建脚本生成对Windows支持不是很完善，可以先使用WSL')
-    info(f"生成: {output_path}")
+    # 5. 拷贝 LSTM 相关文件（如果有）
+    lstm_src = ops_root / "lstm"
+    if lstm_src.exists():
+        shutil.copytree(lstm_src, output_dir / "lstm", dirs_exist_ok=True)
 
 
 def main():
@@ -412,6 +388,8 @@ def main():
                         help="生成后自动运行构建脚本")
     parser.add_argument("--arch", default="riscv",
                         help="目标芯片架构 (默认: riscv)")
+    parser.add_argument("--accel", default="none",
+                        help="加速库类型: none, cmsis-nn, nmsis-nn, nuclei-ai, ...")
     parser.add_argument("--acc-lib-inc",
                         default="third_party/CMSIS-NN-7.0.0/Include",
                         help="算子加速库头文件路径")
@@ -562,15 +540,11 @@ def main():
     generate_lut(output_dir)
 
     target = args.arch
-    # 生成 debug_print.c
-    generate_debug_print(output_dir, target)
-
     mode = "debug" if args.with_test_main else "release"
-    acc_lib_inc = args.acc_lib_inc
-    acc_lib_lib = args.acc_lib_lib
+    # acc_lib_inc = args.acc_lib_inc
+    # acc_lib_lib = args.acc_lib_lib
     # 生成 build.sh
-    generate_build_script(output_dir, target, Path(args.model), mode,
-                          acc_lib_inc, acc_lib_lib)
+    copy_files_to_build(output_dir, target, mode, args.accel)
 
     script_name = f"build_{target}_{mode}.sh"
 
