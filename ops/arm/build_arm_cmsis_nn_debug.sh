@@ -15,27 +15,27 @@ CMSIS_NN_LIB="${CMSIS_NN_LIB:-/opt/CMSIS-NN/Lib/libcmsisnn.a}"
 CFLAGS="-mcpu=$ARCH -mthumb -mabi=$ABI -nostdlib -ffreestanding -fno-omit-frame-pointer -DTINYMLC_DEBUG -I./include -I./c -I. -I$CMSIS_NN_INC"
 
 # ========== 编译 ARM 加速算子 ==========
-$CC $CFLAGS -c arm/op_fc.c -o op_fc.o
-$CC $CFLAGS -c arm/op_softmax.c -o op_softmax.o
-$CC $CFLAGS -c arm/op_conv2d.c -o op_conv2d.o
+$CC $CFLAGS -c arm/fc.c -o fc.o
+$CC $CFLAGS -c arm/softmax.c -o softmax.o
+$CC $CFLAGS -c arm/conv2d.c -o conv2d.o
 
 # ========== 编译纯 C 算子（未加速的） ==========
-$CC $CFLAGS -c c/op_reshape.c -o op_reshape.o
-$CC $CFLAGS -c c/op_add.c -o op_add.o
-$CC $CFLAGS -c c/op_svdf.c -o op_svdf.o
-$CC $CFLAGS -c c/op_max_pool2d.c -o op_max_pool2d.o
-$CC $CFLAGS -c c/op_depthwise_conv2d.c -o op_depthwise_conv2d.o
-$CC $CFLAGS -c c/op_relu.c -o op_relu.o
-$CC $CFLAGS -c c/op_avg_pool2d.c -o op_avg_pool2d.o
-$CC $CFLAGS -c c/op_transpose.c -o op_transpose.o
-$CC $CFLAGS -c c/op_pad.c -o op_pad.o
-$CC $CFLAGS -c c/op_mean.c -o op_mean.o
+$CC $CFLAGS -c c/reshape.c -o reshape.o
+$CC $CFLAGS -c c/add.c -o add.o
+$CC $CFLAGS -c c/svdf.c -o svdf.o
+$CC $CFLAGS -c c/max_pool2d.c -o max_pool2d.o
+$CC $CFLAGS -c c/depthwise_conv2d.c -o depthwise_conv2d.o
+$CC $CFLAGS -c c/relu.c -o relu.o
+$CC $CFLAGS -c c/avg_pool2d.c -o avg_pool2d.o
+$CC $CFLAGS -c c/transpose.c -o transpose.o
+$CC $CFLAGS -c c/pad.c -o pad.o
+$CC $CFLAGS -c c/mean.c -o mean.o
 
 # ========== LSTM（按需） ==========
 if grep -q "HAS_LSTM" model_features.txt 2>/dev/null; then
-    $CC $CFLAGS -c lstm/op_lstm.c -o op_lstm.o
+    $CC $CFLAGS -c lstm/lstm.c -o lstm.o
     $CC $CFLAGS -c lut.c -o lut.o
-    LSTM_OBJ="op_lstm.o lut.o"
+    LSTM_OBJ="lstm.o lut.o"
 else
     LSTM_OBJ=""
 fi
@@ -49,10 +49,10 @@ $CC $CFLAGS -c main_test.c -o main_test.o
 # ========== 链接 ==========
 $CC $CFLAGS -T linker_arm.ld \
     start.o debug_print.o \
-    op_fc.o op_softmax.o op_conv2d.o \
-    op_reshape.o op_add.o op_svdf.o \
-    op_max_pool2d.o op_depthwise_conv2d.o \
-    op_relu.o op_avg_pool2d.o op_transpose.o op_pad.o op_mean.o \
+    fc.o softmax.o conv2d.o \
+    reshape.o add.o svdf.o \
+    max_pool2d.o depthwise_conv2d.o \
+    relu.o avg_pool2d.o transpose.o pad.o mean.o \
     $LSTM_OBJ \
     model.o main_test.o \
     $CMSIS_NN_LIB \

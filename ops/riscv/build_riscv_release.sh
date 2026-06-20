@@ -10,25 +10,25 @@ ABI="ilp32"
 CFLAGS="-march=$ARCH -mabi=$ABI -nostdlib -ffreestanding -fno-omit-frame-pointer -nostartfiles -nodefaultlibs -I./include -I./c -I."
 
 # ========== 编译 C 算子 ==========
-$CC $CFLAGS -c c/op_fc.c -o op_fc.o
-$CC $CFLAGS -c c/op_softmax.c -o op_softmax.o
-$CC $CFLAGS -c c/op_reshape.c -o op_reshape.o
-$CC $CFLAGS -c c/op_add.c -o op_add.o
-$CC $CFLAGS -c c/op_svdf.c -o op_svdf.o
-$CC $CFLAGS -c c/op_conv2d.c -o op_conv2d.o
-$CC $CFLAGS -c c/op_max_pool2d.c -o op_max_pool2d.o
-$CC $CFLAGS -c c/op_depthwise_conv2d.c -o op_depthwise_conv2d.o
-$CC $CFLAGS -c c/op_relu.c -o op_relu.o
-$CC $CFLAGS -c c/op_avg_pool2d.c -o op_avg_pool2d.o
-$CC $CFLAGS -c c/op_transpose.c -o op_transpose.o
-$CC $CFLAGS -c c/op_pad.c -o op_pad.o
-$CC $CFLAGS -c c/op_mean.c -o op_mean.o
+$CC $CFLAGS -c c/fc.c -o fc.o
+$CC $CFLAGS -c c/softmax.c -o softmax.o
+$CC $CFLAGS -c c/reshape.c -o reshape.o
+$CC $CFLAGS -c c/add.c -o add.o
+$CC $CFLAGS -c c/svdf.c -o svdf.o
+$CC $CFLAGS -c c/conv2d.c -o conv2d.o
+$CC $CFLAGS -c c/max_pool2d.c -o max_pool2d.o
+$CC $CFLAGS -c c/depthwise_conv2d.c -o depthwise_conv2d.o
+$CC $CFLAGS -c c/relu.c -o relu.o
+$CC $CFLAGS -c c/avg_pool2d.c -o avg_pool2d.o
+$CC $CFLAGS -c c/transpose.c -o transpose.o
+$CC $CFLAGS -c c/pad.c -o pad.o
+$CC $CFLAGS -c c/mean.c -o mean.o
 
 # ========== LSTM（按需） ==========
 if grep -q "HAS_LSTM" model_features.txt 2>/dev/null; then
-    $CC $CFLAGS -c lstm/op_lstm.c -o op_lstm.o
+    $CC $CFLAGS -c lstm/lstm.c -o lstm.o
     $CC $CFLAGS -c lut.c -o lut.o
-    LSTM_OBJ="op_lstm.o lut.o"
+    LSTM_OBJ="lstm.o lut.o"
 else
     LSTM_OBJ=""
 fi
