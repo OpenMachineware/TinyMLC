@@ -1,14 +1,6 @@
 // 自动生成的代码，请勿手动修改
 // 由 tinymlc 自动生成
 
-{% if has_lstm %}
-#define TINYMLC_HAS_LSTM
-#define LSTM_SHIFT_I {{ lstm_shifts[0] }}
-#define LSTM_SHIFT_F {{ lstm_shifts[1] }}
-#define LSTM_SHIFT_G {{ lstm_shifts[2] }}
-#define LSTM_SHIFT_O {{ lstm_shifts[3] }}
-{% endif %}
-
 #include "tinymlc.h"
 {{ includes }}
 #include "model.h"
@@ -55,15 +47,6 @@
 #define LSTM_TIME_STEPS {{ lstm_time_steps }}
 #define LSTM_HIDDEN_SIZE {{ lstm_hidden_size }}
 #define TINYMLC_HAS_LSTM
-{% endif %}
-
-{% if target == "arm" %}
-// FC 量化参数
-#define FC_INPUT_OFFSET 0
-#define FC_OUTPUT_OFFSET 0
-#define FC_MULTIPLIER {{ fc_multiplier }}
-#define FC_SHIFT {{ fc_shift }}
-// ... 其他算子
 {% endif %}
 
 // 推理函数

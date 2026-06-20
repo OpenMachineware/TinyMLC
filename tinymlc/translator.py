@@ -94,7 +94,7 @@ def build_execution_order(ops, tensors):
     return order
 
 
-def generate_c_code(model_info, output_dir,
+def generate_c_code(model_info, output_dir, target,
                     inference_func="tinymlc_inference",
                     with_test_main=False):
     ops = model_info.get("ops", [])
@@ -247,6 +247,12 @@ def generate_c_code(model_info, output_dir,
         fatal_error(f"不支持 {len(model_info['input'])} 个输入的模型",
                     "当前支持 1 或 2 个输入")
 
+    # FIXME: 从模型读取实际的量化参数
+    # 当前值来自 trained_lstm_int8.tflite 的测试值
+    fc_multiplier, fc_shift = calculate_multiplier_shift(0.00390625,
+                                                         0.008470362052321434,
+                                                         0.17366045713424683)
+
     # 确保 lstm_params 有默认值，不为 None（即使没有 LSTM）
     if lstm_params is None:
         lstm_params = {
@@ -258,6 +264,7 @@ def generate_c_code(model_info, output_dir,
             "input_scale": 0.00390625,
             "input_zp": 0,
         }
+    print(f"fc_multiplier = {fc_multiplier}, fc_shift = {fc_shift}")
     context = {
         "input_size": input_size,
         "output_size": output_size,
@@ -267,6 +274,7 @@ def generate_c_code(model_info, output_dir,
         "has_lstm": has_lstm,
         "has_conv": has_conv,
         "has_dw": has_dw,
+        "target": target,
         "model_header": "model.h",  # 固定名称，用于 main_test.c 包含
         "lstm_time_steps": lstm_params["time_steps"],
         "lstm_batch_size": lstm_params["batch_size"],
@@ -284,6 +292,8 @@ def generate_c_code(model_info, output_dir,
         "inputs_count": len(model_info["input"]),
         "INPUT_SIZE_1": input_size_1,
         "INPUT_SIZE_2": input_size_2,
+        "fc_multiplier": fc_multiplier,
+        "fc_shift": fc_shift,
     }
 
     # 先生成文件，决定是否编译LSTM算子
@@ -385,13 +395,29 @@ def copy_files_to_build(output_dir: Path, target: str, mode: str, accel: str):
         shutil.copytree(lstm_src, output_dir / "lstm", dirs_exist_ok=True)
 
 
-def calculate_multiplier_shift(scale: float):
-    """从 scale 计算 CMSIS-NN 需要的 multiplier 和 shift"""
-    # scale = multiplier * 2^(-shift)
-    # 找到最接近的 2 的幂次
-    log2_scale = math.log2(scale)
-    shift = int(-math.floor(log2_scale))
-    multiplier = int(round(scale * (1 << 31)))
+def calculate_multiplier_shift(input_scale, weight_scale, output_scale):
+    """
+    计算 CMSIS-NN 的 multiplier 和 shift
+    使得 scale ≈ multiplier / 2^31
+    """
+    # 有效 scale = input_scale * weight_scale / output_scale
+    effective_scale = (input_scale * weight_scale) / output_scale
+
+    # 计算 shift 和 multiplier
+    shift = 0
+    multiplier = 0
+
+    # 找到合适的 shift 使得 multiplier 在 Q31 范围内
+    # 标准 CMSIS-NN 做法：multiplier = effective_scale * 2^31
+    # 然后调整 shift
+    for s in range(-31, 32):
+        mult = effective_scale * (1 << 31)
+        # 如果 mult 在 Q31 范围内，记录，32位有符号数的范围 INT32_MIN～INT32_MAX
+        if -2147483648 < mult < 2147483647:
+            shift = s
+            multiplier = int(round(mult))
+            break
+
     return multiplier, shift
 
 
@@ -540,9 +566,14 @@ def main():
 
         info(f"已生成: {output_dir}/lstm_weights.h")
 
+    target = args.arch
+    mode = "debug" if args.with_test_main else "release"
+    # acc_lib_inc = args.acc_lib_inc
+    # acc_lib_lib = args.acc_lib_lib
+
     info("正在生成 C 代码...")
     generated_files = generate_c_code(
-        model_info, output_dir,
+        model_info, output_dir, target,
         inference_func=args.entry_point,
         with_test_main=args.with_test_main
     )
@@ -557,11 +588,6 @@ def main():
     # 生成 LUT
     generate_lut(output_dir)
 
-    target = args.arch
-    mode = "debug" if args.with_test_main else "release"
-    # acc_lib_inc = args.acc_lib_inc
-    # acc_lib_lib = args.acc_lib_lib
-    # 生成 build.sh
     copy_files_to_build(output_dir, target, mode, args.accel)
 
     if args.accel != 'none':

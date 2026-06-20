@@ -9,6 +9,19 @@
 #define INPUT_SIZE {{ input_size }}
 #define OUTPUT_SIZE {{ output_size }}
 
+{% if target == "arm" %}
+// FC 量化参数
+#define FC_INPUT_OFFSET 0
+#define FC_OUTPUT_OFFSET 0
+#define FC_MULTIPLIER {{ fc_multiplier }}
+#define FC_SHIFT {{ fc_shift }}
+
+// Softmax 量化参数
+#define SOFTMAX_MULTIPLIER {{ softmax_multiplier }}
+#define SOFTMAX_SHIFT {{ softmax_shift }}
+#define SOFTMAX_DIFF_MIN -128
+{% endif %}
+
 {% if has_lstm %}
 // LSTM 右移位数（从模型量化参数计算）
 #define LSTM_SHIFT_I {{ lstm_shifts[0] }}
