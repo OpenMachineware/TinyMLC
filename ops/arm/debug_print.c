@@ -64,3 +64,16 @@ void debug_hex(unsigned int n) {
 void debug_endl(void) {
     debug_char('\n');
 }
+
+void* memset(void* s, int c, unsigned int n) {
+    unsigned char* p = (unsigned char*)s;
+    while (n--) *p++ = (unsigned char)c;
+    return s;
+}
+
+void* memcpy(void* dest, const void* src, unsigned int n) {
+    unsigned char* d = (unsigned char*)dest;
+    const unsigned char* s = (const unsigned char*)src;
+    while (n--) *d++ = *s++;
+    return dest;
+}

@@ -1,5 +1,9 @@
 # 编译CMSIS-NN用的
-# cmake .. -DCMAKE_TOOLCHAIN_FILE=../arm-none-eabi-gcc.cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/cmsis-nn
+# cmake .. -DCMAKE_TOOLCHAIN_FILE=../arm-none-eabi-gcc.cmake \
+#          -DCMAKE_BUILD_TYPE=Release \
+#          -DCMAKE_INSTALL_PREFIX=/opt/cmsis-nn \
+#          -DCMAKE_C_FLAGS="-mcpu=cortex-m4 -mthumb -mabi=aapcs -Ofast -DNDEBUG" \
+#          -DCMAKE_CXX_FLAGS="-mcpu=cortex-m4 -mthumb -mabi=aapcs -Ofast -DNDEBUG"
 # make
 # 然后拷贝Include和libcmsis-nn.a就行
 

@@ -8,6 +8,7 @@ import stat
 import subprocess
 import sys
 import argparse
+import math
 import numpy as np
 import shutil
 
@@ -382,6 +383,16 @@ def copy_files_to_build(output_dir: Path, target: str, mode: str, accel: str):
     lstm_src = ops_root / "lstm"
     if lstm_src.exists():
         shutil.copytree(lstm_src, output_dir / "lstm", dirs_exist_ok=True)
+
+
+def calculate_multiplier_shift(scale: float):
+    """从 scale 计算 CMSIS-NN 需要的 multiplier 和 shift"""
+    # scale = multiplier * 2^(-shift)
+    # 找到最接近的 2 的幂次
+    log2_scale = math.log2(scale)
+    shift = int(-math.floor(log2_scale))
+    multiplier = int(round(scale * (1 << 31)))
+    return multiplier, shift
 
 
 def main():

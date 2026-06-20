@@ -8,9 +8,10 @@ SIM="qemu-system-arm"
 ARCH="cortex-m4"
 ABI="aapcs"
 CMSIS_NN_INC="../third_party/CMSIS-NN-7.0.0/Include"
-CMSIS_NN_LIB="../third_party/CMSIS-NN-7.0.0/Lib/libcmsisnn.a"
+CMSIS_NN_LIB="../third_party/CMSIS-NN-7.0.0/Lib/libcmsis-nn.a"
 
 CFLAGS="-mcpu=$ARCH -mthumb -mabi=$ABI -nostdlib -ffreestanding -fno-omit-frame-pointer -DTINYMLC_DEBUG -I./include -I./c -I. -I$CMSIS_NN_INC"
+LDFLAGS="-L$(dirname $CMSIS_NN_LIB) -lcmsis-nn -lgcc"
 
 # ========== 编译 ARM 加速算子 ==========
 $CC $CFLAGS -c fc.c -o fc.o
@@ -53,7 +54,7 @@ $CC $CFLAGS -T link_arm.ld \
     relu.o avg_pool2d.o transpose.o pad.o mean.o \
     $LSTM_OBJ \
     model.o main_test.o \
-    $CMSIS_NN_LIB \
+    $LDFLAGS \
     -o model.elf
 
 # ========== 运行 ==========

@@ -57,6 +57,15 @@
 #define TINYMLC_HAS_LSTM
 {% endif %}
 
+{% if target == "arm" %}
+// FC 量化参数
+#define FC_INPUT_OFFSET 0
+#define FC_OUTPUT_OFFSET 0
+#define FC_MULTIPLIER {{ fc_multiplier }}
+#define FC_SHIFT {{ fc_shift }}
+// ... 其他算子
+{% endif %}
+
 // 推理函数
 {% if inputs_count == 1 %}
 void {{ inference_func }}(const int8_t* input, int8_t* output) {
