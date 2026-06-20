@@ -27,7 +27,7 @@ $CC $CFLAGS -c c/mean.c -o mean.o
 
 # ========== LSTM（按需） ==========
 if grep -q "HAS_LSTM" model_features.txt 2>/dev/null; then
-    $CC $CFLAGS -c lstm/lstm.c -o lstm.o
+    $CC $CFLAGS -c lstm/c/lstm.c -o lstm.o
     $CC $CFLAGS -c lut.c -o lut.o
     LSTM_OBJ="lstm.o lut.o"
 else
@@ -41,7 +41,7 @@ $CC $CFLAGS -c model.c -o model.o
 $CC $CFLAGS -c main_test.c -o main_test.o
 
 # ========== 链接 ==========
-$CC -T linker.ld -Wl,--no-dynamic-linker \
+$CC -T link_riscv.ld -Wl,--no-dynamic-linker \
     start.o debug_print.o \
     fc.o softmax.o reshape.o add.o svdf.o \
     conv2d.o max_pool2d.o depthwise_conv2d.o \

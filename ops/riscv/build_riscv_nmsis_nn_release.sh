@@ -31,7 +31,7 @@ $CC $CFLAGS -c c/mean.c -o mean.o
 
 # ========== LSTM（按需） ==========
 if grep -q "HAS_LSTM" model_features.txt 2>/dev/null; then
-    $CC $CFLAGS -c lstm/lstm.c -o lstm.o
+    $CC $CFLAGS -c lstm/c/lstm.c -o lstm.o
     $CC $CFLAGS -c lut.c -o lut.o
     LSTM_OBJ="lstm.o lut.o"
 else
