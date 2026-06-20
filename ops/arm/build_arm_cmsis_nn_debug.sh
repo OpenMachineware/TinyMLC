@@ -15,9 +15,9 @@ CMSIS_NN_LIB="${CMSIS_NN_LIB:-/opt/CMSIS-NN/Lib/libcmsisnn.a}"
 CFLAGS="-mcpu=$ARCH -mthumb -mabi=$ABI -nostdlib -ffreestanding -fno-omit-frame-pointer -DTINYMLC_DEBUG -I./include -I./c -I. -I$CMSIS_NN_INC"
 
 # ========== 编译 ARM 加速算子 ==========
-$CC $CFLAGS -c arm/fc.c -o fc.o
-$CC $CFLAGS -c arm/softmax.c -o softmax.o
-$CC $CFLAGS -c arm/conv2d.c -o conv2d.o
+$CC $CFLAGS -c fc.c -o fc.o
+$CC $CFLAGS -c softmax.c -o softmax.o
+$CC $CFLAGS -c conv2d.c -o conv2d.o
 
 # ========== 编译纯 C 算子（未加速的） ==========
 $CC $CFLAGS -c c/reshape.c -o reshape.o

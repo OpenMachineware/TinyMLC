@@ -13,9 +13,9 @@ NMSIS_NN_LIB="${NMSIS_NN_LIB:-/opt/NMSIS-NN/Lib/libnmsisnn.a}"
 CFLAGS="-march=$ARCH -mabi=$ABI -nostdlib -ffreestanding -fno-omit-frame-pointer -nostartfiles -nodefaultlibs -I./include -I./c -I. -I$NMSIS_NN_INC"
 
 # ========== 编译 RISC-V 加速算子 ==========
-$CC $CFLAGS -c riscv/fc.c -o fc.o
-$CC $CFLAGS -c riscv/softmax.c -o softmax.o
-$CC $CFLAGS -c riscv/conv2d.c -o conv2d.o
+$CC $CFLAGS -c fc.c -o fc.o
+$CC $CFLAGS -c softmax.c -o softmax.o
+$CC $CFLAGS -c conv2d.c -o conv2d.o
 
 # ========== 编译纯 C 算子 ==========
 $CC $CFLAGS -c c/reshape.c -o reshape.o
