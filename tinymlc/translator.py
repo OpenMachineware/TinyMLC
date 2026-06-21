@@ -604,7 +604,14 @@ def copy_files_to_build(output_dir: Path, target: str, mode: str, accel: str):
     if c_src.exists():
         shutil.copytree(c_src, output_dir / "c", dirs_exist_ok=True)
 
-    # 3. Copy target architecture .c and .S files
+    # 3. Copy accelerator-specific operators (override ops/c/*.c)
+    if accel == "cmsis-nn":
+        accel_src = ops_root / target / "cmsis_nn"
+        if accel_src.exists():
+            for file in accel_src.glob("*.c"):
+                shutil.copy2(file, output_dir / "c" / file.name)
+
+    # 4. Copy target architecture .c and .S files
     for file in src_dir.glob("*.c"):
         shutil.copy2(file, output_dir / file.name)
     for file in src_dir.glob("*.S"):
