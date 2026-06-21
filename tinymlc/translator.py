@@ -974,6 +974,25 @@ def main():
 
     args = parser.parse_args()
 
+    # Validate arch and accel combination
+    arch = args.arch
+    accel = args.accel
+
+    if arch == "arm":
+        if accel not in ("none", "cmsis-nn"):
+            fatal_error(
+                f"Invalid --accel '{accel}' for --arch arm",
+                "Supported accel for ARM: none, cmsis-nn")
+    elif arch == "riscv":
+        if accel not in ("none", "nmsis-nn", "nuclei-ai"):
+            fatal_error(
+                f"Invalid --accel '{accel}' for --arch riscv",
+                "Supported accel for RISC-V: none, nmsis-nn, nuclei-ai")
+    else:
+        fatal_error(
+            f"Invalid --arch '{arch}'",
+            "Supported architectures: arm, riscv")
+
     model_path = args.model
     if not Path(model_path).exists():
         fatal_error(f"Model file not found: {model_path}", "Please check file path")
