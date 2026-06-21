@@ -1,4 +1,4 @@
-# For compiling CMSIS-NN
+# For building CMSIS-NN
 # cmake .. -DCMAKE_TOOLCHAIN_FILE=../arm-none-eabi-gcc.cmake \
 #          -DCMAKE_BUILD_TYPE=Release \
 #          -DCMAKE_INSTALL_PREFIX=/opt/cmsis-nn \

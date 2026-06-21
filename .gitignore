@@ -222,6 +222,9 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
+# Third-party dependencies (local only)
+third_party/
+
 # Model files
 *.tflite
 
