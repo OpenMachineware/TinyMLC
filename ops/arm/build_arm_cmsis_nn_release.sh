@@ -1,8 +1,8 @@
 #!/bin/bash
 # ARM CMSIS-NN Release Build Script
 #
-# This script compiles operators from ./c/ directory where CMSIS-NN
-# accelerated versions override pure C implementations.
+# Compile operators from ./c/ directory.
+# CMSIS-NN accelerated operators override pure C implementations.
 
 MODEL_PATH="${1:-trained_lstm_int8.tflite}"
 
@@ -20,27 +20,29 @@ CFLAGS="-mcpu=$ARCH -mthumb -mabi=$ABI -nostdlib \
 LDFLAGS="-L$(dirname $CMSIS_NN_LIB) \
     -lcmsis-nn -lgcc"
 
-# ========== Compile All Operators (CMSIS-NN overrides pure C) ==========
+# ========== CMSIS-NN Accelerated Operators ==========
 $CC $CFLAGS -c c/fc.c -o fc.o
+$CC $CFLAGS -c c/conv2d.c -o conv2d.o
+$CC $CFLAGS -c c/depthwise_conv2d.c -o depthwise_conv2d.o
+$CC $CFLAGS -c c/avg_pool2d.c -o avg_pool2d.o
+$CC $CFLAGS -c c/max_pool2d.c -o max_pool2d.o
 $CC $CFLAGS -c c/softmax.c -o softmax.o
-$CC $CFLAGS -c c/reshape.c -o reshape.o
 $CC $CFLAGS -c c/add.c -o add.o
 $CC $CFLAGS -c c/multiply.c -o multiply.o
-$CC $CFLAGS -c c/sub.c -o sub.o
-$CC $CFLAGS -c c/svdf.c -o svdf.o
-$CC $CFLAGS -c c/conv2d.c -o conv2d.o
-$CC $CFLAGS -c c/max_pool2d.c -o max_pool2d.o
-$CC $CFLAGS -c c/depthwise_conv2d.c -o depthwise_conv2d.o
+
+# ========== Pure C Operators (No CMSIS-NN acceleration) ==========
+$CC $CFLAGS -c c/sigmoid.c -o sigmoid.o
+$CC $CFLAGS -c c/tanh.c -o tanh.o
 $CC $CFLAGS -c c/relu.c -o relu.o
-$CC $CFLAGS -c c/avg_pool2d.c -o avg_pool2d.o
+$CC $CFLAGS -c c/reshape.c -o reshape.o
+$CC $CFLAGS -c c/concat.c -o concat.o
+$CC $CFLAGS -c c/sub.c -o sub.o
 $CC $CFLAGS -c c/transpose.c -o transpose.o
 $CC $CFLAGS -c c/pad.c -o pad.o
 $CC $CFLAGS -c c/mean.c -o mean.o
-$CC $CFLAGS -c c/sigmoid.c -o sigmoid.o
-$CC $CFLAGS -c c/tanh.c -o tanh.o
-$CC $CFLAGS -c c/concat.c -o concat.o
+$CC $CFLAGS -c c/svdf.c -o svdf.o
 
-# ========== LSTM (Optional) ==========
+# ========== LSTM (Pure C, uses LUT) ==========
 if grep -q "HAS_LSTM" model_features.txt 2>/dev/null; then
     $CC $CFLAGS -c lstm/c/lstm.c -o lstm.o
     $CC $CFLAGS -c lut.c -o lut.o
@@ -57,10 +59,10 @@ $CC $CFLAGS -c model.c -o model.o
 # ========== Link ==========
 $CC $CFLAGS -T link_arm.ld \
     start.o debug_print.o \
-    fc.o softmax.o conv2d.o reshape.o add.o multiply.o sub.o \
-    sigmoid.o tanh.o concat.o svdf.o \
-    max_pool2d.o depthwise_conv2d.o relu.o avg_pool2d.o \
-    transpose.o pad.o mean.o \
+    fc.o conv2d.o depthwise_conv2d.o avg_pool2d.o max_pool2d.o \
+    softmax.o add.o multiply.o \
+    sigmoid.o tanh.o relu.o reshape.o concat.o sub.o \
+    transpose.o pad.o mean.o svdf.o \
     $LSTM_OBJ \
     model.o \
     $LDFLAGS \
