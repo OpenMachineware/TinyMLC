@@ -561,10 +561,10 @@ def generate_c_code(model_info, output_dir, target,
             with open(main_test_src, 'r') as f:
                 result['main_test.c'] = f.read()
         else:
-            # Fallback to template if architecture-specific file not found
-            with open(template_dir / 'main_test.c.tpl', 'r') as f:
-                tmpl = Template(f.read())
-            result['main_test.c'] = tmpl.render(**context)
+            fatal_error(
+                f"Architecture-specific main_test.c not found: "
+                f"{main_test_src}",
+                f"Supported architectures: riscv, arm")
 
     # Update state after code generation
     for op in ops:
