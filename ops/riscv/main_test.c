@@ -5,18 +5,7 @@
 #include "model.h"
 #include "debug_print.h"
 
-// Exit function for RISC-V QEMU
-void qemu_exit(int exit_code) {
-    // Use syscall to exit
-    __asm__ volatile(
-        "li a0, 93\n"      // SYS_exit = 93
-        "li a1, %[code]\n"
-        "ecall\n"
-        :
-        : [code] "r"(exit_code)
-        : "a0", "a1", "memory");
-    while (1);
-}
+#define SIFIVE_TEST_ADDR ((volatile uint32_t*)0x100000)
 
 int main() {
     // Test inputs - initialized with constant value
@@ -47,6 +36,7 @@ int main() {
 
     DEBUG_STR("ALL-OK\n");
 
-    qemu_exit(0);
+    *SIFIVE_TEST_ADDR = 0x3333;  // QEMU auto exit
+
     return 0;
 }
