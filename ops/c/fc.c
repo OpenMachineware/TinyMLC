@@ -14,6 +14,12 @@ void tmlc_fully_connected_s8(const int8_t* input,
         for (int in = 0; in < input_size; in++) {
             sum += (int32_t)input[in] * (int32_t)weights[out * input_size + in];
         }
-        output[out] = (int8_t)(sum >> 8);
+        // int8 rescale: output = round((sum * multiplier) / 2^(31+shift))
+        int64_t scaled = ((int64_t)sum * multiplier);
+        scaled += (scaled >= 0) ? (1LL << 30) : -(1LL << 30);
+        scaled >>= (31 + shift);
+        if (scaled > 127) scaled = 127;
+        if (scaled < -128) scaled = -128;
+        output[out] = (int8_t)scaled;
     }
 }

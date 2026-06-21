@@ -52,7 +52,8 @@ void tmlc_conv2d_s8(const int8_t* input,
                     int output_h, int output_w, int output_c,
                     int kernel_h, int kernel_w,
                     int stride_h, int stride_w,
-                    int padding_h, int padding_w);
+                    int padding_h, int padding_w,
+                    int32_t multiplier, int32_t shift);
 
 void tmlc_max_pool_2d_s8(const int8_t* input,
                          int8_t* output,

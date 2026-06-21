@@ -8,7 +8,8 @@ void tmlc_conv2d_s8(const int8_t* input,
                     int output_h, int output_w, int output_c,
                     int kernel_h, int kernel_w,
                     int stride_h, int stride_w,
-                    int padding_h, int padding_w)
+                    int padding_h, int padding_w,
+                    int32_t multiplier, int32_t shift)
 {
     // 对每个输出像素
     for (int oh = 0; oh < output_h; oh++) {
@@ -28,7 +29,13 @@ void tmlc_conv2d_s8(const int8_t* input,
                         }
                     }
                 }
-                output[oh * output_w * output_c + ow * output_c + oc] = (int8_t)(sum >> 8);
+                // int8 rescale: output = round((sum * multiplier) / 2^(31+shift))
+                int64_t scaled = ((int64_t)sum * multiplier);
+                scaled += (scaled >= 0) ? (1LL << 30) : -(1LL << 30);
+                scaled >>= (31 + shift);
+                if (scaled > 127) scaled = 127;
+                if (scaled < -128) scaled = -128;
+                output[oh * output_w * output_c + ow * output_c + oc] = (int8_t)scaled;
             }
         }
     }

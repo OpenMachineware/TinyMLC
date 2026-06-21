@@ -233,12 +233,7 @@ def parse_model_onnx(model_path: str):
 
             # 提取输出 scale（如果存在）
             output_name = node.output[0]
-            output_tensor = None
-            # 先从 initializer 中找
-            for init in graph.initializer:
-                if init.name == output_name:
-                    output_tensor = numpy_helper.to_array(init)
-                    break
+            output_tensor = weights.get(output_name)
             if output_tensor is not None:
                 min_val = output_tensor.min()
                 max_val = output_tensor.max()
@@ -248,7 +243,6 @@ def parse_model_onnx(model_path: str):
             else:
                 # 如果 initializer 里没有，用默认值
                 output_scale = 1.0
-
             op_info["fc_output_scale"] = output_scale
 
         if node.op_type == "Conv":
