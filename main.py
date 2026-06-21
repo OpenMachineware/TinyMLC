@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 tinymlc - TinyML Compiler
-命令行入口
+Command line entry point
 """
 
 import sys

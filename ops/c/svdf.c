@@ -1,6 +1,6 @@
 #include "tinymlc.h"
 
-// SVDF 内部使用的 clip 函数（不是真正的 tanh，只是裁剪到 int8 范围）
+// SVDF internal clip function (not real tanh, just clip to int8 range)
 static int8_t svdf_clip(int32_t x) {
     const int32_t max_val = 127;
     const int32_t min_val = -128;

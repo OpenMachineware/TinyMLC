@@ -17,12 +17,14 @@ void tmlc_max_pool_2d_s8(const int8_t* input,
                         int ih = oh * stride_h + ph - padding_h;
                         int iw = ow * stride_w + pw - padding_w;
                         if (ih >= 0 && ih < input_h && iw >= 0 && iw < input_w) {
-                            int8_t val = input[ih * input_w * input_c + iw * input_c + oc];
+                            int8_t val = input[ih * input_w * input_c +
+                                iw * input_c + oc];
                             if (val > max_val) max_val = val;
                         }
                     }
                 }
-                output[oh * output_w * output_c + ow * output_c + oc] = max_val;
+                int out_idx = oh * output_w * output_c + ow * output_c + oc;
+                output[out_idx] = max_val;
             }
         }
     }

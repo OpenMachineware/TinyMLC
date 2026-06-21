@@ -1,29 +1,29 @@
-// 自动生成的 LUT 表，请勿手动修改
-// sigmoid 和 tanh 的 int16 查找表（256 条目）
+// Auto-generated LUT tables, do not modify manually
+// sigmoid and tanh int16 lookup tables (256 entries)
 
 #ifndef TINYMLC_LUT_H
 #define TINYMLC_LUT_H
 
 #include <stdint.h>
 
-// Sigmoid LUT（输入范围 [-8,8)，输出范围 [0,1] 量化到 [0,32767]）
+// Sigmoid LUT (input range [-8,8), output range [0,1] quantized to [0,32767])
 static const int16_t sigmoid_lut[256] = {
 {% for val in sigmoid_lut %}
     {{ val }}{% if not loop.last %},{% endif %}
 {% endfor %}
 };
 
-// Tanh LUT（输入范围 [-8,8)，输出范围 [-1,1] 量化到 [-32768,32767]）
+// Tanh LUT (input range [-8,8), output range [-1,1] quantized to [-32768,32767])
 static const int16_t tanh_lut[256] = {
 {% for val in tanh_lut %}
     {{ val }}{% if not loop.last %},{% endif %}
 {% endfor %}
 };
 
-// LUT 查找函数（线性插值）
+// LUT lookup functions (linear interpolation)
 static inline int16_t sigmoid_lut_lookup(int32_t x) {
-    // x 是 int32 累加值，需要根据量化参数映射到 [-8,8) 范围
-    // 假设 x 已经缩放到 [0, 256*8) 范围
+    // x is int32 accumulator, needs to be mapped to [-8,8) range based on quantization params
+    // Assume x is already scaled to [0, 256*8) range
     int32_t idx = (x >> 8) & 0xFF;
     uint8_t frac = (uint8_t)(x & 0xFF);
 

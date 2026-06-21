@@ -1,24 +1,24 @@
 from termcolor import cprint
 
-# 定义不同级别的日志函数
+# Define different level log functions
 def log_debug(msg):
-    cprint(f"[DEBUG] {msg}", "cyan")  # 青色：用于调试信息
+    cprint(f"[DEBUG] {msg}", "cyan")  # Cyan: for debug info
 
 def log_info(msg):
-    cprint(f"[INFO] {msg}", "green")  # 绿色：用于常规运行信息
+    cprint(f"[INFO] {msg}", "green")  # Green: for normal runtime info
     cprint(f"[DEFAULT] {msg}", None)
 
 def log_warning(msg):
-    cprint(f"[WARNING] {msg}", "yellow")  # 黄色：用于警告信息
+    cprint(f"[WARNING] {msg}", "yellow")  # Yellow: for warnings
 
 def log_error(msg):
     cprint("\n" + "=" * 60, "red")
-    cprint(f"[ERROR] {msg}", "red", attrs=["bold"])  # 红色加粗：用于错误信息
+    cprint(f"[ERROR] {msg}", "red", attrs=["bold"])  # Red bold: for errors
     cprint("\n" + "=" * 60, "red")
 
 
-# --- 测试一下效果 ---
-log_debug("正在连接数据库...")
-log_info("用户登录成功！")
-log_warning("内存使用率已达 85%，请注意。")
-log_error("无法读取配置文件，程序即将退出！")
+# --- Test the effect ---
+log_debug("Connecting to database...")
+log_info("User login successful!")
+log_warning("Memory usage reached 85%, please note.")
+log_error("Cannot read config file, program will exit!")

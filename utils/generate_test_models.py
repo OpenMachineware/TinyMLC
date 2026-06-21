@@ -1,40 +1,41 @@
-# 测试模型生成工具
-# 
-# 用途：为 TinyMLC 生成测试用的 ONNX 模型，覆盖常用算子
-# 
-# 使用方法：
+# Test Model Generation Tool
+#
+# Purpose: Generate ONNX test models for TinyMLC, covering common operators
+#
+# Usage:
 #   cd /path/to/TinyMLC
 #   python utils/generate_test_models.py
-# 
-# 输出文件：
-#   - model_fp32.onnx: CNN基础模型 (Conv2d+ReLU+MaxPool2d+Linear)
-#   - model_int8.onnx: INT8 QDQ格式模型
-#   - model_cnn_bn.onnx: CNN+BatchNorm模型
-#   - model_cnn_gap.onnx: CNN+GlobalAveragePool模型
-#   - model_mlp.onnx: MLP多层感知机模型
-#   - model_mlp_deep.onnx: 深层MLP (5层FC)
-#   - model_concat.onnx: Concat拼接模型
-#   - model_depthwise.onnx: Depthwise卷积模型
-#   - model_sigmoid.onnx: Sigmoid激活模型
-#   - model_mul.onnx: Mul乘法模型
-#   - model_tanh.onnx: Tanh激活模型
-#   - model_sub.onnx: Sub减法模型
-#   - model_residual.onnx: 残差连接模型
-#   - model_lstm.onnx: LSTM网络模型
-# 
-# 依赖：
+#
+# Output files:
+#   - model_fp32.onnx: Basic CNN model (Conv2d+ReLU+MaxPool2d+Linear)
+#   - model_int8.onnx: INT8 QDQ format model
+#   - model_cnn_bn.onnx: CNN+BatchNorm model
+#   - model_cnn_gap.onnx: CNN+GlobalAveragePool model
+#   - model_mlp.onnx: MLP model
+#   - model_mlp_deep.onnx: Deep MLP (5 FC layers)
+#   - model_concat.onnx: Concat model
+#   - model_depthwise.onnx: Depthwise conv model
+#   - model_sigmoid.onnx: Sigmoid activation model
+#   - model_mul.onnx: Mul model
+#   - model_tanh.onnx: Tanh activation model
+#   - model_sub.onnx: Sub model
+#   - model_residual.onnx: Residual connection model
+#   - model_lstm.onnx: LSTM network model
+#
+# Dependencies:
 #   - torch >= 2.0
 #   - onnx
 #   - onnxruntime
-# 
-# 安装依赖：
+#
+# Install dependencies:
 #   pip install torch onnx onnxruntime
 
 import torch
 import torch.nn as nn
 import onnx
 import numpy as np
-from onnxruntime.quantization import quantize_static, QuantType, CalibrationDataReader
+from onnxruntime.quantization import (
+    quantize_static, QuantType, CalibrationDataReader)
 import os
 
 OUTPUT_DIR = "test_models"
@@ -102,7 +103,7 @@ class CNNWithGAP(nn.Module):
 
 
 class MLP(nn.Module):
-    """3层MLP"""
+    """3-layer MLP"""
     def __init__(self):
         super().__init__()
         self.fc1 = nn.Linear(784, 128)
@@ -121,7 +122,7 @@ class MLP(nn.Module):
 
 
 class DeepMLP(nn.Module):
-    """5层深层MLP"""
+    """5-layer deep MLP"""
     def __init__(self):
         super().__init__()
         self.fc1 = nn.Linear(784, 256)
@@ -231,7 +232,7 @@ class SubNet(nn.Module):
 
 
 class ResidualNet(nn.Module):
-    """残差连接网络"""
+    """Residual connection network"""
     def __init__(self):
         super().__init__()
         self.fc1 = nn.Linear(10, 10)
@@ -243,21 +244,23 @@ class ResidualNet(nn.Module):
         x = self.fc1(x)
         x = self.relu(x)
         x = self.fc2(x)
-        x = x + identity  # 残差连接
+        x = x + identity  # residual connection
         return x
 
 
 class LSTMNet(nn.Module):
-    """简单LSTM网络"""
+    """Simple LSTM network"""
     def __init__(self):
         super().__init__()
-        self.lstm = nn.LSTM(input_size=8, hidden_size=16, num_layers=1, batch_first=True)
+        self.lstm = nn.LSTM(
+            input_size=8, hidden_size=16,
+            num_layers=1, batch_first=True)
         self.fc = nn.Linear(16, 10)
 
     def forward(self, x):
         # x: [batch, seq_len, input_size]
         out, (h_n, c_n) = self.lstm(x)
-        # 取最后一个时间步的输出
+        # take output of the last time step
         out = out[:, -1, :]
         x = self.fc(out)
         return x
@@ -293,7 +296,8 @@ class CalibrationData(CalibrationDataReader):
         return next(self.enumerator, None)
 
 
-def export_model(model, name, input_shape, input_name="input", opset_version=11):
+def export_model(model, name, input_shape,
+                 input_name="input", opset_version=11):
     model.eval()
     dummy_input = torch.randn(*input_shape)
     output_path = os.path.join(OUTPUT_DIR, f"{name}.onnx")
@@ -313,17 +317,17 @@ def export_model(model, name, input_shape, input_name="input", opset_version=11)
 
 def main():
     print("Exporting FP32 ONNX models...")
-    
-    # 基础模型
+
+    # Basic models
     export_model(SimpleNet(), "model_fp32", (1, 1, 28, 28))
     export_model(CNNWithBN(), "model_cnn_bn", (1, 1, 32, 32))
     export_model(CNNWithGAP(), "model_cnn_gap", (1, 1, 28, 28))
-    
-    # MLP模型
+
+    # MLP models
     export_model(MLP(), "model_mlp", (1, 784))
     export_model(DeepMLP(), "model_mlp_deep", (1, 784))
-    
-    # 算子测试模型
+
+    # Operator test models
     export_model(ConcatNet(), "model_concat", (1, 10))
     export_model(DepthwiseConvNet(), "model_depthwise", (1, 1, 32, 32))
     export_model(SigmoidNet(), "model_sigmoid", (1, 10))

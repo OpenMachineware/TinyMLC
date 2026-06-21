@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-从 tflite 文件中提取 FC 和 LSTM 层的权重和 bias
+Extract FC and LSTM layer weights and biases from TFLite files
 """
 
 import sys
@@ -17,42 +17,46 @@ from tinymlc.utils import fatal_error, warning, info
 
 GATE_ORDER = ['i', 'f', 'g', 'o']
 WEIGHTLESS_OPS = ["ADD", "SOFTMAX", "RESHAPE", "QUANTIZE"]
-EXPORT_LINE_WIDTH = 16  # int8 数组每行显示 16 个
-EXPORT_BIAS_LINE_WIDTH = 8  # int32 数组每行显示 8 个
+EXPORT_LINE_WIDTH = 16  # int8 array: 16 values per line
+EXPORT_BIAS_LINE_WIDTH = 8  # int32 array: 8 values per line
 
 
 def extract_fc_weights(interpreter, op_info):
-    """提取 FULLY_CONNECTED 层的权重和 bias"""
+    """Extract FULLY_CONNECTED layer weights and bias"""
     weights_idx = op_info.get("fc_weights_idx")
     bias_idx = op_info.get("fc_bias_idx")
 
     if weights_idx is None or bias_idx is None:
         fatal_error(
-            f"FC 权重/bias 索引未找到: weights={weights_idx}, bias={bias_idx}",
-            "检查模型转换时是否保留了张量名称"
+            "FC weights/bias indices not found: "
+            f"weights={weights_idx}, bias={bias_idx}",
+            "Check if tensor names were preserved during model conversion"
         )
 
     try:
-        # 尝试使用 tensor() 方法
+        # Try using tensor() method
         weights_tensor = interpreter.tensor(weights_idx)
         bias_tensor = interpreter.tensor(bias_idx)
         weights = weights_tensor()
         bias = bias_tensor()
     except ValueError as e:
-        # 回退到 get_tensor
+        # Fallback to get_tensor
         try:
             weights = interpreter.get_tensor(weights_idx)
             bias = interpreter.get_tensor(bias_idx)
         except ValueError as e2:
-            fatal_error(f"无法获取张量: {e2}", "请确保模型已正确加载")
+            fatal_error(
+                f"Cannot get tensor: {e2}",
+                "Ensure model is loaded correctly"
+            )
 
-    info(f"FC 权重: shape={weights.shape}, dtype={weights.dtype}")
+    info(f"FC weights: shape={weights.shape}, dtype={weights.dtype}")
     info(f"FC bias: shape={bias.shape}, dtype={bias.dtype}")
     return weights, bias
 
 
 def extract_lstm_weights(interpreter, op_info):
-    """提取 LSTM 各门的权重和 bias"""
+    """Extract LSTM gate weights and biases"""
     indices = op_info.get("lstm_weight_indices", {})
     input_indices = indices.get("input", [])
     recurrent_indices = indices.get("recurrent", [])
@@ -60,36 +64,39 @@ def extract_lstm_weights(interpreter, op_info):
 
     if not input_indices or not recurrent_indices:
         fatal_error(
-            "LSTM 权重索引不完整",
-            "检查模型是否为标准 TFLite LSTM 格式"
+            "LSTM weight indices incomplete",
+            "Check if model follows standard TFLite LSTM format"
         )
 
     gate_order = ['i', 'f', 'g', 'o']
     lstm_weights = {'input': {}, 'recurrent': {}, 'bias': {}}
 
-    # 提取输入权重
+    # Extract input weights
     for gate, idx in zip(gate_order, input_indices):
         try:
             lstm_weights['input'][gate] = interpreter.get_tensor(idx)
         except ValueError as e:
-            fatal_error(f"LSTM input_{gate} 权重提取失败: {e}")
+            fatal_error(f"LSTM input_{gate} weight extraction failed: {e}")
 
-    # 提取递归权重
+    # Extract recurrent weights
     for gate, idx in zip(gate_order, recurrent_indices):
         try:
             lstm_weights['recurrent'][gate] = interpreter.get_tensor(idx)
         except ValueError as e:
-            fatal_error(f"LSTM recurrent_{gate} 权重提取失败: {e}")
+            fatal_error(f"LSTM recurrent_{gate} weight extraction failed: {e}")
 
-    # 提取偏置（可能少于4个）
+    # Extract biases (may have fewer than 4)
     for gate, idx in zip(gate_order, bias_indices):
         try:
             lstm_weights['bias'][gate] = interpreter.get_tensor(idx)
         except ValueError as e:
-            warning(f"LSTM bias_{gate} 提取失败，将使用零数组", f"索引: {idx}")
+            warning(
+                f"LSTM bias_{gate} extraction failed, will use zero array",
+                f"Index: {idx}"
+            )
             lstm_weights['bias'][gate] = None
 
-    # 为缺失的门添加 None 占位
+    # Add None placeholders for missing gates
     for gate in gate_order:
         if gate not in lstm_weights['input']:
             lstm_weights['input'][gate] = None
@@ -103,7 +110,10 @@ def extract_lstm_weights(interpreter, op_info):
 
 def export_concatenated_weights(weights_list, output_file, array_name,
                                 dtype='int8'):
-    """导出拼接后的权重数组（缺失的门跳过，用零数组补齐）"""
+    """Export concatenated weight array.
+
+    Missing gates are skipped and padded with zero arrays.
+    """
     arrays = []
     total_size = 0
     missing_gates = []
@@ -112,16 +122,20 @@ def export_concatenated_weights(weights_list, output_file, array_name,
         w = weights_list.get(gate)
         if w is None:
             missing_gates.append(gate)
-            # 用零数组作为占位（形状从其他门推断）
-            # 这里先收集缺失信息，后面统一处理
+            # Use zero array as placeholder (shape inferred from other gates)
+            # Collect missing info first, handle later
             continue
         arrays.append(w.flatten())
         total_size += w.size
 
-    # 如果有缺失，打印警告并根据已有形状创建零数组
+    # If missing gates exist, print warning and create
+    # zero arrays based on existing shapes
     if missing_gates:
-        warning(f"警告: {missing_gates} 门权重缺失，使用零数组补齐")
-        # 从第一个非 None 的权重获取形状
+        warning(
+            f"Warning: {missing_gates} gate weights missing, "
+            "padding with zero arrays"
+        )
+        # Get shape from first non-None weight
         for gate in GATE_ORDER:
             w = weights_list.get(gate)
             if w is not None:
@@ -134,11 +148,12 @@ def export_concatenated_weights(weights_list, output_file, array_name,
 
     if not arrays:
         fatal_error(
-            f"所有 {array_name} 权重缺失",
-            f"检查模型转换是否完整，或确认模型包含 {array_name} 权重"
+            f"All {array_name} weights missing",
+            f"Check model conversion completeness, or confirm "
+            f"model contains {array_name} weights"
         )
 
-    # 拼接
+    # Concatenate
     concatenated = np.concatenate(arrays)
     total_size = len(concatenated)
 
@@ -155,7 +170,7 @@ def export_concatenated_weights(weights_list, output_file, array_name,
 
 
 def export_concatenated_bias(bias_list, output_file, array_name):
-    """导出拼接后的 bias 数组"""
+    """Export concatenated bias array"""
     gate_order = ['i', 'f', 'g', 'o']
     arrays = []
 
@@ -164,11 +179,11 @@ def export_concatenated_bias(bias_list, output_file, array_name):
         if b is not None:
             arrays.append(b.flatten())
         else:
-            warning(f"{gate} 门 bias 缺失")
+            warning(f"{gate} gate bias missing")
 
     if not arrays:
-        # 所有 bias 都缺失，生成占位符
-        warning(f"{array_name} 全部缺失，使用零数组占位")
+        # All biases missing, generate placeholder
+        warning(f"{array_name} all missing, using zero array placeholder")
         output_file.write(f"static const int32_t {array_name}[1] = {{0}};\n\n")
         return
 
@@ -185,36 +200,42 @@ def export_concatenated_bias(bias_list, output_file, array_name):
             output_file.write("\n    ")
     output_file.write("\n};\n\n")
 
-    info(f"  生成 {array_name}[{total_size}]")
+    info(f"  Generated {array_name}[{total_size}]")
 
 
 def extract_conv_weights(interpreter, op_info):
-    """提取 CONV_2D 层的权重和 bias"""
+    """Extract CONV_2D layer weights and bias"""
     weights_idx = op_info.get("conv_weights_idx")
     bias_idx = op_info.get("conv_bias_idx")
 
     if weights_idx is None:
         fatal_error(
-            "CONV_2D 权重索引未找到",
-            "检查模型转换时是否保留了张量名称"
+            "CONV_2D weight index not found",
+            "Check if tensor names were preserved during model conversion"
         )
 
     try:
         weights = interpreter.get_tensor(weights_idx)
-        bias = interpreter.get_tensor(bias_idx) if bias_idx is not None else None
+        bias = (
+            interpreter.get_tensor(bias_idx)
+            if bias_idx is not None else None
+        )
     except ValueError as e:
-        fatal_error(f"无法获取 CONV_2D 张量: {e}", "请确保模型已正确加载")
+        fatal_error(
+            f"Cannot get CONV_2D tensor: {e}",
+            "Ensure model is loaded correctly"
+        )
 
-    info(f"CONV_2D 权重: shape={weights.shape}, dtype={weights.dtype}")
+    info(f"CONV_2D weights: shape={weights.shape}, dtype={weights.dtype}")
     if bias is not None:
         info(f"CONV_2D bias: shape={bias.shape}, dtype={bias.dtype}")
     return weights, bias
 
 
 def export_weights_to_c(weights, name, output_file):
-    """导出 int8 权重"""
+    """Export int8 weights"""
     if weights is None:
-        output_file.write(f"// {name} 未找到，使用占位符\n")
+        output_file.write(f"// {name} not found, using placeholder\n")
         output_file.write(f"static const int8_t {name}[1] = {{0}};\n\n")
         return
 
@@ -230,9 +251,9 @@ def export_weights_to_c(weights, name, output_file):
 
 
 def export_bias_to_c(bias, name, output_file):
-    """导出 int32 bias"""
+    """Export int32 bias"""
     if bias is None:
-        output_file.write(f"// {name} 未找到，使用占位符\n")
+        output_file.write(f"// {name} not found, using placeholder\n")
         output_file.write(f"static const int32_t {name}[1] = {{0}};\n\n")
         return
 
@@ -247,23 +268,32 @@ def export_bias_to_c(bias, name, output_file):
 
 
 def extract_dw_weights(interpreter, op_info):
-    """提取 DEPTHWISE_CONV_2D 层的权重和 bias"""
+    """Extract DEPTHWISE_CONV_2D layer weights and bias"""
     weights_idx = op_info.get("dw_weights_idx")
     bias_idx = op_info.get("dw_bias_idx")
 
     if weights_idx is None:
         fatal_error(
-            "DEPTHWISE_CONV_2D 权重索引未找到",
-            "检查模型转换时是否保留了张量名称"
+            "DEPTHWISE_CONV_2D weight index not found",
+            "Check if tensor names were preserved during model conversion"
         )
 
     try:
         weights = interpreter.get_tensor(weights_idx)
-        bias = interpreter.get_tensor(bias_idx) if bias_idx is not None else None
+        bias = (
+            interpreter.get_tensor(bias_idx)
+            if bias_idx is not None else None
+        )
     except ValueError as e:
-        fatal_error(f"无法获取 DEPTHWISE_CONV_2D 张量: {e}", "请确保模型已正确加载")
+        fatal_error(
+            f"Cannot get DEPTHWISE_CONV_2D tensor: {e}",
+            "Ensure model is loaded correctly"
+        )
 
-    info(f"DEPTHWISE_CONV_2D 权重: shape={weights.shape}, dtype={weights.dtype}")
+    info(
+        f"DEPTHWISE_CONV_2D weights: "
+        f"shape={weights.shape}, dtype={weights.dtype}"
+    )
     if bias is not None:
         info(f"DEPTHWISE_CONV_2D bias: shape={bias.shape}, dtype={bias.dtype}")
     return weights, bias
@@ -271,20 +301,20 @@ def extract_dw_weights(interpreter, op_info):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='从 tflite 模型提取 FC 和 LSTM 权重')
-    parser.add_argument('model', help='TFLite 模型文件路径')
+        description='Extract FC and LSTM weights from TFLite model')
+    parser.add_argument('model', help='TFLite model file path')
     parser.add_argument('--output-dir', default='tinymlc_generated',
-                        help='输出目录 (默认: tinymlc_generated)')
+                        help='Output directory (default: tinymlc_generated)')
     args = parser.parse_args()
 
-    # 1. 加载模型并解析
-    info(f"正在加载模型: {args.model}")
+    # 1. Load and parse model
+    info(f"Loading model: {args.model}")
     interpreter = LiteRTInterpreter(model_path=args.model)
     interpreter.allocate_tensors()
 
     model_info = parse_model_tflite(args.model)
 
-    # 2. 查找算子信息
+    # 2. Find operator info
     fc_op_info = None
     lstm_op_info = None
     conv_op_info = None
@@ -299,8 +329,8 @@ def main():
         elif op["op_name"] == "DEPTHWISE_CONV_2D":
             dw_op_info = op
 
-    # 3. 提取权重
-    info("\n正在提取权重...")
+    # 3. Extract weights
+    info("\nExtracting weights...")
     fc_weights = fc_bias = None
     if fc_op_info:
         fc_weights, fc_bias = extract_fc_weights(interpreter, fc_op_info)
@@ -317,14 +347,17 @@ def main():
     if dw_op_info:
         dw_weights, dw_bias = extract_dw_weights(interpreter, dw_op_info)
 
-    # 4. 检查是否有任何权重被提取
+    # 4. Check if any weights were extracted
     has_fc = fc_weights is not None
-    has_lstm = lstm_weights is not None and any(v is not None for v in lstm_weights['input'].values())
+    has_lstm = (
+        lstm_weights is not None
+        and any(v is not None for v in lstm_weights['input'].values())
+    )
     has_conv = conv_weights is not None
     has_dw = dw_weights is not None
 
     if not (has_fc or has_lstm or has_conv or has_dw):
-        # 检查无权重算子
+        # Check for weightless operators
         has_weightless_op = False
         for op in model_info["ops"]:
             if op["op_name"] in WEIGHTLESS_OPS:
@@ -332,87 +365,106 @@ def main():
                 break
 
         if not has_weightless_op:
-            fatal_error("未找到任何权重", "检查模型是否包含支持的算子")
+            fatal_error(
+                "No weights found",
+                "Check if model contains supported operators"
+            )
         else:
-            info("注意: 模型只包含无权重算子（ADD/Softmax/Reshape），继续...")
+            info(
+                "Note: Model only contains weightless operators "
+                "(ADD/Softmax/Reshape), continuing..."
+            )
 
-    # 5. 创建输出目录
+    # 5. Create output directory
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # 6. 生成 FC 权重文件
+    # 6. Generate FC weights file
     if fc_weights is not None:
         output_path = output_dir / 'fc_weights.h'
         with open(output_path, 'w') as f:
-            f.write("// 自动从 tflite 提取的 FC 层权重和 bias\n")
-            f.write("// 请勿手动修改\n\n")
+            f.write("// Auto-extracted FC layer weights and bias from TFLite\n")
+            f.write("// Do not modify manually\n\n")
             export_weights_to_c(fc_weights, "fc_weights", f)
             export_bias_to_c(fc_bias, "fc_bias", f)
-        info(f"已生成: {output_path}")
+        info(f"Generated: {output_path}")
 
-    # 7. 生成 LSTM 权重文件
-    if lstm_weights and any(v is not None for v in lstm_weights['input'].values()):
+    # 7. Generate LSTM weights file
+    if (
+        lstm_weights
+        and any(v is not None for v in lstm_weights['input'].values())
+    ):
         output_path = output_dir / 'lstm_weights.h'
         with open(output_path, 'w') as f:
-            f.write("// 自动从 tflite 提取的 LSTM 各门权重和 bias（已拼接）\n")
-            f.write("// 顺序: i, f, g, o\n")
-            f.write("// 请勿手动修改\n\n")
+            f.write(
+                "// Auto-extracted LSTM gate weights and bias "
+                "from TFLite (concatenated)\n"
+            )
+            f.write("// Order: i, f, g, o\n")
+            f.write("// Do not modify manually\n\n")
 
-            # 导出拼接后的输入权重
+            # Export concatenated input weights
             export_concatenated_weights(lstm_weights['input'], f,
                                         'lstm_input_weights', 'int8')
-            # 导出拼接后的递归权重
+            # Export concatenated recurrent weights
             export_concatenated_weights(lstm_weights['recurrent'], f,
                                         'lstm_recurrent_weights', 'int8')
-            # 导出拼接后的 bias
+            # Export concatenated bias
             export_concatenated_bias(lstm_weights['bias'], f, 'lstm_bias')
 
-        info(f"已生成: {output_path}")
+        info(f"Generated: {output_path}")
 
-    # 8. 生成 CONV 权重文件 conv_weights.h
+    # 8. Generate CONV weights file conv_weights.h
     if conv_weights is not None:
         output_path = output_dir / 'conv_weights.h'
         with open(output_path, 'w') as f:
-            f.write("// 自动从 tflite 提取的 CONV_2D 权重和 bias\n")
-            f.write("// 请勿手动修改\n\n")
+            f.write("// Auto-extracted CONV_2D weights and bias from TFLite\n")
+            f.write("// Do not modify manually\n\n")
             export_weights_to_c(conv_weights, "conv_weights", f)
             if conv_bias is not None:
                 export_bias_to_c(conv_bias, "conv_bias", f)
-        info(f"已生成: {output_path}")
+        info(f"Generated: {output_path}")
 
-    # 9. 生成 CONV 权重文件
+    # 9. Generate DEPTHWISE_CONV weights file
     if dw_weights is not None:
         output_path = output_dir / 'dw_weights.h'
         with open(output_path, 'w') as f:
-            f.write("// 自动从 tflite 提取的 DEPTHWISE_CONV_2D 权重和 bias\n")
-            f.write("// 请勿手动修改\n\n")
+            f.write(
+                "// Auto-extracted DEPTHWISE_CONV_2D weights "
+                "and bias from TFLite\n"
+            )
+            f.write("// Do not modify manually\n\n")
             export_weights_to_c(dw_weights, "dw_weights", f)
             if dw_bias is not None:
                 export_bias_to_c(dw_bias, "dw_bias", f)
-        info(f"已生成: {output_path}")
+        info(f"Generated: {output_path}")
 
-    # 打印统计信息
-    info("\n=== 提取统计 ===")
+    # Print statistics
+    info("\n=== Extraction Statistics ===")
     if fc_weights is not None:
         info(
-            f"FC 权重: {fc_weights.size} 个 int8, bias: {fc_bias.size} 个 int32")
+            f"FC weights: {fc_weights.size} int8, bias: {fc_bias.size} int32")
 
     if lstm_weights:
         for gate in GATE_ORDER:
             w = lstm_weights['input'].get(gate)
             r = lstm_weights['recurrent'].get(gate)
             b = lstm_weights['bias'].get(gate)
-            # 检查是否有任何非 None 的权重
+            # Check if any non-None weights exist
             if w is not None or r is not None or b is not None:
                 w_size = w.size if w is not None else 0
                 r_size = r.size if r is not None else 0
                 b_size = b.size if b is not None else 0
                 info(
-                    f"LSTM {gate} 门: input={w_size}, recurrent={r_size}, bias={b_size}")
+                    f"LSTM {gate} gate: input={w_size}, "
+                    f"recurrent={r_size}, bias={b_size}"
+                )
 
     if conv_weights is not None:
         info(
-            f"CONV 权重: {conv_weights.size} 个 int8, bias: {conv_weights.size} 个 int32")
+            f"CONV weights: {conv_weights.size} int8, "
+            f"bias: {conv_bias.size} int32"
+        )
 
     return 0
 

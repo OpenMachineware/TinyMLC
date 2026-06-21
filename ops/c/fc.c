@@ -1,21 +1,21 @@
 #include "tinymlc.h"
 
 /**
- * int8 量化全连接算子
- * 
- * 量化公式:
+ * int8 quantized fully connected operator
+ *
+ * Quantization formula:
  *   output = round((acc * multiplier) >> (31 + shift))
- *   其中 acc = sum(input * weight) + bias
- * 
- * multiplier 和 shift 由编译器根据量化参数计算:
+ *   where acc = sum(input * weight) + bias
+ *
+ * multiplier and shift are calculated by compiler based on quantization params:
  *   effective_scale = (input_scale * weight_scale) / output_scale
- *   multiplier = effective_scale * 2^31 (调整到 Q31 范围)
- *   shift 用于调整 multiplier 到有效范围
- * 
- * 数值范围:
- *   127 / -128: int8 对称量化的数值范围
- *   1 << 30: round-to-nearest 的偏移量 (0.5 * 2^31)
- *   31: Q31 定点数格式
+ *   multiplier = effective_scale * 2^31 (adjusted to Q31 range)
+ *   shift adjusts multiplier to valid range
+ *
+ * Value range:
+ *   127 / -128: int8 symmetric quantization range
+ *   1 << 30: round-to-nearest offset (0.5 * 2^31)
+ *   31: Q31 fixed-point format
  */
 void tmlc_fully_connected_s8(const int8_t* input,
                               const int8_t* weights,

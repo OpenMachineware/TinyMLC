@@ -55,7 +55,7 @@ void debug_int(int n) {
 
 void debug_hex(unsigned int n) {
     const char hex[] = "0123456789ABCDEF";
-    // 打印 8 位十六进制（带前导零）
+    // Print 8-digit hex with leading zeros
     for (int i = 7; i >= 0; i--) {
         debug_char(hex[(n >> (i * 4)) & 0xF]);
     }

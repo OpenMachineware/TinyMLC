@@ -10,7 +10,7 @@ void tmlc_fully_connected_s8(const int8_t* input,
                               int input_size,
                               int output_size)
 {
-    // 1. 缓冲区
+    // 1. Buffer
     cmsis_nn_dims filter_dims;
     filter_dims.n = output_size;
     filter_dims.h = 1;
@@ -24,7 +24,7 @@ void tmlc_fully_connected_s8(const int8_t* input,
     ctx.buf = fc_buffer;
     ctx.size = buf_size;
 
-    // 2. FC 参数
+    // 2. FC parameters
     cmsis_nn_fc_params fc_params;
     fc_params.input_offset = 0;
     fc_params.filter_offset = 0;
@@ -32,37 +32,38 @@ void tmlc_fully_connected_s8(const int8_t* input,
     fc_params.activation.min = -128;
     fc_params.activation.max = 127;
 
-    // 3. 量化参数
+    // 3. Quantization parameters
     cmsis_nn_per_tensor_quant_params quant_params;
     quant_params.multiplier = 1610612736;
     quant_params.shift = -7;
 
-    // 4. 输入维度
+    // 4. Input dimensions
     cmsis_nn_dims input_dims;
     input_dims.n = 1;
     input_dims.h = 1;
     input_dims.w = 1;
     input_dims.c = input_size;
 
-    // 5. 输出维度
+    // 5. Output dimensions
     cmsis_nn_dims output_dims;
     output_dims.n = 1;
     output_dims.h = 1;
     output_dims.w = 1;
     output_dims.c = output_size;
 
-    // 6. bias 维度
+    // 6. Bias dimensions
     cmsis_nn_dims bias_dims;
     bias_dims.n = 1;
     bias_dims.h = 1;
     bias_dims.w = 1;
     bias_dims.c = output_size;
 
-DEBUG_STR("转置\n");
+DEBUG_STR("Transpose\n");
 int8_t weights_transposed[input_size * output_size];
 for (int out = 0; out < output_size; out++) {
     for (int in = 0; in < input_size; in++) {
-        weights_transposed[in * output_size + out] = weights[out * input_size + in];
+        weights_transposed[in * output_size + out] =
+            weights[out * input_size + in];
     }
 }
 
@@ -70,9 +71,10 @@ DEBUG_STR("FC: pure C output[0..9]=");
 for (int out = 0; out < 10 && out < output_size; out++) {
     int32_t sum = bias ? bias[out] : 0;
     for (int in = 0; in < input_size; in++) {
-        sum += (int32_t)input[in] * (int32_t)weights_transposed[out * input_size + in];
+        sum += (int32_t)input[in] *
+               (int32_t)weights_transposed[out * input_size + in];
     }
-    int8_t pure_out = (int8_t)(sum >> 8);  // 和之前纯 C 版本一样的量化
+    int8_t pure_out = (int8_t)(sum >> 8);
     DEBUG_INT(pure_out);
     DEBUG_CHAR(' ');
 }

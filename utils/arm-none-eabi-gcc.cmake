@@ -1,17 +1,17 @@
-# 编译CMSIS-NN用的
+# For compiling CMSIS-NN
 # cmake .. -DCMAKE_TOOLCHAIN_FILE=../arm-none-eabi-gcc.cmake \
 #          -DCMAKE_BUILD_TYPE=Release \
 #          -DCMAKE_INSTALL_PREFIX=/opt/cmsis-nn \
 #          -DCMAKE_C_FLAGS="-mcpu=cortex-m4 -mthumb -mabi=aapcs -mfloat-abi=soft -Ofast -DNDEBUG" \
 #          -DCMAKE_CXX_FLAGS="-mcpu=cortex-m4 -mthumb -mabi=aapcs -mfloat-abi=soft -Ofast -DNDEBUG"
 # make
-# 然后拷贝Include和libcmsis-nn.a就行
+# Then copy Include and libcmsis-nn.a
 
-# 设置目标系统为裸机环境，处理器架构为 ARM
+# Set target system to bare-metal environment, processor architecture ARM
 set(CMAKE_SYSTEM_NAME Generic)
 set(CMAKE_SYSTEM_PROCESSOR ARM)
 
-# 指定交叉编译器
+# Specify cross-compiler
 set(CMAKE_C_COMPILER arm-none-eabi-gcc)
 set(CMAKE_CXX_COMPILER arm-none-eabi-g++)
 set(CMAKE_ASM_COMPILER arm-none-eabi-gcc)
@@ -19,10 +19,10 @@ set(CMAKE_OBJCOPY arm-none-eabi-objcopy)
 set(CMAKE_OBJDUMP arm-none-eabi-objdump)
 set(CMAKE_SIZE arm-none-eabi-size)
 
-# 禁止 CMake 尝试编译并运行测试程序（因为交叉编译的二进制无法在宿主机上运行）
+# Disable CMake from trying to compile and run test programs (cross-compiled binaries cannot run on host)
 set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
 
-# 设置查找路径规则，防止误引入宿主机的库和头文件
+# Set path search rules to prevent accidentally including host libraries and headers
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)

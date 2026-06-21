@@ -1,10 +1,10 @@
 #include "tinymlc.h"
 
-// 预计算的 sigmoid 查表 (int8 输入 -> int8 输出)
-// 输入范围: -128 到 127 (映射到 -1.0 到 ~1.0)
-// 输出范围: sigmoid(-1.0)~sigmoid(1.0) 映射到 int8
+// Precomputed sigmoid lookup table (int8 input -> int8 output)
+// Input range: -128 to 127 (mapped to -1.0 to ~1.0)
+// Output range: sigmoid(-1.0)~sigmoid(1.0) mapped to int8
 // sigmoid(x) = 1/(1+e^(-x)), sigmoid(-1)=0.27, sigmoid(1)=0.73
-// 映射到 int8: (sigmoid-0.5)*256
+// Mapped to int8: (sigmoid-0.5)*256
 static const int8_t sigmoid_lut[256] = {
     -59, -58, -57, -56, -55, -54, -53, -52, -51, -50, -49, -48, -47, -46, -45, -44,
     -43, -42, -41, -40, -39, -38, -37, -36, -35, -34, -33, -32, -31, -30, -29, -28,

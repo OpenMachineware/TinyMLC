@@ -1,4 +1,4 @@
-// 自动生成的 LUT 实现
-// 实际内容在 lut.h 中，此文件仅作为占位
+// Auto-generated LUT implementation
+// Actual content is in lut.h, this file is just a placeholder
 
 #include "lut.h"

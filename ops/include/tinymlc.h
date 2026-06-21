@@ -38,7 +38,8 @@ void tmlc_unidirectional_sequence_lstm_s8(
 void tmlc_reshape_s8(const int8_t* input, int8_t* output,
                      int input_size, const int* new_shape, int shape_size);
 
-void tmlc_add_s8(const int8_t* input1, const int8_t* input2, int8_t* output, int size);
+void tmlc_add_s8(const int8_t* input1, const int8_t* input2,
+                 int8_t* output, int size);
 
 void tmlc_svdf_s8(const int8_t* input, const int8_t* weights,
                   const int32_t* bias, int8_t* output, int time_steps,

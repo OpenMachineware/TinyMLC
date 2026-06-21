@@ -10,35 +10,35 @@ void tmlc_mean_s8(const int8_t* input,
                   int axis_count,
                   int keep_dims)
 {
-    // 简单实现：全局平均（所有维度）
-    // 对于 MobileNetV2 的 MEAN，通常是全局平均池化
-    // 输入形状: [1, 7, 7, 1280] -> 输出: [1, 1, 1, 1280]
+    // Simple implementation: global average (all dimensions)
+    // For MobileNetV2 MEAN, typically global average pooling
+    // Input shape: [1, 7, 7, 1280] -> Output: [1, 1, 1, 1280]
 
     if (input == NULL || output == NULL || input_dims <= 0) {
         return;
     }
 
-    // 计算总元素数
+    // Calculate total element count
     int total_size = 1;
     for (int i = 0; i < input_dims; i++) {
         total_size *= input_shape[i];
     }
 
-    // 如果输出维度是 1，做全局平均
+    // If output dimension is 1, do global average
     int output_size = 1;
     for (int i = 0; i < input_dims; i++) {
         output_size *= output_shape[i];
     }
 
     if (output_size == 1) {
-        // 全局平均
+        // Global average
         int32_t sum = 0;
         for (int i = 0; i < total_size; i++) {
             sum += input[i];
         }
         output[0] = (int8_t)(sum / total_size);
     } else {
-        // 沿最后一个维度平均（最常见的情况）
+        // Average along last dimension (most common case)
         int last_dim = input_shape[input_dims - 1];
         int num_groups = total_size / last_dim;
 

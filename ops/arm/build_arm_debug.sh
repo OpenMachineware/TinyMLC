@@ -1,5 +1,5 @@
 #!/bin/bash
-# ARM Debug 构建脚本（纯 C 参考实现）
+# ARM Debug Build Script (Pure C Reference Implementation)
 
 MODEL_PATH="${1:-trained_lstm_int8.tflite}"
 
@@ -8,9 +8,11 @@ SIM="qemu-system-arm"
 ARCH="cortex-m4"
 ABI="aapcs"
 
-CFLAGS="-mcpu=$ARCH -mthumb -mabi=$ABI -nostdlib -ffreestanding -fno-omit-frame-pointer -DTINYMLC_DEBUG -I./include -I./c -I."
+CFLAGS="-mcpu=$ARCH -mthumb -mabi=$ABI -nostdlib \
+    -ffreestanding -fno-omit-frame-pointer \
+    -DTINYMLC_DEBUG -I./include -I./c -I."
 
-# ========== 编译 C 算子 ==========
+# ========== Compile C Operators ==========
 $CC $CFLAGS -c c/fc.c -o fc.o
 $CC $CFLAGS -c c/softmax.c -o softmax.o
 $CC $CFLAGS -c c/reshape.c -o reshape.o
@@ -25,7 +27,7 @@ $CC $CFLAGS -c c/transpose.c -o transpose.o
 $CC $CFLAGS -c c/pad.c -o pad.o
 $CC $CFLAGS -c c/mean.c -o mean.o
 
-# ========== LSTM（按需） ==========
+# ========== LSTM (Optional) ==========
 if grep -q "HAS_LSTM" model_features.txt 2>/dev/null; then
     $CC $CFLAGS -c lstm/c/lstm.c -o lstm.o
     $CC $CFLAGS -c lut.c -o lut.o
@@ -34,13 +36,13 @@ else
     LSTM_OBJ=""
 fi
 
-# ========== 启动和调试 ==========
+# ========== Startup and Debug ==========
 $CC $CFLAGS -c start.S -o start.o
 $CC $CFLAGS -c debug_print.c -o debug_print.o
 $CC $CFLAGS -c model.c -o model.o
 $CC $CFLAGS -c main_test.c -o main_test.o
 
-# ========== 链接 ==========
+# ========== Link ==========
 $CC $CFLAGS -T link_arm.ld \
     start.o debug_print.o \
     fc.o softmax.o reshape.o add.o svdf.o \
@@ -50,5 +52,5 @@ $CC $CFLAGS -T link_arm.ld \
     model.o main_test.o \
     -o model.elf
 
-# ========== 运行 ==========
+# ========== Run ==========
 $SIM -M mps2-an386 -nographic -semihosting -serial mon:stdio -kernel model.elf

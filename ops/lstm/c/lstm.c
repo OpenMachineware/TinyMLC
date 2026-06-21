@@ -2,7 +2,7 @@
 #include "lut.h"
 #include "debug_print.h"
 
-// 默认宏
+// Default macros
 #ifndef LSTM_SHIFT_I
 #define LSTM_SHIFT_I 8
 #endif
@@ -22,19 +22,19 @@ void tmlc_unidirectional_sequence_lstm_s8(
     const int8_t* input_weights,
     const int8_t* recurrent_weights,
     const int32_t* bias,
-    int8_t* output_sequence,   // 如果为 NULL，则不保存完整序列
-    int8_t* output_state,      // 如果为 NULL，则不保存最后状态
-    int8_t* cell_state,        // 如果为 NULL，则不保存细胞状态
+    int8_t* output_sequence,   // If NULL, don't save full sequence
+    int8_t* output_state,      // If NULL, don't save final state
+    int8_t* cell_state,        // If NULL, don't save cell state
     int time_steps,
     int batch_size,
     int input_size,
     int hidden_size)
 {
-    // ========== 1. 内部状态 ==========
+    // ========== 1. Internal State ==========
     int8_t h_cur[hidden_size];
     int8_t c_cur[hidden_size];
 
-    // 初始化状态
+    // Initialize state
     if (output_state) {
         for (int i = 0; i < hidden_size; i++) {
             h_cur[i] = output_state[i];
@@ -55,7 +55,7 @@ void tmlc_unidirectional_sequence_lstm_s8(
         }
     }
 
-    // ========== 2. 临时缓冲区 ==========
+    // ========== 2. Temporary Buffer ==========
     int32_t gate_i[hidden_size];
     int32_t gate_f[hidden_size];
     int32_t gate_g[hidden_size];
@@ -66,7 +66,7 @@ void tmlc_unidirectional_sequence_lstm_s8(
     int16_t act_g[hidden_size];
     int16_t act_o[hidden_size];
 
-    // ========== 3. 权重指针 ==========
+    // ========== 3. Weight Pointer ==========
     const int8_t* wi_ptr = input_weights;
     const int8_t* wf_ptr = input_weights + hidden_size * input_size;
     const int8_t* wg_ptr = input_weights + 2 * hidden_size * input_size;
@@ -84,9 +84,9 @@ void tmlc_unidirectional_sequence_lstm_s8(
 
     const int8_t* x_ptr = input;
 
-    // ========== 4. 时间步循环 ==========
+    // ========== 4. Time Step Loop ==========
     for (int t = 0; t < time_steps; t++) {
-        // 输入门 (i)
+        // Input gate (i)
         for (int i = 0; i < hidden_size; i++) {
             int32_t sum = bi_ptr[i];
             for (int j = 0; j < input_size; j++) {
@@ -98,7 +98,7 @@ void tmlc_unidirectional_sequence_lstm_s8(
             gate_i[i] = sum;
         }
 
-        // 遗忘门 (f)
+        // Forget gate (f)
         for (int i = 0; i < hidden_size; i++) {
             int32_t sum = bf_ptr[i];
             for (int j = 0; j < input_size; j++) {
@@ -110,7 +110,7 @@ void tmlc_unidirectional_sequence_lstm_s8(
             gate_f[i] = sum;
         }
 
-        // 候选记忆门 (g)
+        // Candidate memory gate (g)
         for (int i = 0; i < hidden_size; i++) {
             int32_t sum = bg_ptr[i];
             for (int j = 0; j < input_size; j++) {
@@ -122,7 +122,7 @@ void tmlc_unidirectional_sequence_lstm_s8(
             gate_g[i] = sum;
         }
 
-        // 输出门 (o)
+        // Output gate (o)
         for (int i = 0; i < hidden_size; i++) {
             int32_t sum = bo_ptr[i];
             for (int j = 0; j < input_size; j++) {
@@ -134,7 +134,7 @@ void tmlc_unidirectional_sequence_lstm_s8(
             gate_o[i] = sum;
         }
 
-        // 激活函数
+        // Activation function
         for (int i = 0; i < hidden_size; i++) {
             act_i[i] = sigmoid_lut_lookup(gate_i[i] >> LSTM_SHIFT_I);
             act_f[i] = sigmoid_lut_lookup(gate_f[i] >> LSTM_SHIFT_F);
@@ -142,11 +142,11 @@ void tmlc_unidirectional_sequence_lstm_s8(
             act_o[i] = sigmoid_lut_lookup(gate_o[i] >> LSTM_SHIFT_O);
         }
 
-        // 更新状态
-        // TODO: 这里的 >> 8 是硬编码，应该使用实际的量化 scale
-        // cell state 更新: c = f * c_prev + i * g
-        // hidden state 更新: h = o * tanh(c)
-        // 需要根据各状态的 scale 计算 multiplier 和 shift
+        // Update state
+        // TODO: The >> 8 here is hardcoded, should use actual quantization scale
+        // cell state update: c = f * c_prev + i * g
+        // hidden state update: h = o * tanh(c)
+        // Need to calculate multiplier and shift based on each state's scale
         for (int i = 0; i < hidden_size; i++) {
             int32_t new_c = ((int32_t)act_f[i] * (int32_t)c_cur[i]) >> 8;
             new_c += ((int32_t)act_i[i] * (int32_t)act_g[i]) >> 8;
@@ -157,7 +157,7 @@ void tmlc_unidirectional_sequence_lstm_s8(
             h_cur[i] = (int8_t)(new_h >> 8);
         }
 
-        // 保存完整序列
+        // Save full sequence
         if (output_sequence) {
             int8_t* seq_out = output_sequence + t * hidden_size;
             for (int i = 0; i < hidden_size; i++) {
@@ -168,7 +168,7 @@ void tmlc_unidirectional_sequence_lstm_s8(
         x_ptr += input_size;
     }
 
-    // 写回最终状态
+    // Write back final state
     if (output_state) {
         for (int i = 0; i < hidden_size; i++) {
             output_state[i] = h_cur[i];

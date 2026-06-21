@@ -8,9 +8,9 @@ void tmlc_pad_s8(const int8_t* input,
                  const int* input_shape,
                  const int* output_shape)
 {
-    // 简单实现：只支持 4 维 padding
-    // paddings 格式: [top, bottom, left, right, front, back, ...]
-    // 对于 4 维 NHWC: [0, 0, top, bottom, left, right, 0, 0]
+    // Simple implementation: only supports 4D padding
+    // paddings format: [top, bottom, left, right, front, back, ...]
+    // For 4D NHWC: [0, 0, top, bottom, left, right, 0, 0]
 
     if (input_dims != 4 || input == NULL || output == NULL || paddings == NULL) {
         return;
@@ -29,13 +29,13 @@ void tmlc_pad_s8(const int8_t* input,
     int output_w = output_shape[2];
     int output_c = output_shape[3];
 
-    // 初始化输出为 0
+    // Initialize output to 0
     int output_size = output_h * output_w * output_c;
     for (int i = 0; i < output_size; i++) {
         output[i] = 0;
     }
 
-    // 复制输入到 padding 后的位置
+    // Copy input to padded position
     for (int h = 0; h < input_h; h++) {
         for (int w = 0; w < input_w; w++) {
             for (int c = 0; c < input_c; c++) {

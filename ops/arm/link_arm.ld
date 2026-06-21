@@ -6,7 +6,7 @@ MEMORY {
 
 SECTIONS {
     .text : {
-        *(.vector_table) /* 向量表必须放在最前面 */
+        *(.vector_table) /* Vector table must be placed first */
         *(.text*)
         *(.rodata*)
     } > FLASH
@@ -16,7 +16,7 @@ SECTIONS {
         *(.data*)
         _edata = .;
     } > RAM AT > FLASH
-    _sidata = LOADADDR(.data); /* 记录 .data 在 Flash 中的加载地址 */
+    _sidata = LOADADDR(.data); /* Record .data load address in Flash */
 
     .bss : {
         _sbss = .;
@@ -25,8 +25,8 @@ SECTIONS {
         _ebss = .;
     } > RAM
 
-    /* 在 RAM 末尾分配栈空间，严格 8 字节对齐 */
+    /* Allocate stack space at end of RAM, strictly 8-byte aligned */
     . = ALIGN(8);
-    . = . + 0x1000; /* 分配 4KB 栈空间，防止函数调用溢出 */
+    . = . + 0x1000; /* Allocate 4KB stack space to prevent call overflow */
     _estack = .;
 }

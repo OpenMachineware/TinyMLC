@@ -1,9 +1,9 @@
 #include "tinymlc.h"
 
-// 预计算的 tanh 查表 (int8 输入 -> int8 输出)
-// 输入范围: -128 到 127 (映射到 -1.0 到 ~1.0)
-// 输出范围: tanh(-1.0)~-tanh(1.0) = -0.76~0.76
-// 映射到 int8: tanh(x) * 127
+// Precomputed tanh lookup table (int8 input -> int8 output)
+// Input range: -128 to 127 (mapped to -1.0 to ~1.0)
+// Output range: tanh(-1.0)~tanh(1.0) = -0.76~0.76
+// Mapped to int8: tanh(x) * 127
 static const int8_t tanh_lut[256] = {
     -97, -96, -95, -94, -93, -92, -91, -90, -89, -88, -87, -86, -85, -84, -83, -82,
     -81, -80, -79, -78, -77, -76, -75, -74, -73, -72, -71, -70, -69, -68, -67, -66,

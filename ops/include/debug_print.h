@@ -3,10 +3,10 @@
 
 #include <stdint.h>
 
-// 调试宏开关
-// 编译时通过 -DTINYMLC_DEBUG 启用调试
+// Debug macro switch
+// Enable debug by compiling with -DTINYMLC_DEBUG
 #ifdef TINYMLC_DEBUG
-    // 调试模式：启用打印
+    // Debug mode: enable printing
     void tinymlc_putchar(char c);
     void tinymlc_print_int(int n);
     void debug_char(char c);
@@ -23,7 +23,7 @@
     #define DEBUG_HEX(n) debug_hex(n)
     #define DEBUG_ENDL() debug_endl()
 
-    // 快速标记位置：打印文件名和行号
+    // Quick position marker: print filename and line number
     #define DEBUG_POS() do { \
         debug_str(__FILE__); \
         debug_char(':'); \
@@ -32,7 +32,7 @@
     } while(0)
 
 #else
-    // Release 模式：宏展开为空
+    // Release mode: macros expand to empty
     #define TMLC_PUTCHAR(c) ((void)0)
     #define TMLC_PRINT_INT(n) ((void)0)
     #define DEBUG_CHAR(c) ((void)0)

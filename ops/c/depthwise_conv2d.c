@@ -1,9 +1,9 @@
 #include "tinymlc.h"
 
 /**
- * int8 量化深度可分离卷积算子
- * 
- * 量化公式同 conv2d:
+ * int8 quantized depthwise separable convolution operator
+ *
+ * Quantization formula same as conv2d:
  *   output = round((acc * multiplier) >> (31 + shift))
  */
 void tmlc_depthwise_conv_2d_s8(const int8_t* input,
@@ -30,20 +30,29 @@ void tmlc_depthwise_conv_2d_s8(const int8_t* input,
                         for (int kw = 0; kw < kernel_w; kw++) {
                             int ih = oh * stride_h + kh - padding_h;
                             int iw = ow * stride_w + kw - padding_w;
-                            if (ih >= 0 && ih < input_h && iw >= 0 && iw < input_w) {
-                                sum += (int32_t)input[ih * input_w * input_c + iw * input_c + ic]
-                                     * (int32_t)weights[ic * depth_multiplier * kernel_h * kernel_w
-                                            + dm * kernel_h * kernel_w + kh * kernel_w + kw];
+                            if (ih >= 0 && ih < input_h &&
+                                iw >= 0 && iw < input_w) {
+                                int input_idx = ih * input_w * input_c +
+                                                iw * input_c + ic;
+                                int weight_idx = (
+                                    ic * depth_multiplier * kernel_h * kernel_w
+                                    + dm * kernel_h * kernel_w
+                                    + kh * kernel_w + kw);
+                                sum += (int32_t)input[input_idx] *
+                                       (int32_t)weights[weight_idx];
                             }
                         }
                     }
-                    // rescale: output = round((sum * multiplier) / 2^(31+shift))
+                    // rescale: output = round((sum * multiplier)
+                    // / 2^(31+shift))
                     int64_t scaled = ((int64_t)sum * multiplier);
-                    scaled += (scaled >= 0) ? (1LL << 30) : -(1LL << 30);  // round-to-nearest
+                    // round-to-nearest
+                    scaled += (scaled >= 0) ? (1LL << 30) : -(1LL << 30);
                     scaled >>= (31 + shift);
                     if (scaled > 127) scaled = 127;   // int8 max
                     if (scaled < -128) scaled = -128; // int8 min
-                    output[oh * output_w * output_c + ow * output_c + oc] = (int8_t)scaled;
+                    int out_idx = oh * output_w * output_c + ow * output_c + oc;
+                    output[out_idx] = (int8_t)scaled;
                 }
             }
         }

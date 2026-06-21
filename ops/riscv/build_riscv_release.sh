@@ -1,5 +1,6 @@
 #!/bin/bash
-# RISC-V Release 构建脚本（纯 C 参考实现，不生成 main_test.c，不运行）
+# RISC-V Release Build Script (Pure C Reference Implementation,
+# no main_test.c generation, no run)
 
 MODEL_PATH="${1:-trained_lstm_int8.tflite}"
 
@@ -7,9 +8,11 @@ CC="riscv-none-elf-gcc"
 ARCH="rv32imac"
 ABI="ilp32"
 
-CFLAGS="-march=$ARCH -mabi=$ABI -nostdlib -ffreestanding -fno-omit-frame-pointer -nostartfiles -nodefaultlibs -I./include -I./c -I."
+CFLAGS="-march=$ARCH -mabi=$ABI -nostdlib -ffreestanding"
+CFLAGS="$CFLAGS -fno-omit-frame-pointer -nostartfiles -nodefaultlibs"
+CFLAGS="$CFLAGS -I./include -I./c -I."
 
-# ========== 编译 C 算子 ==========
+# ========== Compile C Operators ==========
 $CC $CFLAGS -c c/fc.c -o fc.o
 $CC $CFLAGS -c c/softmax.c -o softmax.o
 $CC $CFLAGS -c c/reshape.c -o reshape.o
@@ -24,7 +27,7 @@ $CC $CFLAGS -c c/transpose.c -o transpose.o
 $CC $CFLAGS -c c/pad.c -o pad.o
 $CC $CFLAGS -c c/mean.c -o mean.o
 
-# ========== LSTM（按需） ==========
+# ========== LSTM (Optional) ==========
 if grep -q "HAS_LSTM" model_features.txt 2>/dev/null; then
     $CC $CFLAGS -c lstm/c/lstm.c -o lstm.o
     $CC $CFLAGS -c lut.c -o lut.o
@@ -33,12 +36,12 @@ else
     LSTM_OBJ=""
 fi
 
-# ========== 启动和调试 ==========
+# ========== Startup and Debug ==========
 $CC $CFLAGS -c start.S -o start.o
 $CC $CFLAGS -c debug_print.c -o debug_print.o
 $CC $CFLAGS -c model.c -o model.o
 
-# ========== Release 模式：不链接，不运行 ==========
-echo "Release 模式：已生成所有 .o 文件"
-echo "如需链接，请手动执行："
+# ========== Release Mode: No Link, No Run ==========
+echo "Release mode: All .o files generated"
+echo "To link manually, execute:"
 echo "  $CC -T linker.ld start.o debug_print.o ... -o model.elf"

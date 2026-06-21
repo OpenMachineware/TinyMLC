@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""基于 LiteRT 的 TFLite 模型解析器"""
+"""LiteRT-based TFLite model parser"""
 
 from ai_edge_litert.interpreter import Interpreter
 from ai_edge_litert.compiled_model import CompiledModel
@@ -9,17 +9,17 @@ from tinymlc.utils import fatal_error, info, warning
 
 
 def parse_model_tflite(model_path: str):
-    """使用 LiteRT 解析 TFLite 模型"""
+    """Parse TFLite model using LiteRT"""
 
-    # 1. 加载模型（使用 LiteRT 的 Interpreter）
+    # 1. Load model (using LiteRT Interpreter)
     interpreter = Interpreter(model_path=model_path)
     interpreter.allocate_tensors()
 
-    # 2. 获取输入输出张量（与旧版 API 一致）
+    # 2. Get input/output tensors (same as old API)
     input_details = interpreter.get_input_details()
     output_details = interpreter.get_output_details()
 
-    # 3. 获取所有张量信息 获取张量详情后，尝试读取常量张量的数据
+    # 3. Get all tensor info, try to read constant tensor data
     tensor_details = interpreter.get_tensor_details()
     tensor_map = {}
 
@@ -31,13 +31,17 @@ def parse_model_tflite(model_path: str):
             "dtype": str(tensor["dtype"]),
             "size": int(np.prod(shape)) if shape is not None and len(
                 shape) > 0 else 1,
-            "scale": tensor["quantization"][0] if tensor["quantization"][
-                                                      0] is not None else 1.0,
-            "zero_point": tensor["quantization"][1] if tensor["quantization"][
-                                                           1] is not None else 0,
+            "scale": (
+                tensor["quantization"][0]
+                if tensor["quantization"][0] is not None else 1.0
+            ),
+            "zero_point": (
+                tensor["quantization"][1]
+                if tensor["quantization"][1] is not None else 0
+            ),
         }
 
-        # 尝试读取常量张量的数据（用于 Reshape 的目标形状等）
+        # Try to read constant tensor data (for Reshape target shape etc)
         try:
             data = interpreter.get_tensor(tensor["index"])
             tensor_info["data"] = data
@@ -46,10 +50,10 @@ def parse_model_tflite(model_path: str):
 
         tensor_map[tensor["index"]] = tensor_info
 
-    # 4. 获取算子列表
+    # 4. Get operator list
     ops = []
     for op in interpreter._get_ops_details():
-        # 跳过 DELEGATE 算子
+        # Skip DELEGATE operator
         if op["op_name"] == "DELEGATE":
             continue
 
@@ -66,10 +70,11 @@ def parse_model_tflite(model_path: str):
             "output_details": [],
         }
 
-        # 根据算子类型设置状态
+        # Set state based on operator type
         if op["op_name"] == "ADD":
             inputs = op_info["input_indices"]
-            # 输入数量判断是基于算子规范的，inputs[0] inputs[1] 属合理。
+            # Input count based on operator spec:
+            # inputs[0] inputs[1] are valid
             if len(inputs) >= 2:
                 op_info["add_input1_idx"] = inputs[0]
                 op_info["add_input2_idx"] = inputs[1]
@@ -77,18 +82,20 @@ def parse_model_tflite(model_path: str):
             op_info["pass_flags"]["add_check"] = "success"
         elif op["op_name"] == "FULLY_CONNECTED":
             inputs = op_info["input_indices"]
-            # 输入数量判断是基于算子规范的，inputs[0] inputs[1] inputs[2] 属合理。
+            # Input count based on operator spec:
+            # inputs[0] inputs[1] inputs[2] are valid
             if len(inputs) >= 3:
                 op_info["data_input_idx"] = inputs[0]
                 op_info["fc_weights_idx"] = inputs[1]
                 op_info["fc_bias_idx"] = inputs[2]
-            # 输入数量判断是基于算子规范的，inputs[0] inputs[1] 属合理。
+            # Input count based on operator spec:
+            # inputs[0] inputs[1] are valid
             elif len(inputs) >= 2:
                 op_info["data_input_idx"] = inputs[0]
                 op_info["fc_weights_idx"] = inputs[1]
                 op_info["fc_bias_idx"] = None
             else:
-                # 输入数量判断是基于算子规范的，inputs[0] 属合理。
+                # Input count is based on operator spec, inputs[0] is valid
                 op_info["data_input_idx"] = inputs[0]
                 op_info["fc_weights_idx"] = None
                 op_info["fc_bias_idx"] = None
@@ -96,36 +103,42 @@ def parse_model_tflite(model_path: str):
             op_info["pass_flags"]["fc_check"] = "success"
         elif op["op_name"] == "SOFTMAX":
             if len(op_info["input_indices"]) < 1:
-                fatal_error("SOFTMAX 缺少输入", "检查模型格式")
+                fatal_error("SOFTMAX missing input", "Check model format")
             if len(op_info["output_indices"]) < 1:
-                fatal_error("SOFTMAX 缺少输出", "检查模型格式")
+                fatal_error("SOFTMAX missing output", "Check model format")
             op_info["state"] = "translated"
             op_info["pass_flags"]["softmax_check"] = "success"
         elif op["op_name"] == "RESHAPE":
             inputs = op_info["input_indices"]
             if len(inputs) < 2:
-                fatal_error("RESHAPE 缺少目标形状参数", "检查模型格式")
+                fatal_error(
+                    "RESHAPE missing target shape parameter",
+                    "Check model format"
+                )
 
             shape_idx = inputs[1]
             shape_tensor = tensor_map.get(shape_idx, {})
 
-            # 优先从 data 读取实际值
+            # Prefer reading actual value from data
             if "data" in shape_tensor:
                 target_shape = [int(s) for s in shape_tensor["data"].flatten()]
             else:
                 target_shape = shape_tensor.get("shape", [])
 
             if not target_shape:
-                fatal_error("RESHAPE 无法提取目标形状", "检查模型格式")
+                fatal_error(
+                    "RESHAPE cannot extract target shape",
+                    "Check model format"
+                )
 
-            # 处理动态维度 -1
+            # Handle dynamic dimension -1
             if -1 in target_shape:
-                # 获取输入张量的大小
+                # Get input tensor size
                 input_idx = inputs[0]
                 input_tensor = tensor_map.get(input_idx, {})
                 input_size = input_tensor.get("size", 1)
 
-                # 计算 -1 的实际值
+                # Calculate actual value for -1
                 other_dims = 1
                 for s in target_shape:
                     if s != -1:
@@ -141,30 +154,36 @@ def parse_model_tflite(model_path: str):
         elif op["op_name"] == "UNIDIRECTIONAL_SEQUENCE_LSTM":
             inputs = op_info["input_indices"]
             if len(inputs) >= 13:
-                # TFLite/LiteRT LSTM 输入顺序：
-                # [0] 输入数据, [1-4] 输入门权重, [5-8] 递归权重, [9-12] 偏置
-                # TFLite/LiteRT UNIDIRECTIONAL_SEQUENCE_LSTM 算子的输入顺序：
-                # [0] 输入数据
-                # [1-4] 输入门权重 (i, f, g, o)
-                # [5-8] 递归权重 (i, f, g, o)
-                # [9-12] 偏置 (i, f, g, o)
-                # [13+] 其他参数
+                # TFLite/LiteRT LSTM input order:
+                # [0] input data
+                # [1-4] input gate weights
+                # [5-8] recurrent weights
+                # [9-12] biases
+                # TFLite/LiteRT UNIDIRECTIONAL_SEQUENCE_LSTM
+                # operator input order:
+                # [0] input data
+                # [1-4] input gate weights (i, f, g, o)
+                # [5-8] recurrent weights (i, f, g, o)
+                # [9-12] biases (i, f, g, o)
+                # [13+] other parameters
                 op_info["lstm_weight_indices"] = {
                     "input": inputs[1:5],
                     "recurrent": inputs[5:9],
                     "bias": inputs[9:13],
                 }
 
-                # 从输出形状提取 hidden_size
+                # Extract hidden_size from output shape
                 output_shape = tensor_map.get(op_info["output_indices"][0],
                                               {}).get("shape", [])
                 if len(output_shape) >= 3:
                     hidden_size = output_shape[2]
                 else:
-                    fatal_error("无法从 LSTM 输出形状提取 hidden_size",
-                                "检查模型格式")
+                    fatal_error(
+                        "Cannot extract hidden_size from LSTM output shape",
+                        "Check model format"
+                    )
 
-                # 从输入形状提取 time_steps, batch_size, input_size
+                # Extract time_steps, batch_size, input_size from input shape
                 input_shape = tensor_map.get(inputs[0], {}).get("shape", [])
                 if len(input_shape) >= 3:
                     op_info["lstm_params"] = {
@@ -175,16 +194,20 @@ def parse_model_tflite(model_path: str):
                         "hidden_size": hidden_size,
                     }
                 else:
-                    fatal_error("无法从 LSTM 输入形状提取参数", "检查模型格式")
+                    fatal_error(
+                        "Cannot extract parameters from LSTM input shape",
+                        "Check model format"
+                    )
 
                 op_info["state"] = "translated"
                 op_info["pass_flags"]["lstm_check"] = "success"
             else:
-                fatal_error("LSTM 输入不完整", "检查模型格式")
+                fatal_error("LSTM input incomplete", "Check model format")
         elif op["op_name"] == "SVDF":
-            # SVDF 需要记录权重索引
+            # SVDF needs to record weight indices
             inputs = op_info["input_indices"]
-            # 输入数量判断是基于算子规范的，inputs[0] inputs[1] inputs[2] 属合理。
+            # Input count based on operator spec:
+            # inputs[0] inputs[1] inputs[2] are valid
             if len(inputs) >= 3:
                 op_info["data_input_idx"] = inputs[0]
                 op_info["svdf_weights_idx"] = inputs[1]
@@ -198,10 +221,10 @@ def parse_model_tflite(model_path: str):
                 op_info["conv_weights_idx"] = inputs[1]
                 op_info["conv_bias_idx"] = inputs[2]
             else:
-                fatal_error("CONV_2D 输入不完整", "检查模型格式")
+                fatal_error("CONV_2D input incomplete", "Check model format")
 
-            # 提取卷积参数
-            # 从输入输出形状计算 stride, padding 等
+            # Extract convolution parameters
+            # Calculate stride, padding, etc. from input/output shapes
             input_idx = inputs[0]
             output_idx = op_info["output_indices"][0]
 
@@ -211,16 +234,16 @@ def parse_model_tflite(model_path: str):
             input_shape = input_tensor.get("shape", [])
             output_shape = output_tensor.get("shape", [])
 
-            # 权重 shape: [out_channels, kernel_h, kernel_w, in_channels]
+            # Weight shape: [out_channels, kernel_h, kernel_w, in_channels]
             weights_tensor = tensor_map.get(inputs[1], {})
             weights_shape = weights_tensor.get("shape", [])
 
-            # 默认参数
+            # Default parameters
             stride_h = 1
             stride_w = 1
             padding = "VALID"
 
-            # 从输入输出形状推断 stride 和 padding
+            # Infer stride and padding from input/output shapes
             if len(input_shape) >= 4 and len(output_shape) >= 4 and len(
                     weights_shape) >= 4:
                 input_h = input_shape[1]
@@ -230,16 +253,16 @@ def parse_model_tflite(model_path: str):
                 kernel_h = weights_shape[1]
                 kernel_w = weights_shape[2]
 
-                # 计算 stride（假设 stride_h == stride_w）
+                # Calculate stride (assuming stride_h == stride_w)
                 if input_h > output_h:
                     stride_h = (input_h - kernel_h) // (
                                 output_h - 1) if output_h > 1 else 1
                     stride_w = (input_w - kernel_w) // (
                                 output_w - 1) if output_w > 1 else 1
 
-                # 判断 padding
-                # 如果输出尺寸 = ceil(input / stride)，通常是 SAME padding
-                # 否则是 VALID
+                # Determine padding
+                # If output size = ceil(input / stride), usually SAME padding
+                # Otherwise VALID
                 expected_h = (input_h + stride_h - 1) // stride_h
                 if output_h == expected_h:
                     padding = "SAME"
@@ -265,11 +288,11 @@ def parse_model_tflite(model_path: str):
         elif op["op_name"] == "MAX_POOL_2D":
             inputs = op_info["input_indices"]
             if len(inputs) < 1:
-                fatal_error("MAX_POOL_2D 缺少输入", "检查模型格式")
+                fatal_error("MAX_POOL_2D missing input", "Check model format")
 
             op_info["data_input_idx"] = inputs[0]
 
-            # 从输入输出形状提取参数
+            # Extract parameters from input/output shapes
             input_idx = inputs[0]
             output_idx = op_info["output_indices"][0]
 
@@ -279,7 +302,7 @@ def parse_model_tflite(model_path: str):
             input_shape = input_tensor.get("shape", [])
             output_shape = output_tensor.get("shape", [])
 
-            # 默认参数
+            # Default parameters
             pool_size_h = 2
             pool_size_w = 2
             stride_h = 2
@@ -292,7 +315,7 @@ def parse_model_tflite(model_path: str):
                 output_h = output_shape[1]
                 output_w = output_shape[2]
 
-                # 从输入输出推断 stride
+                # Infer stride from input/output
                 if input_h > output_h:
                     stride_h = input_h // output_h if output_h > 0 else 1
                     stride_w = input_w // output_w if output_w > 0 else 1
@@ -316,13 +339,16 @@ def parse_model_tflite(model_path: str):
         elif op["op_name"] == "DEPTHWISE_CONV_2D":
             inputs = op_info["input_indices"]
             if len(inputs) < 3:
-                fatal_error("DEPTHWISE_CONV_2D 输入不完整", "检查模型格式")
+                fatal_error(
+                    "DEPTHWISE_CONV_2D input incomplete",
+                    "Check model format"
+                )
 
             op_info["data_input_idx"] = inputs[0]
             op_info["dw_weights_idx"] = inputs[1]
             op_info["dw_bias_idx"] = inputs[2]
 
-            # 提取参数
+            # Extract parameters
             input_idx = inputs[0]
             output_idx = op_info["output_indices"][0]
 
@@ -350,17 +376,20 @@ def parse_model_tflite(model_path: str):
             op_info["state"] = "translated"
             op_info["pass_flags"]["dw_check"] = "success"
         elif op["op_name"] == "RELU":
-            # ReLU 只需要输入输出，没有额外参数
+            # ReLU only needs input/output, no extra parameters
             if len(op_info["input_indices"]) < 1:
-                fatal_error("RELU 缺少输入", "检查模型格式")
+                fatal_error("RELU missing input", "Check model format")
             if len(op_info["output_indices"]) < 1:
-                fatal_error("RELU 缺少输出", "检查模型格式")
+                fatal_error("RELU missing output", "Check model format")
             op_info["state"] = "translated"
             op_info["pass_flags"]["relu_check"] = "success"
         elif op["op_name"] == "AVERAGE_POOL_2D":
             inputs = op_info["input_indices"]
             if len(inputs) < 1:
-                fatal_error("AVERAGE_POOL_2D 缺少输入", "检查模型格式")
+                fatal_error(
+                    "AVERAGE_POOL_2D missing input",
+                    "Check model format"
+                )
 
             op_info["data_input_idx"] = inputs[0]
 
@@ -406,13 +435,16 @@ def parse_model_tflite(model_path: str):
         elif op["op_name"] == "TRANSPOSE":
             inputs = op_info["input_indices"]
             if len(inputs) < 2:
-                fatal_error("TRANSPOSE 缺少 perm 参数", "检查模型格式")
+                fatal_error(
+                    "TRANSPOSE missing perm parameter",
+                    "Check model format"
+                )
 
-            # inputs[0] = 输入数据, inputs[1] = perm (转置顺序)
+            # inputs[0] = input data, inputs[1] = perm (transpose order)
             op_info["data_input_idx"] = inputs[0]
             op_info["transpose_perm_idx"] = inputs[1]
 
-            # 从输入输出形状推断转置参数
+            # Infer transpose parameters from input/output shapes
             input_idx = inputs[0]
             output_idx = op_info["output_indices"][0]
             input_tensor = tensor_map.get(input_idx, {})
@@ -433,7 +465,10 @@ def parse_model_tflite(model_path: str):
         elif op["op_name"] == "PAD":
             inputs = op_info["input_indices"]
             if len(inputs) < 2:
-                fatal_error("PAD 缺少 padding 参数", "检查模型格式")
+                fatal_error(
+                    "PAD missing padding parameter",
+                    "Check model format"
+                )
 
             op_info["data_input_idx"] = inputs[0]
             op_info["pad_paddings_idx"] = inputs[1]
@@ -442,14 +477,14 @@ def parse_model_tflite(model_path: str):
         elif op["op_name"] == "MEAN":
             inputs = op_info["input_indices"]
             if len(inputs) < 1:
-                fatal_error("MEAN 缺少输入", "检查模型格式")
+                fatal_error("MEAN missing input", "Check model format")
 
             op_info["data_input_idx"] = inputs[0]
-            # 如果存在 axis 参数，记录它
+            # Record axis parameter if present
             if len(inputs) >= 2:
                 op_info["mean_axis_idx"] = inputs[1]
 
-            # 从输入输出形状提取参数
+            # Extract parameters from input/output shapes
             input_idx = inputs[0]
             output_idx = op_info["output_indices"][0]
 
@@ -467,14 +502,17 @@ def parse_model_tflite(model_path: str):
             op_info["state"] = "translated"
             op_info["pass_flags"]["mean_check"] = "success"
         elif op["op_name"] == "DELEGATE":
-            continue  # 跳过
+            continue  # skip
         else:
-            # 未知算子，保持 created
-            warning('出现未知算子，可以提交issue或者patch set了')
+            # Unknown operator, keep created state
+            warning(
+                "Unknown operator encountered, "
+                "please submit an issue or patch set"
+            )
             op_info["state"] = "created"
             op_info["pass_flags"]["unknown"] = "needs_implementation"
 
-        # 添加输入输出详细信息
+        # Add input/output details
         for inp_idx in op_info["input_indices"]:
             tensor_info = tensor_map.get(inp_idx, {})
             op_info["input_details"].append({
