@@ -16,7 +16,7 @@ from tinymlc.parser import parse_model
 @pytest.fixture
 def interpreter():
     """创建 interpreter fixture"""
-    model_path = Path(__file__).parent / "fixtures" / "trained_lstm_int8.tflite"
+    model_path = Path(__file__).parent.parent / "test_models" / "trained_lstm_int8.tflite"
     if not model_path.exists():
         pytest.skip(f"测试模型不存在: {model_path}")
     interpreter = tf.lite.Interpreter(model_path=str(model_path))

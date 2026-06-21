@@ -9,7 +9,7 @@ import pytest
 
 # 项目根目录
 PROJECT_ROOT = Path(__file__).parent.parent
-FIXTURES_DIR = PROJECT_ROOT / "tests" / "fixtures"
+FIXTURES_DIR = PROJECT_ROOT / "test_models"
 OUTPUT_DIR = PROJECT_ROOT / "test_output"
 
 
