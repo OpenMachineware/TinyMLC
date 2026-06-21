@@ -16,7 +16,9 @@ void tmlc_fully_connected_s8(const s8* input,
                               const s32* bias,
                               s8* output,
                               int input_size,
-                              int output_size);
+                              int output_size,
+                              int32_t multiplier,
+                              int32_t shift);
 
 void tmlc_softmax_s8(const s8* input, s8* output, int size);
 

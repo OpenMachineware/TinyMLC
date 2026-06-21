@@ -150,11 +150,20 @@ def parse_model_onnx(model_path: str):
             "dtype": "float32",
         })
 
-    # 3. 提取权重（Initializer）
+    # 3. # 提取权重和 scale
     weights = {}
+    scales = {}
     for init in graph.initializer:
         tensor = numpy_helper.to_array(init)
         weights[init.name] = tensor
+
+        # 计算 scale
+        min_val = tensor.min()
+        max_val = tensor.max()
+        scale = max(abs(min_val), abs(max_val)) / 127.0
+        if scale == 0:
+            scale = 1.0
+        scales[init.name] = scale
 
     # 4. 解析算子
     ops = []
@@ -214,21 +223,33 @@ def parse_model_onnx(model_path: str):
         # 处理特殊算子
         # Gemm 就是 FULLY_CONNECTED
         if node.op_type == "Gemm":
+            weights_name = node.input[1]
+            op_info["fc_scale"] = scales.get(weights_name, 0.01)
             op_info["data_input_idx"] = op_info["input_indices"][0]
             op_info["fc_weights_idx"] = op_info["input_indices"][1]
-            if len(node.input) >= 3:
-                op_info["fc_bias_idx"] = op_info["input_indices"][2]
-            else:
-                op_info["fc_bias_idx"] = None
+            op_info["fc_bias_idx"] = op_info["input_indices"][2] if len(node.input) >= 3 else None
+            op_info["weights_name"] = node.input[1]
+            op_info["bias_name"] = node.input[2] if len(node.input) >= 3 else None
 
-            # Gemm: input, weights, bias
-            # 记录权重和 bias 名称
-            if len(node.input) >= 3:
-                op_info["weights_name"] = node.input[1]
-                op_info["bias_name"] = node.input[2]
-            elif len(node.input) >= 2:
-                op_info["weights_name"] = node.input[1]
-                op_info["bias_name"] = None
+            # 提取输出 scale（如果存在）
+            output_name = node.output[0]
+            output_tensor = None
+            # 先从 initializer 中找
+            for init in graph.initializer:
+                if init.name == output_name:
+                    output_tensor = numpy_helper.to_array(init)
+                    break
+            if output_tensor is not None:
+                min_val = output_tensor.min()
+                max_val = output_tensor.max()
+                output_scale = max(abs(min_val), abs(max_val)) / 127.0
+                if output_scale == 0:
+                    output_scale = 1.0
+            else:
+                # 如果 initializer 里没有，用默认值
+                output_scale = 1.0
+
+            op_info["fc_output_scale"] = output_scale
 
         if node.op_type == "Conv":
             op_info["data_input_idx"] = op_info["input_indices"][0]  # 第一个输入是数据

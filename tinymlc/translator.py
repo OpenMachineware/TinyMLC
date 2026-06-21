@@ -149,10 +149,13 @@ def generate_c_code(model_info, output_dir, target,
     has_dw = False
 
     lstm_params = None
+    fc_scales = []
     for op in model_info.get("ops", []):
         op_name = op.get("op_name")
         if op_name == "FULLY_CONNECTED":
             has_fc = True
+            fc_scale = op.get("fc_scale", 0.01)
+            fc_scales.append(fc_scale)
         elif op_name == "UNIDIRECTIONAL_SEQUENCE_LSTM":
             has_lstm = True
             lstm_params = op.get("lstm_params")
@@ -186,6 +189,17 @@ def generate_c_code(model_info, output_dir, target,
         info(f"LSTM 右移位数: i={shifts[0]}, f={shifts[1]}, g={shifts[2]}, o={shifts[3]}")
     else:
         pass
+
+    # FIXME 多层网络会出错
+    # 如果有多个 FC，取第一个（或平均值）
+    fc_scale = fc_scales[0] if fc_scales else None
+
+    if fc_scale is not None:
+        # FIXME output_scale 暂时用 1.0
+        fc_multiplier, fc_shift = calculate_multiplier_shift_from_scale(
+            fc_scale, 1.0)
+    else:
+        fc_multiplier, fc_shift = 213512, -30  # fallback
 
     # 构建 include 列表
     includes = []
@@ -256,12 +270,6 @@ def generate_c_code(model_info, output_dir, target,
         fatal_error(f"不支持 {len(model_info['input'])} 个输入的模型",
                     "当前支持 1 或 2 个输入")
 
-    # FIXME: 从模型读取实际的量化参数
-    # 当前值来自 trained_lstm_int8.tflite 的测试值
-    fc_multiplier, fc_shift = calculate_multiplier_shift(0.00390625,
-                                                         0.008470362052321434,
-                                                         0.17366045713424683)
-
     # 确保 lstm_params 有默认值，不为 None（即使没有 LSTM）
     if lstm_params is None:
         lstm_params = {
@@ -273,7 +281,6 @@ def generate_c_code(model_info, output_dir, target,
             "input_scale": 0.00390625,
             "input_zp": 0,
         }
-    print(f"fc_multiplier = {fc_multiplier}, fc_shift = {fc_shift}")
     context = {
         "input_size": input_size,
         "output_size": output_size,
@@ -430,6 +437,14 @@ def calculate_multiplier_shift(input_scale, weight_scale, output_scale):
     return multiplier, shift
 
 
+def calculate_multiplier_shift_from_scale(weight_scale, output_scale):
+    """从 weight_scale 和 output_scale 计算 multiplier 和 shift"""
+    effective_scale = weight_scale / output_scale
+    multiplier = int(round(effective_scale * (1 << 31)))
+    shift = 0
+    return multiplier, shift
+
+
 def extract_all_weights_tflite(interpreter, model_info):
     """从 TFLite 模型中提取所有权重"""
     fc_op_info = None
@@ -498,25 +513,47 @@ def dump_model_info(model_info):
             info(f"        - [{out.get('index', '?')}] {out.get('name', 'unknown')}: shape={out.get('shape', [])}, size={out.get('size', 0)}")
 
 
+def quantize_to_int8(tensor):
+    """float32 量化为 int8"""
+    min_val = tensor.min()
+    max_val = tensor.max()
+    # 对称量化
+    scale = max(abs(min_val), abs(max_val)) / 127.0
+    if scale == 0:
+        scale = 1.0
+    quantized = np.round(tensor / scale).astype(np.int8)
+    return quantized, scale
+
+
 def export_onnx_weights(output_dir, weights):
     """从 ONNX 权重字典导出 C 头文件"""
     # FC 权重
     fc_weight = weights.get("fc1.weight")
     fc_bias = weights.get("fc1.bias")
     if fc_weight is not None and fc_bias is not None:
-        with open(output_dir / 'fc_weights.h', 'w') as f:
-            f.write("// 自动从 ONNX 模型提取的 FC 层权重和 bias\n")
-            export_weights_to_c(fc_weight, "fc_weights", f)
-            export_bias_to_c(fc_bias, "fc_bias", f)
+        fc_weight_int8, fc_scale = quantize_to_int8(fc_weight)
+        # bias 需要乘以 scale 再转 int32
+        fc_bias_int32 = (fc_bias / fc_scale).astype(np.int32)
 
-    # CONV_2D 权重
-    conv_weight = weights.get("conv1.weight")
-    conv_bias = weights.get("conv1.bias")
-    if conv_weight is not None and conv_bias is not None:
-        with open(output_dir / 'conv_weights.h', 'w') as f:
-            f.write("// 自动从 ONNX 模型提取的 CONV_2D 层权重和 bias\n")
-            export_weights_to_c(conv_weight, "conv_weights", f)
-            export_bias_to_c(conv_bias, "conv_bias", f)
+        with open(output_dir / 'fc_weights.h', 'w') as f:
+            f.write("// 自动从 ONNX 模型提取的 FC 层权重和 bias（int8 量化）\n")
+            export_weights_to_c(fc_weight_int8, "fc_weights", f)
+            export_bias_to_c(fc_bias_int32, "fc_bias", f)
+        info(f"FC 量化完成: scale={fc_scale}")
+
+        # CONV_2D 权重
+        conv_weight = weights.get("conv1.weight")
+        conv_bias = weights.get("conv1.bias")
+        if conv_weight is not None and conv_bias is not None:
+            conv_weight_int8, conv_scale = quantize_to_int8(conv_weight)
+            conv_bias_int32 = (conv_bias / conv_scale).astype(np.int32)
+
+            with open(output_dir / 'conv_weights.h', 'w') as f:
+                f.write(
+                    "// 自动从 ONNX 模型提取的 CONV_2D 层权重和 bias（int8 量化）\n")
+                export_weights_to_c(conv_weight_int8, "conv_weights", f)
+                export_bias_to_c(conv_bias_int32, "conv_bias", f)
+            info(f"CONV_2D 量化完成: scale={conv_scale}")
 
     # LSTM 权重（如果有）
     # 可根据权重名称前缀判断

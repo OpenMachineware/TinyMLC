@@ -52,12 +52,6 @@
 // 推理函数
 {% if inputs_count == 1 %}
 void {{ inference_func }}(const int8_t* input, int8_t* output) {
-volatile char* uart = (volatile char*)0x09000000;
-    uart[0] = 'I';
-    uart[0] = 'N';
-    uart[0] = 'F';
-    uart[0] = '\n';
-
     // 输入张量映射
     int8_t* tensor_0 = (int8_t*)input;
 {% elif inputs_count == 2 %}
@@ -88,7 +82,9 @@ void {{ inference_func }}(const int8_t* input1, const int8_t* input2, int8_t* ou
             fc_bias,
             tensor_{{ op.output_indices[0] }},
             {{ tensor_sizes[op.input_indices[0]] }},
-            {{ tensor_sizes[op.output_indices[0]] }}
+            {{ tensor_sizes[op.output_indices[0]] }},
+            {{ fc_multiplier }},
+            {{ fc_shift }}
         );
         {% elif op.op_name == "SOFTMAX" %}
         tmlc_softmax_s8(
