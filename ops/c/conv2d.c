@@ -1,5 +1,26 @@
 #include "tinymlc.h"
 
+/**
+ * int8 量化卷积算子
+ * 
+ * 量化公式:
+ *   output = round((acc * multiplier) >> (31 + shift))
+ *   其中 acc = sum(input * weight) + bias
+ * 
+ * multiplier 和 shift 由编译器根据量化参数计算:
+ *   effective_scale = (input_scale * weight_scale) / output_scale
+ *   multiplier = effective_scale * 2^31 (调整到 Q31 范围)
+ *   shift 用于调整 multiplier 到有效范围
+ * 
+ * 参数说明:
+ *   multiplier: Q31 定点数表示的缩放因子
+ *   shift: 右移位数，用于调整缩放精度
+ * 
+ * 数值范围:
+ *   127 / -128: int8 对称量化的数值范围
+ *   1 << 30: round-to-nearest 的偏移量 (0.5 * 2^31)
+ *   31: Q31 定点数格式，32位有符号数的最高精度表示
+ */
 void tmlc_conv2d_s8(const int8_t* input,
                     const int8_t* weights,
                     const int32_t* bias,
@@ -11,7 +32,6 @@ void tmlc_conv2d_s8(const int8_t* input,
                     int padding_h, int padding_w,
                     int32_t multiplier, int32_t shift)
 {
-    // 对每个输出像素
     for (int oh = 0; oh < output_h; oh++) {
         for (int ow = 0; ow < output_w; ow++) {
             for (int oc = 0; oc < output_c; oc++) {
@@ -29,12 +49,12 @@ void tmlc_conv2d_s8(const int8_t* input,
                         }
                     }
                 }
-                // int8 rescale: output = round((sum * multiplier) / 2^(31+shift))
+                // rescale: output = round((sum * multiplier) / 2^(31+shift))
                 int64_t scaled = ((int64_t)sum * multiplier);
-                scaled += (scaled >= 0) ? (1LL << 30) : -(1LL << 30);
+                scaled += (scaled >= 0) ? (1LL << 30) : -(1LL << 30);  // round-to-nearest
                 scaled >>= (31 + shift);
-                if (scaled > 127) scaled = 127;
-                if (scaled < -128) scaled = -128;
+                if (scaled > 127) scaled = 127;   // int8 max
+                if (scaled < -128) scaled = -128; // int8 min
                 output[oh * output_w * output_c + ow * output_c + oc] = (int8_t)scaled;
             }
         }

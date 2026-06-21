@@ -1,5 +1,11 @@
 #include "tinymlc.h"
 
+/**
+ * int8 量化深度可分离卷积算子
+ * 
+ * 量化公式同 conv2d:
+ *   output = round((acc * multiplier) >> (31 + shift))
+ */
 void tmlc_depthwise_conv_2d_s8(const int8_t* input,
                                const int8_t* weights,
                                const int32_t* bias,
@@ -9,7 +15,8 @@ void tmlc_depthwise_conv_2d_s8(const int8_t* input,
                                int kernel_h, int kernel_w,
                                int stride_h, int stride_w,
                                int depth_multiplier,
-                               int padding_h, int padding_w)
+                               int padding_h, int padding_w,
+                               int32_t multiplier, int32_t shift)
 {
     int channels_out = input_c * depth_multiplier;
 
@@ -30,7 +37,13 @@ void tmlc_depthwise_conv_2d_s8(const int8_t* input,
                             }
                         }
                     }
-                    output[oh * output_w * output_c + ow * output_c + oc] = (int8_t)(sum >> 8);
+                    // rescale: output = round((sum * multiplier) / 2^(31+shift))
+                    int64_t scaled = ((int64_t)sum * multiplier);
+                    scaled += (scaled >= 0) ? (1LL << 30) : -(1LL << 30);  // round-to-nearest
+                    scaled >>= (31 + shift);
+                    if (scaled > 127) scaled = 127;   // int8 max
+                    if (scaled < -128) scaled = -128; // int8 min
+                    output[oh * output_w * output_c + ow * output_c + oc] = (int8_t)scaled;
                 }
             }
         }

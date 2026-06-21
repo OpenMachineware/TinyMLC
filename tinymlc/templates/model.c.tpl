@@ -88,13 +88,13 @@ void {{ inference_func }}(const int8_t* input1, const int8_t* input2, int8_t* ou
         {% elif op.op_name == "SVDF" %}
         tmlc_svdf_s8(
             tensor_{{ op.data_input_idx }},
-            tensor_{{ op.svdf_weights_idx }},
-            tensor_{{ op.svdf_bias_idx }},
+            svdf_weights,
+            svdf_bias,
             tensor_{{ op.output_indices[0] }},
-            49,  // time_steps
-            257, // input_size
-            2,   // rank
-            80   // units
+            {{ op.svdf_params.time_steps }},
+            {{ op.svdf_params.input_size }},
+            {{ op.svdf_params.rank }},
+            {{ op.svdf_params.units }}
         );
         {% elif op.op_name == "CONV_2D" %}
         tmlc_conv2d_s8(

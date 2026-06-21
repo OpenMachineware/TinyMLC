@@ -72,7 +72,8 @@ void tmlc_depthwise_conv_2d_s8(const int8_t* input,
                                int kernel_h, int kernel_w,
                                int stride_h, int stride_w,
                                int depth_multiplier,
-                               int padding_h, int padding_w);
+                               int padding_h, int padding_w,
+                               int32_t multiplier, int32_t shift);
 
 void tmlc_relu_s8(const int8_t* input, int8_t* output, int size);
 

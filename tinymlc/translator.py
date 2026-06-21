@@ -147,6 +147,7 @@ def generate_c_code(model_info, output_dir, target,
     has_lstm = False
     has_conv = False
     has_dw = False
+    has_svdf = False
 
     lstm_params = None
     fc_scales = []
@@ -159,6 +160,8 @@ def generate_c_code(model_info, output_dir, target,
         elif op_name == "UNIDIRECTIONAL_SEQUENCE_LSTM":
             has_lstm = True
             lstm_params = op.get("lstm_params")
+        elif op_name == "SVDF":
+            has_svdf = True
         elif op_name == "CONV_2D":
             has_conv = True
         elif op_name == "DEPTHWISE_CONV_2D":
@@ -226,17 +229,25 @@ def generate_c_code(model_info, output_dir, target,
                     if output_idx in tensors:
                         fc_output_scale = tensors[output_idx].get("scale")
 
+            # 获取输入张量的 scale
+            fc_input_scale = 0.00390625
+            input_indices = op.get("input_indices", [])
+            if len(input_indices) > 0:
+                data_input_idx = input_indices[0]
+                if data_input_idx in tensors:
+                    fc_input_scale = tensors[data_input_idx].get("scale", 0.00390625)
+
             # 如果还是没有，使用默认值
             if fc_scale is None:
                 fc_scale = 0.01
-                info(f"FC 使用默认输入 scale: {fc_scale}")
+                info(f"FC 使用默认权重 scale: {fc_scale}")
             if fc_output_scale is None:
-                fc_output_scale = 1.0
+                fc_output_scale = 0.00390625
                 info(f"FC 使用默认输出 scale: {fc_output_scale}")
 
             # 计算 multiplier 和 shift
             fc_multiplier, fc_shift = calculate_multiplier_shift_from_scale(
-                fc_scale, fc_output_scale
+                fc_input_scale, fc_scale, fc_output_scale
             )
 
             info(
@@ -282,9 +293,13 @@ def generate_c_code(model_info, output_dir, target,
                     if output_idx in tensors:
                         conv_output_scale = tensors[output_idx].get("scale")
 
-            # ONNX 模型张量默认 scale=1.0，对中间层不合适，使用输入 scale
-            if conv_output_scale == 1.0:
-                conv_output_scale = 0.00390625
+            # 获取输入张量的 scale
+            conv_input_scale = 0.00390625
+            input_indices = op.get("input_indices", [])
+            if len(input_indices) > 0:
+                data_input_idx = input_indices[0]
+                if data_input_idx in tensors:
+                    conv_input_scale = tensors[data_input_idx].get("scale", 0.00390625)
 
             # 使用默认值
             if conv_scale is None:
@@ -296,7 +311,7 @@ def generate_c_code(model_info, output_dir, target,
 
             # 计算 multiplier 和 shift
             conv_multiplier, conv_shift = calculate_multiplier_shift_from_scale(
-                conv_scale, conv_output_scale
+                conv_input_scale, conv_scale, conv_output_scale
             )
 
             info(
@@ -318,6 +333,8 @@ def generate_c_code(model_info, output_dir, target,
         includes.append('#include "conv_weights.h"')
     if has_dw:
         includes.append('#include "dw_weights.h"')
+    if has_svdf:
+        includes.append('#include "svdf_weights.h"')
 
     tensor_sizes = {}
     tensor_shapes = {}
@@ -362,10 +379,14 @@ def generate_c_code(model_info, output_dir, target,
 
     for op in execution_order:
         if op.get("op_name") == "CONV_2D":
-            # 从 model_info 中查找完整的 conv_params
             for orig_op in model_info.get("ops", []):
                 if orig_op.get("index") == op["index"]:
                     op["conv_params"] = orig_op.get("conv_params", {})
+                    break
+        elif op.get("op_name") == "SVDF":
+            for orig_op in model_info.get("ops", []):
+                if orig_op.get("index") == op["index"]:
+                    op["svdf_params"] = orig_op.get("svdf_params", {})
                     break
 
     # 计算输入大小
@@ -404,15 +425,15 @@ def generate_c_code(model_info, output_dir, target,
                 break
         else:
             input_tensor_indices.append(0)
-
+    
     # 收集所有需要定义的中间张量（避免重复定义）
     tensors_to_define = []
-    defined_set = set()
+    defined_set = set(input_tensor_indices)
     
     for op in execution_order:
         for out_idx in op["output_indices"]:
             out_idx = int(out_idx)
-            if out_idx in tensor_sizes and out_idx not in defined_set and out_idx not in input_tensor_indices:
+            if out_idx in tensor_sizes and out_idx not in defined_set:
                 tensors_to_define.append({
                     "index": out_idx,
                     "size": tensor_sizes[out_idx],
@@ -599,23 +620,39 @@ def copy_files_to_build(output_dir: Path, target: str, mode: str, accel: str):
 def calculate_multiplier_shift(input_scale, weight_scale, output_scale):
     """
     计算 int8 量化的 multiplier 和 shift
-    rescale 公式: output = (acc * multiplier) >> (31 + shift)
+    
+    量化公式: output = round((acc * multiplier) >> (31 + shift))
+    其中 acc = sum(input * weight) + bias
+    
+    Q31 定点数格式说明:
+    - 1 << 31 = 2147483648，表示 Q31 格式的最大值
+    - multiplier 存储在 32 位有符号整数中，范围 -2147483648 ~ 2147483647
+    - 通过 shift 调整 effective_scale * 2^31 到有效范围
+    
+    参数:
+        input_scale: 输入张量的量化 scale
+        weight_scale: 权重的量化 scale  
+        output_scale: 输出张量的量化 scale
+    
+    返回:
+        multiplier: Q31 定点数表示的缩放因子
+        shift: 右移调整位数
     """
     effective_scale = (input_scale * weight_scale) / output_scale
 
     if effective_scale == 0:
         return 0, 0
 
-    # 基础 multiplier（右移31位）
+    # Q31 格式: multiplier = effective_scale * 2^31
     mult = effective_scale * (1 << 31)
     shift = 0
 
-    # multiplier 太大: 减少右移量（shift 为负）
+    # multiplier 超出 int32 范围: 减少 shift（增大实际缩放）
     while mult > 2147483647:
         shift -= 1
         mult /= 2
 
-    # multiplier 太小: 增加右移量（shift 为正）
+    # multiplier 太小精度不够: 增加 shift（减小实际缩放）
     while mult < 0.5:
         shift += 1
         mult *= 2
@@ -626,9 +663,9 @@ def calculate_multiplier_shift(input_scale, weight_scale, output_scale):
     return multiplier, shift
 
 
-def calculate_multiplier_shift_from_scale(weight_scale, output_scale):
-    """从 weight_scale 和 output_scale 计算 multiplier 和 shift"""
-    return calculate_multiplier_shift(0.00390625, weight_scale, output_scale)
+def calculate_multiplier_shift_from_scale(input_scale, weight_scale, output_scale):
+    """从 input_scale, weight_scale 和 output_scale 计算 multiplier 和 shift"""
+    return calculate_multiplier_shift(input_scale, weight_scale, output_scale)
 
 
 def extract_all_weights_tflite(interpreter, model_info):
@@ -700,10 +737,24 @@ def dump_model_info(model_info):
 
 
 def quantize_to_int8(tensor):
-    """float32 量化为 int8"""
+    """
+    float32 权重量化为 int8（对称量化）
+    
+    对称量化说明:
+    - 数值范围: -127 ~ 127 (避免使用 -128，保持对称性)
+    - scale = max(|min|, |max|) / 127
+    - quantized = round(tensor / scale)
+    
+    参数:
+        tensor: float32 权重张量
+    
+    返回:
+        quantized: int8 量化后的权重
+        scale: 量化 scale
+    """
     min_val = tensor.min()
     max_val = tensor.max()
-    # 对称量化
+    # 对称量化: scale = max(|min|, |max|) / 127
     scale = max(abs(min_val), abs(max_val)) / 127.0
     if scale == 0:
         scale = 1.0
@@ -718,13 +769,31 @@ def export_onnx_weights(output_dir, weights):
     # 输入 scale 固定为 1/256（对称量化，zero_point=0）
     input_scale = 0.00390625
     
-    # FC 权重
-    fc_weight = weights.get("fc1.weight")
-    fc_bias = weights.get("fc1.bias")
+    # FC 权重 - 支持 FP32 和 QDQ 两种格式
+    fc_weight = weights.get("fc1.weight") if "fc1.weight" in weights else weights.get("fc.weight") if "fc.weight" in weights else weights.get("fc.weight_quantized")
+    fc_bias = weights.get("fc1.bias") if "fc1.bias" in weights else weights.get("fc.bias") if "fc.bias" in weights else weights.get("fc.bias_quantized")
+    fc_weight_scale = weights.get("fc.weight_scale")
+    
     if fc_weight is not None and fc_bias is not None:
-        fc_weight_int8, fc_scale = quantize_to_int8(fc_weight)
-        # bias 量化: bias_int32 = bias_fp32 / (input_scale * weight_scale)
-        fc_bias_int32 = (fc_bias / (input_scale * fc_scale)).astype(np.int32)
+        # 判断是否是 QDQ 格式（int8 权重）
+        if fc_weight.dtype == np.int8:
+            fc_weight_int8 = fc_weight
+            # 从模型中读取 scale
+            if fc_weight_scale is not None:
+                fc_scale = float(fc_weight_scale.flat[0])
+            else:
+                fc_scale = 0.01
+                info(f"FC 使用默认权重 scale: {fc_scale}")
+            
+            # bias 已经是量化形式（int32），直接使用
+            if fc_bias.dtype == np.int32:
+                fc_bias_int32 = fc_bias
+            else:
+                fc_bias_int32 = (fc_bias / (input_scale * fc_scale)).astype(np.int32)
+        else:
+            # FP32 格式，需要量化
+            fc_weight_int8, fc_scale = quantize_to_int8(fc_weight)
+            fc_bias_int32 = (fc_bias / (input_scale * fc_scale)).astype(np.int32)
 
         with open(output_dir / 'fc_weights.h', 'w') as f:
             f.write("// 自动从 ONNX 模型提取的 FC 层权重和 bias（int8 量化）\n")
@@ -733,13 +802,31 @@ def export_onnx_weights(output_dir, weights):
         info(f"FC 量化完成: scale={fc_scale}")
         scales["fc_scale"] = fc_scale
 
-    # CONV_2D 权重
-    conv_weight = weights.get("conv1.weight")
-    conv_bias = weights.get("conv1.bias")
+    # CONV_2D 权重 - 支持 FP32 和 QDQ 两种格式
+    conv_weight = weights.get("conv1.weight") if "conv1.weight" in weights else weights.get("conv.weight") if "conv.weight" in weights else weights.get("conv.weight_quantized")
+    conv_bias = weights.get("conv1.bias") if "conv1.bias" in weights else weights.get("conv.bias") if "conv.bias" in weights else weights.get("conv.bias_quantized")
+    conv_weight_scale = weights.get("conv.weight_scale")
+    
     if conv_weight is not None and conv_bias is not None:
-        conv_weight_int8, conv_scale = quantize_to_int8(conv_weight)
-        # bias 量化: bias_int32 = bias_fp32 / (input_scale * weight_scale)
-        conv_bias_int32 = (conv_bias / (input_scale * conv_scale)).astype(np.int32)
+        # 判断是否是 QDQ 格式（int8 权重）
+        if conv_weight.dtype == np.int8:
+            conv_weight_int8 = conv_weight
+            # 从模型中读取 scale
+            if conv_weight_scale is not None:
+                conv_scale = float(conv_weight_scale.flat[0])
+            else:
+                conv_scale = 0.01
+                info(f"CONV_2D 使用默认权重 scale: {conv_scale}")
+            
+            # bias 已经是量化形式（int32），直接使用
+            if conv_bias.dtype == np.int32:
+                conv_bias_int32 = conv_bias
+            else:
+                conv_bias_int32 = (conv_bias / (input_scale * conv_scale)).astype(np.int32)
+        else:
+            # FP32 格式，需要量化
+            conv_weight_int8, conv_scale = quantize_to_int8(conv_weight)
+            conv_bias_int32 = (conv_bias / (input_scale * conv_scale)).astype(np.int32)
 
         with open(output_dir / 'conv_weights.h', 'w') as f:
             f.write(
@@ -749,8 +836,27 @@ def export_onnx_weights(output_dir, weights):
         info(f"CONV_2D 量化完成: scale={conv_scale}")
         scales["conv_scale"] = conv_scale
 
+    # SVDF 权重
+    svdf_weight = weights.get("weights") if "weights" in weights else None
+    svdf_bias = weights.get("bias") if "bias" in weights else None
+    
+    if svdf_weight is not None and svdf_bias is not None:
+        if svdf_weight.dtype == np.int8:
+            svdf_weight_int8 = svdf_weight
+            svdf_scale = 0.01
+        else:
+            svdf_weight_int8, svdf_scale = quantize_to_int8(svdf_weight)
+        
+        svdf_bias_int32 = (svdf_bias / (input_scale * svdf_scale)).astype(np.int32)
+
+        with open(output_dir / 'svdf_weights.h', 'w') as f:
+            f.write("// 自动从 ONNX 模型提取的 SVDF 层权重和 bias（int8 量化）\n")
+            export_weights_to_c(svdf_weight_int8, "svdf_weights", f)
+            export_bias_to_c(svdf_bias_int32, "svdf_bias", f)
+        info(f"SVDF 量化完成: scale={svdf_scale}")
+        scales["svdf_scale"] = svdf_scale
+
     # LSTM 权重（如果有）
-    # 可根据权重名称前缀判断
     lstm_prefixes = ["lstm.", "lstm_"]
     lstm_weights = {}
     for name, tensor in weights.items():

@@ -1,5 +1,13 @@
 #include "tinymlc.h"
 
+static int8_t tmlc_tanh_s8(int32_t x) {
+    const int32_t max_val = 127;
+    const int32_t min_val = -128;
+    if (x > max_val) return max_val;
+    if (x < min_val) return min_val;
+    return (int8_t)x;
+}
+
 void tmlc_svdf_s8(const int8_t* input,
                   const int8_t* weights,
                   const int32_t* bias,
@@ -9,8 +17,18 @@ void tmlc_svdf_s8(const int8_t* input,
                   int rank,
                   int units)
 {
-    // 简化实现
-    for (int i = 0; i < units; i++) {
-        output[i] = input[i % input_size];
+    int output_size = rank * units;
+    
+    for (int t = 0; t < time_steps; t++) {
+        const int8_t* input_ptr = input + t * input_size;
+        int8_t* output_ptr = output + t * output_size;
+        
+        for (int i = 0; i < output_size; i++) {
+            int32_t sum = bias[i];
+            for (int j = 0; j < input_size; j++) {
+                sum += (int32_t)input_ptr[j] * (int32_t)weights[i * input_size + j];
+            }
+            output_ptr[i] = tmlc_tanh_s8(sum >> 8);
+        }
     }
 }

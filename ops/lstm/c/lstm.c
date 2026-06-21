@@ -143,6 +143,10 @@ void tmlc_unidirectional_sequence_lstm_s8(
         }
 
         // 更新状态
+        // TODO: 这里的 >> 8 是硬编码，应该使用实际的量化 scale
+        // cell state 更新: c = f * c_prev + i * g
+        // hidden state 更新: h = o * tanh(c)
+        // 需要根据各状态的 scale 计算 multiplier 和 shift
         for (int i = 0; i < hidden_size; i++) {
             int32_t new_c = ((int32_t)act_f[i] * (int32_t)c_cur[i]) >> 8;
             new_c += ((int32_t)act_i[i] * (int32_t)act_g[i]) >> 8;
