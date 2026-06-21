@@ -16,14 +16,18 @@ OP_MAP = {
     "Relu": "RELU",
     "Softmax": "SOFTMAX",
     "Add": "ADD",
+    "Mul": "MULTIPLY",
     "MaxPool": "MAX_POOL_2D",
     "AveragePool": "AVERAGE_POOL_2D",
     "Reshape": "RESHAPE",
     "Transpose": "TRANSPOSE",
     "Pad": "PAD",
     "Mean": "MEAN",
+    "ReduceMean": "MEAN",
     "LSTM": "UNIDIRECTIONAL_SEQUENCE_LSTM",
     "SVDF": "SVDF",
+    "Concat": "CONCAT",
+    "Sigmoid": "SIGMOID",
 }
 
 
@@ -485,6 +489,17 @@ def parse_model_onnx(model_path: str):
                 "time_steps": time_steps,
                 "input_size": input_size,
                 "units": units,
+            }
+
+        if node.op_type in ["Mean", "ReduceMean"]:
+            input_shape = get_tensor_shape(graph, node.input[0], initializer_map)
+            output_shape = get_tensor_shape(graph, node.output[0], initializer_map)
+            
+            op_info["data_input_idx"] = op_info["input_indices"][0]
+            op_info["mean_params"] = {
+                "input_dims": len(input_shape),
+                "input_shape": input_shape,
+                "output_shape": output_shape,
             }
 
         ops.append(op_info)

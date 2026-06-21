@@ -25,6 +25,9 @@ $CC $CFLAGS -c c/avg_pool2d.c -o avg_pool2d.o
 $CC $CFLAGS -c c/transpose.c -o transpose.o
 $CC $CFLAGS -c c/pad.c -o pad.o
 $CC $CFLAGS -c c/mean.c -o mean.o
+$CC $CFLAGS -c c/multiply.c -o multiply.o
+$CC $CFLAGS -c c/sigmoid.c -o sigmoid.o
+$CC $CFLAGS -c c/concat.c -o concat.o
 
 # ========== LSTM（按需） ==========
 if grep -q "HAS_LSTM" model_features.txt 2>/dev/null; then
@@ -47,6 +50,7 @@ $LD -T link_riscv.ld --no-dynamic-linker \
     fc.o softmax.o reshape.o add.o svdf.o \
     conv2d.o max_pool2d.o depthwise_conv2d.o \
     relu.o avg_pool2d.o transpose.o pad.o mean.o \
+    multiply.o sigmoid.o concat.o \
     $LSTM_OBJ \
     model.o main_test.o \
     -o model.elf

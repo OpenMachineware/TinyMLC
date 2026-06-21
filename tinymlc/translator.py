@@ -28,7 +28,8 @@ from tinymlc.utils import fatal_error, warning, info
 
 
 SUPPORTED_OPS = ["FULLY_CONNECTED", "UNIDIRECTIONAL_SEQUENCE_LSTM", "ADD",
-                 "SOFTMAX", "RESHAPE", "QUANTIZE", "SVDF", "CONV_2D"]
+                 "SOFTMAX", "RESHAPE", "QUANTIZE", "SVDF", "CONV_2D",
+                 "MULTIPLY", "SIGMOID", "CONCAT"]
 # 回退值，仅在无法从模型读取有效 scale 时使用
 DEFAULT_SCALE = 0.01  # 经验值
 DEFAULT_SHIFT = 8     # 经验值

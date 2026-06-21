@@ -107,5 +107,13 @@ void tmlc_mean_s8(const int8_t* input,
                   int axis_count,
                   int keep_dims);
 
+void tmlc_multiply_s8(const int8_t* input1, const int8_t* input2,
+                      int8_t* output, int size);
+
+void tmlc_sigmoid_s8(const int8_t* input, int8_t* output, int size);
+
+void tmlc_concat_s8(const int8_t** inputs, const int* sizes, int num_inputs,
+                    int8_t* output);
+
 
 #endif

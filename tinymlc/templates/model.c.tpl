@@ -201,6 +201,30 @@ void {{ inference_func }}(const int8_t* input1, const int8_t* input2, int8_t* ou
             0,
             0
         );
+        {% elif op.op_name == "MULTIPLY" %}
+        tmlc_multiply_s8(
+            tensor_{{ op.input_indices[0] }},
+            tensor_{{ op.input_indices[1] }},
+            tensor_{{ op.output_indices[0] }},
+            {{ tensor_sizes[op.output_indices[0]] }}
+        );
+        {% elif op.op_name == "SIGMOID" %}
+        tmlc_sigmoid_s8(
+            tensor_{{ op.input_indices[0] }},
+            tensor_{{ op.output_indices[0] }},
+            {{ tensor_sizes[op.input_indices[0]] }}
+        );
+        {% elif op.op_name == "CONCAT" %}
+        {
+            static const int8_t* concat_inputs[] = { {% for idx in op.input_indices %}tensor_{{ idx }}{% if not loop.last %}, {% endif %}{% endfor %} };
+            static const int concat_sizes[] = { {% for idx in op.input_indices %}{{ tensor_sizes[idx] }}{% if not loop.last %}, {% endif %}{% endfor %} };
+            tmlc_concat_s8(
+                concat_inputs,
+                concat_sizes,
+                {{ op.input_indices | length }},
+                tensor_{{ op.output_indices[0] }}
+            );
+        }
         {% endif %}
     {% endfor %}
 
