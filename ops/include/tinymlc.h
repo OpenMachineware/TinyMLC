@@ -115,5 +115,10 @@ void tmlc_sigmoid_s8(const int8_t* input, int8_t* output, int size);
 void tmlc_concat_s8(const int8_t** inputs, const int* sizes, int num_inputs,
                     int8_t* output);
 
+void tmlc_sub_s8(const int8_t* input1, const int8_t* input2,
+                 int8_t* output, int size);
+
+void tmlc_tanh_s8(const int8_t* input, int8_t* output, int size);
+
 
 #endif

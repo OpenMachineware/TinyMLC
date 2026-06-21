@@ -80,8 +80,8 @@ void {{ inference_func }}(const int8_t* input1, const int8_t* input2, int8_t* ou
         }
         {% elif op.op_name == "ADD" %}
         tmlc_add_s8(
-            tensor_{{ op.add_input1_idx }},
-            tensor_{{ op.add_input2_idx }},
+            tensor_{{ op.input_indices[0] }},
+            tensor_{{ op.input_indices[1] }},
             tensor_{{ op.output_indices[0] }},
             {{ tensor_sizes[op.output_indices[0]] }}
         );
@@ -225,6 +225,19 @@ void {{ inference_func }}(const int8_t* input1, const int8_t* input2, int8_t* ou
                 tensor_{{ op.output_indices[0] }}
             );
         }
+        {% elif op.op_name == "SUB" %}
+        tmlc_sub_s8(
+            tensor_{{ op.input_indices[0] }},
+            tensor_{{ op.input_indices[1] }},
+            tensor_{{ op.output_indices[0] }},
+            {{ tensor_sizes[op.output_indices[0]] }}
+        );
+        {% elif op.op_name == "TANH" %}
+        tmlc_tanh_s8(
+            tensor_{{ op.input_indices[0] }},
+            tensor_{{ op.output_indices[0] }},
+            {{ tensor_sizes[op.input_indices[0]] }}
+        );
         {% endif %}
     {% endfor %}
 

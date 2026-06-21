@@ -16,6 +16,7 @@ OP_MAP = {
     "Relu": "RELU",
     "Softmax": "SOFTMAX",
     "Add": "ADD",
+    "Sub": "SUB",
     "Mul": "MULTIPLY",
     "MaxPool": "MAX_POOL_2D",
     "AveragePool": "AVERAGE_POOL_2D",
@@ -28,6 +29,7 @@ OP_MAP = {
     "SVDF": "SVDF",
     "Concat": "CONCAT",
     "Sigmoid": "SIGMOID",
+    "Tanh": "TANH",
 }
 
 

@@ -12,10 +12,15 @@
 #   - model_cnn_bn.onnx: CNN+BatchNorm模型
 #   - model_cnn_gap.onnx: CNN+GlobalAveragePool模型
 #   - model_mlp.onnx: MLP多层感知机模型
+#   - model_mlp_deep.onnx: 深层MLP (5层FC)
 #   - model_concat.onnx: Concat拼接模型
 #   - model_depthwise.onnx: Depthwise卷积模型
 #   - model_sigmoid.onnx: Sigmoid激活模型
 #   - model_mul.onnx: Mul乘法模型
+#   - model_tanh.onnx: Tanh激活模型
+#   - model_sub.onnx: Sub减法模型
+#   - model_residual.onnx: 残差连接模型
+#   - model_lstm.onnx: LSTM网络模型
 # 
 # 依赖：
 #   - torch >= 2.0
@@ -97,6 +102,7 @@ class CNNWithGAP(nn.Module):
 
 
 class MLP(nn.Module):
+    """3层MLP"""
     def __init__(self):
         super().__init__()
         self.fc1 = nn.Linear(784, 128)
@@ -111,6 +117,31 @@ class MLP(nn.Module):
         x = self.fc2(x)
         x = self.relu(x)
         x = self.fc3(x)
+        return x
+
+
+class DeepMLP(nn.Module):
+    """5层深层MLP"""
+    def __init__(self):
+        super().__init__()
+        self.fc1 = nn.Linear(784, 256)
+        self.relu = nn.ReLU()
+        self.fc2 = nn.Linear(256, 128)
+        self.fc3 = nn.Linear(128, 64)
+        self.fc4 = nn.Linear(64, 32)
+        self.fc5 = nn.Linear(32, 10)
+
+    def forward(self, x):
+        x = x.view(x.size(0), -1)
+        x = self.fc1(x)
+        x = self.relu(x)
+        x = self.fc2(x)
+        x = self.relu(x)
+        x = self.fc3(x)
+        x = self.relu(x)
+        x = self.fc4(x)
+        x = self.relu(x)
+        x = self.fc5(x)
         return x
 
 
@@ -173,6 +204,82 @@ class MulNet(nn.Module):
         return x
 
 
+class TanhNet(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc1 = nn.Linear(10, 5)
+        self.fc2 = nn.Linear(5, 5)
+
+    def forward(self, x):
+        x = self.fc1(x)
+        x = torch.tanh(x)
+        x = self.fc2(x)
+        return x
+
+
+class SubNet(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc1 = nn.Linear(10, 5)
+        self.fc2 = nn.Linear(10, 5)
+
+    def forward(self, x):
+        x1 = self.fc1(x)
+        x2 = self.fc2(x)
+        x = x1 - x2
+        return x
+
+
+class ResidualNet(nn.Module):
+    """残差连接网络"""
+    def __init__(self):
+        super().__init__()
+        self.fc1 = nn.Linear(10, 10)
+        self.relu = nn.ReLU()
+        self.fc2 = nn.Linear(10, 10)
+
+    def forward(self, x):
+        identity = x
+        x = self.fc1(x)
+        x = self.relu(x)
+        x = self.fc2(x)
+        x = x + identity  # 残差连接
+        return x
+
+
+class LSTMNet(nn.Module):
+    """简单LSTM网络"""
+    def __init__(self):
+        super().__init__()
+        self.lstm = nn.LSTM(input_size=8, hidden_size=16, num_layers=1, batch_first=True)
+        self.fc = nn.Linear(16, 10)
+
+    def forward(self, x):
+        # x: [batch, seq_len, input_size]
+        out, (h_n, c_n) = self.lstm(x)
+        # 取最后一个时间步的输出
+        out = out[:, -1, :]
+        x = self.fc(out)
+        return x
+
+
+class GlobalMaxPoolNet(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv = nn.Conv2d(1, 8, 3)
+        self.relu = nn.ReLU()
+        self.gmp = nn.AdaptiveMaxPool2d(1)
+        self.fc = nn.Linear(8, 10)
+
+    def forward(self, x):
+        x = self.conv(x)
+        x = self.relu(x)
+        x = self.gmp(x)
+        x = x.view(x.size(0), -1)
+        x = self.fc(x)
+        return x
+
+
 class CalibrationData(CalibrationDataReader):
     def __init__(self):
         self.enumerator = None
@@ -186,7 +293,7 @@ class CalibrationData(CalibrationDataReader):
         return next(self.enumerator, None)
 
 
-def export_model(model, name, input_shape, input_name="input", opset_version=10):
+def export_model(model, name, input_shape, input_name="input", opset_version=11):
     model.eval()
     dummy_input = torch.randn(*input_shape)
     output_path = os.path.join(OUTPUT_DIR, f"{name}.onnx")
@@ -207,14 +314,23 @@ def export_model(model, name, input_shape, input_name="input", opset_version=10)
 def main():
     print("Exporting FP32 ONNX models...")
     
+    # 基础模型
     export_model(SimpleNet(), "model_fp32", (1, 1, 28, 28))
     export_model(CNNWithBN(), "model_cnn_bn", (1, 1, 32, 32))
     export_model(CNNWithGAP(), "model_cnn_gap", (1, 1, 28, 28))
+    
+    # MLP模型
     export_model(MLP(), "model_mlp", (1, 784))
+    export_model(DeepMLP(), "model_mlp_deep", (1, 784))
+    
+    # 算子测试模型
     export_model(ConcatNet(), "model_concat", (1, 10))
     export_model(DepthwiseConvNet(), "model_depthwise", (1, 1, 32, 32))
     export_model(SigmoidNet(), "model_sigmoid", (1, 10))
     export_model(MulNet(), "model_mul", (1, 10))
+    export_model(TanhNet(), "model_tanh", (1, 10))
+    export_model(SubNet(), "model_sub", (1, 10))
+    export_model(ResidualNet(), "model_residual", (1, 10))
     
     print("\nQuantizing model_fp32 to INT8 QDQ format...")
     quantize_static(

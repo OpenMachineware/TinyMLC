@@ -1,6 +1,7 @@
 #include "tinymlc.h"
 
-static int8_t tmlc_tanh_s8(int32_t x) {
+// SVDF 内部使用的 clip 函数（不是真正的 tanh，只是裁剪到 int8 范围）
+static int8_t svdf_clip(int32_t x) {
     const int32_t max_val = 127;
     const int32_t min_val = -128;
     if (x > max_val) return max_val;
@@ -28,7 +29,7 @@ void tmlc_svdf_s8(const int8_t* input,
             for (int j = 0; j < input_size; j++) {
                 sum += (int32_t)input_ptr[j] * (int32_t)weights[i * input_size + j];
             }
-            output_ptr[i] = tmlc_tanh_s8(sum >> 8);
+            output_ptr[i] = svdf_clip(sum >> 8);
         }
     }
 }
