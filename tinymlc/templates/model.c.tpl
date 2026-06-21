@@ -147,9 +147,13 @@ void {{ inference_func }}(const int8_t* input1, const int8_t* input2, int8_t* ou
             {{ op.dw_params.output_c }},
             {{ op.dw_params.kernel_h }},
             {{ op.dw_params.kernel_w }},
-            1, 1,
+            {{ op.dw_params.stride_h }},
+            {{ op.dw_params.stride_w }},
             {{ op.dw_params.depth_multiplier }},
-            0, 0
+            {{ op.dw_params.padding_h }},
+            {{ op.dw_params.padding_w }},
+            {{ conv_multiplier }},
+            {{ conv_shift }}
         );
         {% elif op.op_name == "RELU" %}
         tmlc_relu_s8(

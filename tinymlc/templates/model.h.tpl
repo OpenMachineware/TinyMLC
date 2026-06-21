@@ -9,6 +9,13 @@
 #define INPUT_SIZE {{ input_size }}
 #define OUTPUT_SIZE {{ output_size }}
 
+{% if inputs_count >= 1 %}
+#define INPUT_SIZE_1 {{ INPUT_SIZE_1 }}
+{% endif %}
+{% if inputs_count >= 2 %}
+#define INPUT_SIZE_2 {{ INPUT_SIZE_2 }}
+{% endif %}
+
 {% if target == "arm" %}
 // FC quantization parameters
 #define FC_INPUT_OFFSET 0

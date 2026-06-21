@@ -30,13 +30,19 @@ void tmlc_conv2d_s8(const int8_t* input,
         .activation = {.min = -128, .max = 127}
     };
 
-    cmsis_nn_per_tensor_quant_params quant_params = {
-        .multiplier = multiplier,
-        .shift = shift
+    // Per-channel quantization (CMSIS-NN uses pointers for multiplier/shift)
+    static int32_t multiplier_arr[1];
+    static int32_t shift_arr[1];
+    multiplier_arr[0] = multiplier;
+    shift_arr[0] = shift;
+
+    cmsis_nn_per_channel_quant_params quant_params = {
+        .multiplier = multiplier_arr,
+        .shift = shift_arr
     };
 
     cmsis_nn_dims input_dims = {.n = 1, .h = input_h, .w = input_w, .c = input_c};
-    cmsis_nn_dims filter_dims = {.n = kernel_h, .h = kernel_h, .w = kernel_w, .c = input_c};
+    cmsis_nn_dims filter_dims = {.n = 1, .h = kernel_h, .w = kernel_w, .c = input_c};
     cmsis_nn_dims bias_dims = {.n = 1, .h = 1, .w = 1, .c = output_c};
     cmsis_nn_dims output_dims = {.n = 1, .h = output_h, .w = output_w, .c = output_c};
 
@@ -47,5 +53,5 @@ void tmlc_conv2d_s8(const int8_t* input,
                     &input_dims, input,
                     &filter_dims, weights,
                     &bias_dims, bias,
-                    &output_dims, output);
+                    &output_dims, &output_dims, output);
 }

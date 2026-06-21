@@ -33,6 +33,6 @@ void tmlc_avg_pool_2d_s8(const int8_t* input,
 
     arm_avgpool_s8(&ctx, &pool_params,
                    &input_dims, input,
-                   &filter_dims, NULL,
+                   &filter_dims,
                    &output_dims, output);
 }

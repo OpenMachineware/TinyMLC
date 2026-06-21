@@ -32,6 +32,7 @@ void tmlc_max_pool_2d_s8(const int8_t* input,
     ctx.size = sizeof(cmsis_nn_buf);
 
     arm_max_pool_s8(&ctx, &pool_params,
-                   &input_dims, input,
-                   &output_dims, output);
+                    &input_dims, input,
+                    &filter_dims,
+                    &output_dims, output);
 }

@@ -20,7 +20,7 @@ from tinymlc.extract_weights import (extract_fc_weights, extract_lstm_weights,
                                      export_weights_to_c, export_bias_to_c,
                                      export_concatenated_weights,
                                      export_concatenated_bias,
-                                     extract_conv_weights)
+                                     extract_conv_weights, extract_dw_weights)
 from tinymlc.generate_lut import generate_lut
 from tinymlc.parser_litert import parse_model_tflite
 from tinymlc.parser_onnx import parse_model_onnx
@@ -130,20 +130,18 @@ def generate_c_code(model_info, output_dir, target,
     """Generate C code and header files"""
     template_dir = Path(__file__).parent / 'templates'
 
-    # Calculate input/output sizes
+    # Calculate input/output sizes (size of first input/output tensor)
+    # Note: For multi-input models, INPUT_SIZE is the size of one input tensor,
+    # not the product of all inputs
     input_size = 1
-    for inp in model_info['input']:
-        size = 1
-        for dim in inp['shape']:
-            size *= dim
-        input_size *= size
+    if model_info['input']:
+        for dim in model_info['input'][0]['shape']:
+            input_size *= int(dim)
 
     output_size = 1
-    for out in model_info['output']:
-        size = 1
-        for dim in out['shape']:
-            size *= dim
-        output_size *= size
+    if model_info['output']:
+        for dim in model_info['output'][0]['shape']:
+            output_size *= int(dim)
 
     # Detect operator types in model
     has_fc = False
@@ -327,6 +325,22 @@ def generate_c_code(model_info, output_dir, target,
                 f"multiplier={conv_multiplier}, shift={conv_shift}")
             break
 
+    # If CONV_2D params not found but has DEPTHWISE_CONV_2D, calculate from DW params
+    if (conv_multiplier is None or conv_shift is None) and has_dw:
+        for op in model_info.get("ops", []):
+            if op.get("op_name") == "DEPTHWISE_CONV_2D":
+                dw_scale = op.get("dw_scale", 0.01)
+                dw_output_scale = op.get("dw_output_scale", 0.00390625)
+                conv_input_scale = 0.00390625
+                conv_multiplier, conv_shift = calculate_multiplier_shift_from_scale(
+                    conv_input_scale, dw_scale, dw_output_scale
+                )
+                info(
+                    f"DEPTHWISE_CONV_2D quantization params: scale={dw_scale}, "
+                    f"output_scale={dw_output_scale}, "
+                    f"multiplier={conv_multiplier}, shift={conv_shift}")
+                break
+
     # If CONV_2D params not found, use fallback
     if conv_multiplier is None or conv_shift is None:
         conv_multiplier, conv_shift = 0, 0
@@ -397,20 +411,15 @@ def generate_c_code(model_info, output_dir, target,
                     op["svdf_params"] = orig_op.get("svdf_params", {})
                     break
 
-    # Calculate input size
-    input_size_1 = 0
-    input_size_2 = 0
-    if len(model_info["input"]) == 1:
+    # Calculate individual input sizes for multi-input models
+    input_size_1 = 1
+    input_size_2 = 1
+    if len(model_info["input"]) >= 1:
         for dim in model_info["input"][0]["shape"]:
-            input_size_1 = input_size_1 * dim if input_size_1 else dim
-    elif len(model_info["input"]) == 2:
-        for dim in model_info["input"][0]["shape"]:
-            input_size_1 = input_size_1 * dim if input_size_1 else dim
+            input_size_1 *= int(dim)
+    if len(model_info["input"]) >= 2:
         for dim in model_info["input"][1]["shape"]:
-            input_size_2 = input_size_2 * dim if input_size_2 else dim
-    else:
-        fatal_error(f"Unsupported {len(model_info['input'])} inputs in model",
-                    "Currently supports 1 or 2 inputs")
+            input_size_2 *= int(dim)
 
     # Ensure lstm_params has default value, not None (even without LSTM)
     if lstm_params is None:
@@ -552,19 +561,24 @@ def generate_c_code(model_info, output_dir, target,
         'model.h': model_h,
     }
 
-    # Optional: copy architecture-specific test main
+    # Optional: generate architecture-specific test main from template
     if with_test_main:
-        # Copy main_test.c from architecture-specific directory
-        src_dir = Path(__file__).parent.parent / "ops" / target
-        main_test_src = src_dir / "main_test.c"
-        if main_test_src.exists():
-            with open(main_test_src, 'r') as f:
-                result['main_test.c'] = f.read()
+        main_test_tpl = template_dir / "main_test.c.tpl"
+        if main_test_tpl.exists():
+            with open(main_test_tpl, 'r') as f:
+                tmpl = Template(f.read())
+            result['main_test.c'] = tmpl.render(**context)
         else:
-            fatal_error(
-                f"Architecture-specific main_test.c not found: "
-                f"{main_test_src}",
-                f"Supported architectures: riscv, arm")
+            # Fallback: copy from architecture-specific directory
+            src_dir = Path(__file__).parent.parent / "ops" / target
+            main_test_src = src_dir / "main_test.c"
+            if main_test_src.exists():
+                with open(main_test_src, 'r') as f:
+                    result['main_test.c'] = f.read()
+            else:
+                fatal_error(
+                    f"main_test.c template not found: {main_test_tpl}",
+                    f"Supported architectures: riscv, arm")
 
     # Update state after code generation
     for op in ops:
@@ -704,6 +718,7 @@ def extract_all_weights_tflite(interpreter, model_info):
     fc_op_info = None
     lstm_op_info = None
     conv_op_info = None
+    dw_op_info = None
 
     for op in model_info["ops"]:
         if op["op_name"] == "FULLY_CONNECTED":
@@ -712,6 +727,8 @@ def extract_all_weights_tflite(interpreter, model_info):
             lstm_op_info = op
         elif op["op_name"] == "CONV_2D":
             conv_op_info = op
+        elif op["op_name"] == "DEPTHWISE_CONV_2D":
+            dw_op_info = op
 
     fc_weights, fc_bias = (
         extract_fc_weights(interpreter, fc_op_info)
@@ -722,12 +739,16 @@ def extract_all_weights_tflite(interpreter, model_info):
     conv_weights, conv_bias = (
         extract_conv_weights(interpreter, conv_op_info)
         if conv_op_info else (None, None))
+    dw_weights, dw_bias = (
+        extract_dw_weights(interpreter, dw_op_info)
+        if dw_op_info else (None, None))
 
-    return fc_weights, fc_bias, lstm_weights, conv_weights, conv_bias
+    return fc_weights, fc_bias, lstm_weights, conv_weights, conv_bias, dw_weights, dw_bias
 
 
 def generate_weight_headers(output_dir, fc_weights, fc_bias,
-                             lstm_weights, conv_weights, conv_bias):
+                             lstm_weights, conv_weights, conv_bias,
+                             dw_weights, dw_bias):
     """Generate all weight header files"""
     if fc_weights is not None:
         with open(output_dir / 'fc_weights.h', 'w') as f:
@@ -756,6 +777,14 @@ def generate_weight_headers(output_dir, fc_weights, fc_bias,
             if conv_bias is not None:
                 export_bias_to_c(conv_bias, "conv_bias", f)
         info(f"Generated: {output_dir}/conv_weights.h")
+
+    if dw_weights is not None:
+        with open(output_dir / 'dw_weights.h', 'w') as f:
+            f.write("// Depthwise Conv2D weights and bias extracted from model\n\n")
+            export_weights_to_c(dw_weights, "dw_weights", f)
+            if dw_bias is not None:
+                export_bias_to_c(dw_bias, "dw_bias", f)
+        info(f"Generated: {output_dir}/dw_weights.h")
 
 
 def dump_model_info(model_info):
@@ -1016,11 +1045,11 @@ def main():
         interpreter = LiteRTInterpreter(model_path=model_path)
         interpreter.allocate_tensors()
         # Extract weights
-        fc_weights, fc_bias, lstm_weights, conv_weights, conv_bias = (
+        fc_weights, fc_bias, lstm_weights, conv_weights, conv_bias, dw_weights, dw_bias = (
             extract_all_weights_tflite(interpreter, model_info))
         generate_weight_headers(
             output_dir, fc_weights, fc_bias, lstm_weights,
-            conv_weights, conv_bias)
+            conv_weights, conv_bias, dw_weights, dw_bias)
     elif model_path.endswith(".onnx"):
         model_info = parse_model_onnx(model_path)
         scales = export_onnx_weights(output_dir, model_info.get("weights", {}))

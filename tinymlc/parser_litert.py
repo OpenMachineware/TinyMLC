@@ -371,6 +371,10 @@ def parse_model_tflite(model_path: str):
                 "kernel_w": weights_shape[2] if len(weights_shape) >= 4 else 0,
                 "depth_multiplier": weights_shape[3] // input_shape[3] if len(
                     input_shape) >= 4 and len(weights_shape) >= 4 else 1,
+                "stride_h": 1,
+                "stride_w": 1,
+                "padding_h": 0,
+                "padding_w": 0,
             }
 
             op_info["state"] = "translated"
