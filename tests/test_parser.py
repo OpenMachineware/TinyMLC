@@ -5,12 +5,11 @@ import sys
 from pathlib import Path
 
 import pytest
-import tensorflow as tf
 
 # Add project root to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from tinymlc.parser import parse_model
+from tinymlc.parser_litert import parse_model_tflite
 
 
 @pytest.fixture
@@ -24,10 +23,7 @@ def lstm_model_path():
 
 def test_parse_model_returns_dict(lstm_model_path):
     """Test parse_model returns dict"""
-    interpreter = tf.lite.Interpreter(model_path=str(lstm_model_path))
-    interpreter.allocate_tensors()
-
-    result = parse_model(interpreter)
+    result = parse_model_tflite(str(lstm_model_path))
 
     assert isinstance(result, dict)
     assert "input" in result
@@ -38,10 +34,7 @@ def test_parse_model_returns_dict(lstm_model_path):
 
 def test_parse_model_ops_count(lstm_model_path):
     """Test parsed operator count is correct"""
-    interpreter = tf.lite.Interpreter(model_path=str(lstm_model_path))
-    interpreter.allocate_tensors()
-
-    result = parse_model(interpreter)
+    result = parse_model_tflite(str(lstm_model_path))
 
     # LSTM model should have LSTM, RESHAPE, FC, SOFTMAX
     ops = result["ops"]
@@ -50,10 +43,7 @@ def test_parse_model_ops_count(lstm_model_path):
 
 def test_parse_model_has_lstm(lstm_model_path):
     """Test can identify LSTM operator"""
-    interpreter = tf.lite.Interpreter(model_path=str(lstm_model_path))
-    interpreter.allocate_tensors()
-
-    result = parse_model(interpreter)
+    result = parse_model_tflite(str(lstm_model_path))
 
     op_names = [op["op_name"] for op in result["ops"]]
     assert "UNIDIRECTIONAL_SEQUENCE_LSTM" in op_names
@@ -61,10 +51,7 @@ def test_parse_model_has_lstm(lstm_model_path):
 
 def test_parse_model_has_fc(lstm_model_path):
     """Test can identify FC operator"""
-    interpreter = tf.lite.Interpreter(model_path=str(lstm_model_path))
-    interpreter.allocate_tensors()
-
-    result = parse_model(interpreter)
+    result = parse_model_tflite(str(lstm_model_path))
 
     op_names = [op["op_name"] for op in result["ops"]]
     assert "FULLY_CONNECTED" in op_names
@@ -72,10 +59,7 @@ def test_parse_model_has_fc(lstm_model_path):
 
 def test_parse_model_has_softmax(lstm_model_path):
     """Test can identify Softmax operator"""
-    interpreter = tf.lite.Interpreter(model_path=str(lstm_model_path))
-    interpreter.allocate_tensors()
-
-    result = parse_model(interpreter)
+    result = parse_model_tflite(str(lstm_model_path))
 
     op_names = [op["op_name"] for op in result["ops"]]
     assert "SOFTMAX" in op_names
@@ -83,10 +67,7 @@ def test_parse_model_has_softmax(lstm_model_path):
 
 def test_parse_model_lstm_params(lstm_model_path):
     """Test LSTM params are correctly extracted"""
-    interpreter = tf.lite.Interpreter(model_path=str(lstm_model_path))
-    interpreter.allocate_tensors()
-
-    result = parse_model(interpreter)
+    result = parse_model_tflite(str(lstm_model_path))
 
     for op in result["ops"]:
         if op["op_name"] == "UNIDIRECTIONAL_SEQUENCE_LSTM":

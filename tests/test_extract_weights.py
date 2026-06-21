@@ -5,12 +5,12 @@ import sys
 from pathlib import Path
 
 import pytest
-import tensorflow as tf
+from ai_edge_litert.interpreter import Interpreter as LiteRTInterpreter
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from tinymlc.extract_weights import extract_fc_weights, extract_lstm_weights
-from tinymlc.parser import parse_model
+from tinymlc.parser_litert import parse_model_tflite
 
 
 @pytest.fixture
@@ -20,15 +20,16 @@ def interpreter():
         "trained_lstm_int8.tflite"
     if not model_path.exists():
         pytest.skip(f"Test model not found: {model_path}")
-    interpreter = tf.lite.Interpreter(model_path=str(model_path))
-    interpreter.allocate_tensors()
+    interpreter = LiteRTInterpreter(model_path=str(model_path))
     return interpreter
 
 
 @pytest.fixture
 def model_info(interpreter):
     """Parse model info"""
-    return parse_model(interpreter)
+    model_path = Path(__file__).parent.parent / "test_models" / \
+        "trained_lstm_int8.tflite"
+    return parse_model_tflite(str(model_path))
 
 
 @pytest.fixture
