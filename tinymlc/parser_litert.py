@@ -8,7 +8,7 @@ import numpy as np
 from tinymlc.utils import fatal_error, info, warning
 
 
-def parse_model(model_path: str):
+def parse_model_tflite(model_path: str):
     """使用 LiteRT 解析 TFLite 模型"""
 
     # 1. 加载模型（使用 LiteRT 的 Interpreter）

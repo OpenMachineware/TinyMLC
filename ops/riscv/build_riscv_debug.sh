@@ -7,6 +7,7 @@ CC="riscv-none-elf-gcc"
 SIM="qemu-system-riscv32"
 ARCH="rv32imac"
 ABI="ilp32"
+LD="riscv-none-elf-ld"
 
 CFLAGS="-march=$ARCH -mabi=$ABI -nostdlib -ffreestanding -fno-omit-frame-pointer -nostartfiles -nodefaultlibs -DTINYMLC_DEBUG -I./include -I./c -I."
 
@@ -41,7 +42,7 @@ $CC $CFLAGS -c model.c -o model.o
 $CC $CFLAGS -c main_test.c -o main_test.o
 
 # ========== 链接 ==========
-$CC -T link_riscv.ld -Wl,--no-dynamic-linker \
+$LD -T link_riscv.ld --no-dynamic-linker \
     start.o debug_print.o \
     fc.o softmax.o reshape.o add.o svdf.o \
     conv2d.o max_pool2d.o depthwise_conv2d.o \

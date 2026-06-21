@@ -22,7 +22,8 @@ from tinymlc.extract_weights import (extract_fc_weights, extract_lstm_weights,
                                      export_concatenated_bias,
                                      extract_conv_weights)
 from tinymlc.generate_lut import generate_lut
-from tinymlc.parser_litert import parse_model
+from tinymlc.parser_litert import parse_model_tflite
+from tinymlc.parser_onnx import parse_model_onnx
 from tinymlc.utils import fatal_error, warning, info
 
 
@@ -232,6 +233,14 @@ def generate_c_code(model_info, output_dir, target,
                 "output_size": output_size,
             }
 
+    for op in execution_order:
+        if op.get("op_name") == "CONV_2D":
+            # 从 model_info 中查找完整的 conv_params
+            for orig_op in model_info.get("ops", []):
+                if orig_op.get("index") == op["index"]:
+                    op["conv_params"] = orig_op.get("conv_params", {})
+                    break
+
     # 计算输入大小
     input_size_1 = 0
     input_size_2 = 0
@@ -421,9 +430,111 @@ def calculate_multiplier_shift(input_scale, weight_scale, output_scale):
     return multiplier, shift
 
 
+def extract_all_weights_tflite(interpreter, model_info):
+    """从 TFLite 模型中提取所有权重"""
+    fc_op_info = None
+    lstm_op_info = None
+    conv_op_info = None
+
+    for op in model_info["ops"]:
+        if op["op_name"] == "FULLY_CONNECTED":
+            fc_op_info = op
+        elif op["op_name"] == "UNIDIRECTIONAL_SEQUENCE_LSTM":
+            lstm_op_info = op
+        elif op["op_name"] == "CONV_2D":
+            conv_op_info = op
+
+    fc_weights, fc_bias = extract_fc_weights(interpreter, fc_op_info) if fc_op_info else (None, None)
+    lstm_weights = extract_lstm_weights(interpreter, lstm_op_info) if lstm_op_info else None
+    conv_weights, conv_bias = extract_conv_weights(interpreter, conv_op_info) if conv_op_info else (None, None)
+
+    return fc_weights, fc_bias, lstm_weights, conv_weights, conv_bias
+
+
+def generate_weight_headers(output_dir, fc_weights, fc_bias, lstm_weights, conv_weights, conv_bias):
+    """生成所有权重头文件"""
+    if fc_weights is not None:
+        with open(output_dir / 'fc_weights.h', 'w') as f:
+            f.write("// 自动从模型提取的 FC 层权重和 bias\n\n")
+            export_weights_to_c(fc_weights, "fc_weights", f)
+            export_bias_to_c(fc_bias, "fc_bias", f)
+        info(f"已生成: {output_dir}/fc_weights.h")
+
+    if lstm_weights and lstm_weights['input']:
+        with open(output_dir / 'lstm_weights.h', 'w') as f:
+            f.write("// 自动从模型提取的 LSTM 各门权重和 bias\n")
+            f.write("// 顺序: i, f, g, o\n\n")
+            export_concatenated_weights(lstm_weights['input'], f, 'lstm_input_weights', 'int8')
+            export_concatenated_weights(lstm_weights['recurrent'], f, 'lstm_recurrent_weights', 'int8')
+            export_concatenated_bias(lstm_weights['bias'], f, 'lstm_bias')
+        info(f"已生成: {output_dir}/lstm_weights.h")
+
+    if conv_weights is not None:
+        with open(output_dir / 'conv_weights.h', 'w') as f:
+            f.write("// 自动从模型提取的 CONV_2D 权重和 bias\n\n")
+            export_weights_to_c(conv_weights, "conv_weights", f)
+            if conv_bias is not None:
+                export_bias_to_c(conv_bias, "conv_bias", f)
+        info(f"已生成: {output_dir}/conv_weights.h")
+
+
+def dump_model_info(model_info):
+    """打印模型信息"""
+    info("\n=== 模型信息 ===")
+    info(f"输入张量: {len(model_info['input'])}")
+    for inp in model_info["input"]:
+        info(f"  - {inp.get('name', 'unnamed')}: shape={inp['shape']}, dtype={inp['dtype']}")
+    info(f"输出张量: {len(model_info['output'])}")
+    for out in model_info["output"]:
+        info(f"  - {out.get('name', 'unnamed')}: shape={out['shape']}, dtype={out['dtype']}")
+    info(f"\n算子数量: {len(model_info['ops'])}")
+    for op in model_info["ops"]:
+        info(f"\n  [{op['index']}] {op['op_name']}")
+        info(f"      输入:")
+        for inp in op.get("input_details", []):
+            info(f"        - [{inp.get('index', '?')}] {inp.get('name', 'unknown')}: shape={inp.get('shape', [])}, size={inp.get('size', 0)}")
+        info(f"      输出:")
+        for out in op.get("output_details", []):
+            info(f"        - [{out.get('index', '?')}] {out.get('name', 'unknown')}: shape={out.get('shape', [])}, size={out.get('size', 0)}")
+
+
+def export_onnx_weights(output_dir, weights):
+    """从 ONNX 权重字典导出 C 头文件"""
+    # FC 权重
+    fc_weight = weights.get("fc1.weight")
+    fc_bias = weights.get("fc1.bias")
+    if fc_weight is not None and fc_bias is not None:
+        with open(output_dir / 'fc_weights.h', 'w') as f:
+            f.write("// 自动从 ONNX 模型提取的 FC 层权重和 bias\n")
+            export_weights_to_c(fc_weight, "fc_weights", f)
+            export_bias_to_c(fc_bias, "fc_bias", f)
+
+    # CONV_2D 权重
+    conv_weight = weights.get("conv1.weight")
+    conv_bias = weights.get("conv1.bias")
+    if conv_weight is not None and conv_bias is not None:
+        with open(output_dir / 'conv_weights.h', 'w') as f:
+            f.write("// 自动从 ONNX 模型提取的 CONV_2D 层权重和 bias\n")
+            export_weights_to_c(conv_weight, "conv_weights", f)
+            export_bias_to_c(conv_bias, "conv_bias", f)
+
+    # LSTM 权重（如果有）
+    # 可根据权重名称前缀判断
+    lstm_prefixes = ["lstm.", "lstm_"]
+    lstm_weights = {}
+    for name, tensor in weights.items():
+        for prefix in lstm_prefixes:
+            if name.startswith(prefix):
+                lstm_weights[name] = tensor
+                break
+    if lstm_weights:
+        # TODO: 导出 LSTM 权重
+        pass
+
+
 def main():
     parser = argparse.ArgumentParser(description="tinymlc - TinyML Compiler")
-    parser.add_argument("model", help="TFLite 模型文件路径")
+    parser.add_argument("model", help="TFLite 或 ONNX 模型文件路径")
     parser.add_argument("--entry-point", default="tinymlc_inference",
                         help="推理函数名称 (默认: tinymlc_inference)")
     parser.add_argument("--with-test-main", action="store_true",
@@ -446,182 +557,88 @@ def main():
 
     args = parser.parse_args()
 
-    # 检查模型文件是否存在
-    if not Path(args.model).exists():
-        fatal_error(f"模型文件不存在: {args.model}", "请检查文件路径")
+    model_path = args.model
+    if not Path(model_path).exists():
+        fatal_error(f"模型文件不存在: {model_path}", "请检查文件路径")
 
-    # 1. 使用 LiteRT 解析模型结构
-    info(f"正在解析模型: {args.model}")
-    model_info = parse_model(args.model)
-
-    # 2. 创建 interpreter 用于提取权重（暂时保留）
-    interpreter = LiteRTInterpreter(model_path=args.model)
-    interpreter.allocate_tensors()
-
-    if args.verbose:
-        info("\n=== 模型信息 ===")
-        info(f"输入张量: {len(model_info['input'])}")
-        for inp in model_info["input"]:
-            info(
-                f"  - {inp.get('name', 'unnamed')}: shape={inp['shape']}, dtype={inp['dtype']}"
-            )
-        info(f"输出张量: {len(model_info['output'])}")
-        for out in model_info["output"]:
-            info(
-                f"  - {out.get('name', 'unnamed')}: shape={out['shape']}, dtype={out['dtype']}"
-            )
-
-        info(f"\n算子数量: {len(model_info['ops'])}")
-        for op in model_info["ops"]:
-            info(f"\n  [{op['index']}] {op['op_name']}")
-            info(f"      输入:")
-            for inp in op["input_details"]:
-                info(
-                    f"        - [{inp['index']}] {inp['name']}: shape={inp['shape']}, size={inp['size']}"
-                )
-            info(f"      输出:")
-            for out in op["output_details"]:
-                info(
-                    f"        - [{out['index']}] {out['name']}: shape={out['shape']}, size={out['size']}"
-                )
-
-    # 创建输出目录
+    info(f"正在解析模型: {model_path}")
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # 提取并生成权重文件
-    info("正在提取权重...")
-    # 找到算子的 op_info
-    fc_op_info = None
-    lstm_op_info = None
-    conv_op_info = None
-    for op in model_info["ops"]:
-        if op["op_name"] == "FULLY_CONNECTED":
-            fc_op_info = op
-        elif op["op_name"] == "UNIDIRECTIONAL_SEQUENCE_LSTM":
-            lstm_op_info = op
-        elif op["op_name"] == "CONV_2D":
-            conv_op_info = op
-
-    # 提取权重
-    if fc_op_info:
-        fc_weights, fc_bias = extract_fc_weights(interpreter, fc_op_info)
-        if fc_weights is None:
-            fatal_error("FC 权重提取失败", "检查模型是否完整")
+    # ==========================================
+    # 1. 根据模型格式选择解析路径
+    # ==========================================
+    if model_path.endswith(".tflite"):
+        model_info = parse_model_tflite(model_path)
+        interpreter = LiteRTInterpreter(model_path=model_path)
+        interpreter.allocate_tensors()
+        # 提取权重
+        fc_weights, fc_bias, lstm_weights, conv_weights, conv_bias = extract_all_weights_tflite(
+            interpreter, model_info
+        )
+        generate_weight_headers(output_dir, fc_weights, fc_bias, lstm_weights,
+                                conv_weights, conv_bias)
+    elif model_path.endswith(".onnx"):
+        model_info = parse_model_onnx(model_path)
+        export_onnx_weights(output_dir, model_info.get("weights", {}))
     else:
-        fc_weights, fc_bias = None, None
+        fatal_error("不支持的模型格式", "支持 .tflite 和 .onnx")
 
-    if lstm_op_info:
-        lstm_weights = extract_lstm_weights(interpreter, lstm_op_info)
-    else:
-        lstm_weights = None
+    # ==========================================
+    # 2. 打印执行信息
+    # ==========================================
+    if args.verbose:
+        dump_model_info(model_info)
 
-    if conv_op_info:
-        conv_weights, conv_bias = extract_conv_weights(interpreter,
-                                                       conv_op_info)
-    else:
-        conv_weights, conv_bias = None, None
-
-    # 检查是否有任何权重被提取
-    has_fc = fc_weights is not None
-    has_lstm = lstm_weights is not None and any(
-        v is not None for v in lstm_weights['input'].values())
-    has_conv = conv_weights is not None
-
-    # 如果没有权重，检查模型是否有不需要权重的算子
-    if not (has_fc or has_lstm or has_conv):
-        has_weightless_op = False
-        for op in model_info["ops"]:
-            if op["op_name"] in ["ADD", "SOFTMAX", "RESHAPE", "QUANTIZE"]:
-                has_weightless_op = True
-                break
-
-        if not has_weightless_op:
-            fatal_error("未找到任何权重", "检查模型是否包含支持的算子")
-        else:
-            info("注意: 模型只包含无权重算子（ADD/Softmax/Reshape），继续...")
-
-    # 生成 fc_weights.h
-    if fc_weights is not None:
-        with open(output_dir / 'fc_weights.h', 'w') as f:
-            f.write("// 自动从 tflite 提取的 FC 层权重和 bias\n")
-            f.write("// 请勿手动修改\n\n")
-            export_weights_to_c(fc_weights, "fc_weights", f)
-            export_bias_to_c(fc_bias, "fc_bias", f)
-        info(f"已生成: {output_dir}/fc_weights.h")
-
-    # 生成 lstm_weights.h
-    if lstm_weights and lstm_weights['input']:
-        with open(output_dir / 'lstm_weights.h', 'w') as f:
-            f.write("// 自动从 tflite 提取的 LSTM 各门权重和 bias\n")
-            f.write("// 顺序: i, f, g, o\n\n")
-            f.write("// 请勿手动修改\n\n")
-
-            # 导入拼接函数（需要在文件顶部导入）
-            export_concatenated_weights(lstm_weights['input'], f,
-                                        'lstm_input_weights', 'int8')
-            export_concatenated_weights(lstm_weights['recurrent'], f,
-                                        'lstm_recurrent_weights', 'int8')
-            export_concatenated_bias(lstm_weights['bias'], f, 'lstm_bias')
-
-        info(f"已生成: {output_dir}/lstm_weights.h")
-
+    # ==========================================
+    # 3. 生成共用模型 C 代码
+    # ==========================================
+    info("正在生成 C 代码...")
     target = args.arch
     mode = "debug" if args.with_test_main else "release"
-    # acc_lib_inc = args.acc_lib_inc
-    # acc_lib_lib = args.acc_lib_lib
 
-    info("正在生成 C 代码...")
     generated_files = generate_c_code(
         model_info, output_dir, target,
         inference_func=args.entry_point,
         with_test_main=args.with_test_main
     )
 
-    # 写入所有文件
     for filename, content in generated_files.items():
         output_path = output_dir / filename
         with open(output_path, 'w') as f:
             f.write(content)
         info(f"生成: {output_path}")
 
-    # 生成 LUT
+    # ==========================================
+    # 4. 生成 LUT 和构建脚本
+    # ==========================================
     generate_lut(output_dir)
-
     copy_files_to_build(output_dir, target, mode, args.accel)
 
     if args.accel != 'none':
-        script_name = f"build_{target}_{args.accel.replace("-", "_")}_{mode}.sh"
+        script_name = f"build_{target}_{args.accel.replace('-', '_')}_{mode}.sh"
     else:
         script_name = f"build_{target}_{mode}.sh"
 
-    # 从脚本直接运行
+    # ==========================================
+    # 5. 自动运行（可选）
+    # ==========================================
     if args.run:
         script_path = output_dir / script_name
-
         try:
-            current_mode = script_path.stat().st_mode
-            script_path.chmod(
-                current_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+            script_path.chmod(0o755)
         except OSError:
             pass
-
         info(f"执行: {script_path} {args.model}")
-        script_abs_path = script_path.resolve()
-        result = subprocess.run(
-            [str(script_abs_path), args.model],
-            cwd=output_dir,
-        )
+        result = subprocess.run([str(script_path.resolve()), args.model], cwd=output_dir)
         sys.exit(result.returncode)
 
     info(f"完成! 输出目录: {output_dir}")
     info("\n下一步:")
     info(f"  cd {output_dir}")
     info(f"  ./{script_name} {args.model}")
-    info(f"  链接并烧录到 MCU")
 
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

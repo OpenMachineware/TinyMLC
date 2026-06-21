@@ -142,7 +142,8 @@ void {{ inference_func }}(const int8_t* input1, const int8_t* input2, int8_t* ou
             {{ op.conv_params.kernel_w }},
             {{ op.conv_params.stride_h }},
             {{ op.conv_params.stride_w }},
-            0, 0
+            {{ op.conv_params.padding_h }},
+            {{ op.conv_params.padding_w }}
         );
         {% elif op.op_name == "MAX_POOL_2D" %}
         tmlc_max_pool_2d_s8(

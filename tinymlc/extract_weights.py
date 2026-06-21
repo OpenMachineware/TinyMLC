@@ -11,7 +11,7 @@ from ai_edge_litert.interpreter import Interpreter as LiteRTInterpreter
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from tinymlc.parser_litert import parse_model
+from tinymlc.parser_litert import parse_model_tflite
 from tinymlc.utils import fatal_error, warning, info
 
 
@@ -282,7 +282,7 @@ def main():
     interpreter = LiteRTInterpreter(model_path=args.model)
     interpreter.allocate_tensors()
 
-    model_info = parse_model(args.model)
+    model_info = parse_model_tflite(args.model)
 
     # 2. 查找算子信息
     fc_op_info = None
