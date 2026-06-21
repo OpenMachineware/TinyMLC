@@ -145,7 +145,6 @@ def generate_c_code(model_info, output_dir, target,
 
     # Detect operator types in model
     has_fc = False
-    has_lstm = False
     has_conv = False
     has_dw = False
     has_svdf = False
@@ -159,7 +158,6 @@ def generate_c_code(model_info, output_dir, target,
             fc_scale = op.get("fc_scale", 0.01)
             fc_scales.append(fc_scale)
         elif op_name == "UNIDIRECTIONAL_SEQUENCE_LSTM":
-            has_lstm = True
             lstm_params = op.get("lstm_params")
         elif op_name == "SVDF":
             has_svdf = True
@@ -168,10 +166,17 @@ def generate_c_code(model_info, output_dir, target,
         elif op_name == "DEPTHWISE_CONV_2D":
             has_dw = True
 
-    if has_lstm and lstm_params is None:
-        fatal_error("Model contains LSTM operator but no parameters extracted",
-                    "Please check if model is standard TFLite LSTM format")
-    elif has_lstm and lstm_params is not None:
+    if lstm_params is None:
+        lstm_params = {
+            "time_steps": 0,
+            "batch_size": 0,
+            "input_size": 0,
+            "hidden_size": 0,
+            "shifts": [8, 8, 8, 8],
+            "input_scale": 0.00390625,
+            "input_zp": 0,
+        }
+    else:
         # Calculate right shift for LSTM
         input_scales = lstm_params.get(
             "input_scales",
@@ -195,8 +200,6 @@ def generate_c_code(model_info, output_dir, target,
         info(
             f"LSTM right shifts: i={shifts[0]}, f={shifts[1]}, "
             f"g={shifts[2]}, o={shifts[3]}")
-    else:
-        pass
 
     # Process FC quantization parameters
     fc_scale = None
@@ -349,7 +352,7 @@ def generate_c_code(model_info, output_dir, target,
     includes = []
     if has_fc:
         includes.append('#include "fc_weights.h"')
-    if has_lstm:
+    if lstm_params["time_steps"] > 0:
         includes.append('#include "lstm_weights.h"')
     if has_conv:
         includes.append('#include "conv_weights.h"')
@@ -508,7 +511,7 @@ def generate_c_code(model_info, output_dir, target,
         "inference_func": inference_func,
         "includes": "\n".join(includes),
         "has_fc": has_fc,
-        "has_lstm": has_lstm,
+        "has_lstm": lstm_params["time_steps"] > 0,
         "has_conv": has_conv,
         "has_dw": has_dw,
         "target": target,
@@ -541,7 +544,7 @@ def generate_c_code(model_info, output_dir, target,
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     with open(output_dir / "model_features.txt", "w") as f:
-        if has_lstm:
+        if lstm_params["time_steps"] > 0:
             f.write("HAS_LSTM\n")
         if has_fc:
             f.write("HAS_FC\n")
@@ -654,11 +657,6 @@ def copy_files_to_build(output_dir: Path, target: str, mode: str, accel: str):
             f"Build script not found: {build_script}",
             suggestion=f"Please check if accelerator type {accel} "
                       "is supported")
-
-    # 5. Copy LSTM related files (if any)
-    lstm_src = ops_root / "lstm"
-    if lstm_src.exists():
-        shutil.copytree(lstm_src, output_dir / "lstm", dirs_exist_ok=True)
 
 
 def calculate_multiplier_shift(input_scale, weight_scale, output_scale):

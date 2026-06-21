@@ -33,14 +33,10 @@ $CC $CFLAGS -c c/concat.c -o concat.o
 $CC $CFLAGS -c c/sub.c -o sub.o
 $CC $CFLAGS -c c/tanh.c -o tanh.o
 
-# ========== LSTM (Optional) ==========
-if grep -q "HAS_LSTM" model_features.txt 2>/dev/null; then
-    $CC $CFLAGS -c lstm/c/lstm.c -o lstm.o
-    $CC $CFLAGS -c lut.c -o lut.o
-    LSTM_OBJ="lstm.o lut.o"
-else
-    LSTM_OBJ=""
-fi
+# ========== LSTM (Pure C, uses LUT) ==========
+$CC $CFLAGS -c c/lstm.c -o lstm.o
+$CC $CFLAGS -c lut.c -o lut.o
+LSTM_OBJ="lstm.o lut.o"
 
 # ========== Startup and Debug ==========
 $CC $CFLAGS -c start.S -o start.o

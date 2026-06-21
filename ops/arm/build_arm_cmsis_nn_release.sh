@@ -43,13 +43,9 @@ $CC $CFLAGS -c c/mean.c -o mean.o
 $CC $CFLAGS -c c/svdf.c -o svdf.o
 
 # ========== LSTM (Pure C, uses LUT) ==========
-if grep -q "HAS_LSTM" model_features.txt 2>/dev/null; then
-    $CC $CFLAGS -c lstm/c/lstm.c -o lstm.o
-    $CC $CFLAGS -c lut.c -o lut.o
-    LSTM_OBJ="lstm.o lut.o"
-else
-    LSTM_OBJ=""
-fi
+$CC $CFLAGS -c c/lstm.c -o lstm.o
+$CC $CFLAGS -c lut.c -o lut.o
+LSTM_OBJ="lstm.o lut.o"
 
 # ========== Startup ==========
 $CC $CFLAGS -c start.S -o start.o

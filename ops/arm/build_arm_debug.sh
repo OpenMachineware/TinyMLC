@@ -27,14 +27,10 @@ $CC $CFLAGS -c c/transpose.c -o transpose.o
 $CC $CFLAGS -c c/pad.c -o pad.o
 $CC $CFLAGS -c c/mean.c -o mean.o
 
-# ========== LSTM (Optional) ==========
-if grep -q "HAS_LSTM" model_features.txt 2>/dev/null; then
-    $CC $CFLAGS -c lstm/c/lstm.c -o lstm.o
-    $CC $CFLAGS -c lut.c -o lut.o
-    LSTM_OBJ="lstm.o lut.o"
-else
-    LSTM_OBJ=""
-fi
+# ========== LSTM (Pure C, uses LUT) ==========
+$CC $CFLAGS -c c/lstm.c -o lstm.o
+$CC $CFLAGS -c lut.c -o lut.o
+LSTM_OBJ="lstm.o lut.o"
 
 # ========== Startup and Debug ==========
 $CC $CFLAGS -c start.S -o start.o

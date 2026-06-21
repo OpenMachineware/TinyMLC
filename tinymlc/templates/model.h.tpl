@@ -29,13 +29,11 @@
 #define SOFTMAX_DIFF_MIN -128
 {% endif %}
 
-{% if has_lstm %}
 // LSTM right shift bits (calculated from model quantization parameters)
 #define LSTM_SHIFT_I {{ lstm_shifts[0] }}
 #define LSTM_SHIFT_F {{ lstm_shifts[1] }}
 #define LSTM_SHIFT_G {{ lstm_shifts[2] }}
 #define LSTM_SHIFT_O {{ lstm_shifts[3] }}
-{% endif %}
 
 // Inference function declaration
 {% if inputs_count == 1 %}
