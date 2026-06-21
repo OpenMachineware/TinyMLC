@@ -227,3 +227,9 @@ __marimo__/
 
 # Generated files
 tinymlc_generated
+
+# Test models (local only)
+test_models/
+
+# TODO file (local only)
+TODO.md
