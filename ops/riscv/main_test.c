@@ -1,20 +1,16 @@
-// ARM test entry
+// RISC-V test entry
 // Uses model.h for INPUT_SIZE and OUTPUT_SIZE definitions
 
 #include <stdint.h>
 #include "model.h"
 #include "debug_print.h"
 
-// Semihosting exit for ARM QEMU (MPS2 board)
+// SiFive Test device address for QEMU exit
+#define SIFIVE_TEST_ADDR ((volatile uint32_t*)0x100000)
+
+// QEMU exit function for RISC-V virt machine
 void qemu_exit(int exit_code) {
-    uint32_t params[2] = {0x20, (uint32_t)exit_code};
-    __asm__ volatile(
-        "mov r0, #0x18\n"
-        "mov r1, %[p]\n"
-        "bkpt #0xab\n"
-        :
-        : [p] "r"(params)
-        : "r0", "r1", "memory");
+    *SIFIVE_TEST_ADDR = (exit_code << 16) | 0x3333;
     while (1);
 }
 

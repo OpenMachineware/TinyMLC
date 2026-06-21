@@ -552,11 +552,19 @@ def generate_c_code(model_info, output_dir, target,
         'model.h': model_h,
     }
 
-    # Optional: generate test main
+    # Optional: copy architecture-specific test main
     if with_test_main:
-        with open(template_dir / 'main_test.c.tpl', 'r') as f:
-            tmpl = Template(f.read())
-        result['main_test.c'] = tmpl.render(**context)
+        # Copy main_test.c from architecture-specific directory
+        src_dir = Path(__file__).parent.parent / "ops" / target
+        main_test_src = src_dir / "main_test.c"
+        if main_test_src.exists():
+            with open(main_test_src, 'r') as f:
+                result['main_test.c'] = f.read()
+        else:
+            # Fallback to template if architecture-specific file not found
+            with open(template_dir / 'main_test.c.tpl', 'r') as f:
+                tmpl = Template(f.read())
+            result['main_test.c'] = tmpl.render(**context)
 
     # Update state after code generation
     for op in ops:
