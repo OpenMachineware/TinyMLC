@@ -23,7 +23,6 @@ void tmlc_conv2d_s8(const int8_t* input,
 {
     nmsis_nn_conv_params conv_params = {
         .input_offset = 0,
-        .filter_offset = 0,
         .output_offset = 0,
         .stride = {.h = stride_h, .w = stride_w},
         .padding = {.h = padding_h, .w = padding_w},
