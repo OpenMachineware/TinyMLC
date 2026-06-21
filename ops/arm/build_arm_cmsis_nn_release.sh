@@ -56,16 +56,7 @@ $CC $CFLAGS -c start.S -o start.o
 $CC $CFLAGS -c debug_print.c -o debug_print.o
 $CC $CFLAGS -c model.c -o model.o
 
-# ========== Link ==========
-$CC $CFLAGS -T link_arm.ld \
-    start.o debug_print.o \
-    fc.o conv2d.o depthwise_conv2d.o avg_pool2d.o max_pool2d.o \
-    softmax.o add.o multiply.o \
-    sigmoid.o tanh.o relu.o reshape.o concat.o sub.o \
-    transpose.o pad.o mean.o svdf.o \
-    $LSTM_OBJ \
-    model.o \
-    $LDFLAGS \
-    -o model.elf
-
-echo "Release build complete: model.elf"
+# ========== Release Mode: No Link, No Run ==========
+echo "Release mode: All .o files generated"
+echo "To link manually, execute:"
+echo "  $CC $CFLAGS -T linker_arm.ld start.o debug_print.o ... -o model.elf"
