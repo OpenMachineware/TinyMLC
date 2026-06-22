@@ -380,6 +380,12 @@ def parse_model_onnx(model_path: str):
                 if len(node.input) >= 3 else None
             )
 
+            # Add standardized key with _onnx suffix for unified export
+            if weights_name in weights:
+                weights["fc_onnx.weight"] = weights[weights_name]
+                if len(node.input) >= 3 and node.input[2] in weights:
+                    weights["fc_onnx.bias"] = weights[node.input[2]]
+
             # Extract output scale (if exists)
             output_name = node.output[0]
             output_tensor = weights.get(output_name)
@@ -402,8 +408,14 @@ def parse_model_onnx(model_path: str):
                 if len(node.input) >= 3 else None
             )
 
-            # Infer kernel_shape from weight shape
+            # Add standardized key with _onnx suffix for unified export
             weights_name = node.input[1]
+            if weights_name in weights:
+                weights["conv_onnx.weight"] = weights[weights_name]
+                if len(node.input) >= 3 and node.input[2] in weights:
+                    weights["conv_onnx.bias"] = weights[node.input[2]]
+
+            # Infer kernel_shape from weight shape
             kernel_h, kernel_w = 1, 1
             if weights_name in weights:
                 weight_tensor = weights[weights_name]

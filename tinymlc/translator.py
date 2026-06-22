@@ -748,12 +748,14 @@ def extract_all_weights_tflite(interpreter, model_info):
         extract_dw_weights(interpreter, dw_op_info)
         if dw_op_info else (None, None))
 
-    # Store weights in model_info["weights"] with ONNX-compatible keys
+    # Store weights in model_info["weights"] with source-specific keys
+    # Keys use format: {op}_{source}.{component}
+    # e.g., fc_tflite.weight, fc_onnx.weight, conv_tflite.weight, etc.
     model_info["weights"] = {}
 
     if fc_weights is not None and fc_bias is not None:
-        model_info["weights"]["fc.weight"] = fc_weights
-        model_info["weights"]["fc.bias"] = fc_bias
+        model_info["weights"]["fc_tflite.weight"] = fc_weights
+        model_info["weights"]["fc_tflite.bias"] = fc_bias
 
     if lstm_weights and lstm_weights['input']:
         # Concatenate LSTM weights (i, f, g, o)
@@ -762,29 +764,29 @@ def extract_all_weights_tflite(interpreter, model_info):
             input_concat = np.concatenate([
                 lstm_weights['input'][g].flatten() for g in gates
             ])
-            model_info["weights"]["lstm.weight_ih"] = input_concat
+            model_info["weights"]["lstm_tflite.weight_ih"] = input_concat
 
         if all(lstm_weights['recurrent'].get(g) is not None for g in gates):
             recurrent_concat = np.concatenate([
                 lstm_weights['recurrent'][g].flatten() for g in gates
             ])
-            model_info["weights"]["lstm.weight_hh"] = recurrent_concat
+            model_info["weights"]["lstm_tflite.weight_hh"] = recurrent_concat
 
         if all(lstm_weights['bias'].get(g) is not None for g in gates):
             bias_concat = np.concatenate([
                 lstm_weights['bias'][g].flatten() for g in gates
             ])
-            model_info["weights"]["lstm.bias"] = bias_concat
+            model_info["weights"]["lstm_tflite.bias"] = bias_concat
 
     if conv_weights is not None:
-        model_info["weights"]["conv.weight"] = conv_weights
+        model_info["weights"]["conv_tflite.weight"] = conv_weights
         if conv_bias is not None:
-            model_info["weights"]["conv.bias"] = conv_bias
+            model_info["weights"]["conv_tflite.bias"] = conv_bias
 
     if dw_weights is not None:
-        model_info["weights"]["dw.weight"] = dw_weights
+        model_info["weights"]["dw_tflite.weight"] = dw_weights
         if dw_bias is not None:
-            model_info["weights"]["dw.bias"] = dw_bias
+            model_info["weights"]["dw_tflite.bias"] = dw_bias
 
     return fc_weights, fc_bias, lstm_weights, conv_weights, conv_bias, dw_weights, dw_bias
 
@@ -833,11 +835,9 @@ def generate_weight_headers(output_dir, fc_weights, fc_bias,
 def export_model_weights(output_dir, model_info):
     """Unified weight export function for both ONNX and TFLite models.
 
-    Reads weights from model_info["weights"] which has ONNX-compatible keys:
-    - "fc.weight", "fc.bias" (standardized) or "fc1.weight", "fc1.bias" (ONNX original)
-    - "lstm.weight_ih", "lstm.weight_hh", "lstm.bias"
-    - "conv.weight", "conv.bias"
-    - "dw.weight", "dw.bias"
+    Weights are identified by source-specific keys:
+    - TFLite: "fc_tflite.weight", "fc_tflite.bias", "lstm_tflite.weight_ih", etc.
+    - ONNX: "fc_onnx.weight", "fc_onnx.bias", "conv_onnx.weight", etc.
 
     Returns quant_scales dict.
     """
@@ -847,15 +847,9 @@ def export_model_weights(output_dir, model_info):
     # Input scale fixed at 1/256 (symmetric quantization, zero_point=0)
     input_scale = 0.00390625
 
-    # FC weights - support both standardized and ONNX original key names
-    fc_weight = (
-        weights.get("fc.weight") or
-        weights.get("fc1.weight") or
-        weights.get("fc.weight_quantized"))
-    fc_bias = (
-        weights.get("fc.bias") or
-        weights.get("fc1.bias") or
-        weights.get("fc.bias_quantized"))
+    # FC weights - try both TFLite and ONNX sources
+    fc_weight = weights.get("fc_tflite.weight") or weights.get("fc_onnx.weight")
+    fc_bias = weights.get("fc_tflite.bias") or weights.get("fc_onnx.bias")
     if fc_weight is not None and fc_bias is not None:
         fc_scale = 0.01  # default
         if fc_weight.dtype == np.int8:
@@ -874,10 +868,16 @@ def export_model_weights(output_dir, model_info):
         info(f"Generated: {output_dir}/fc_weights.h")
         quant_scales["fc_scale"] = fc_scale
 
-    # LSTM weights
-    lstm_weight_ih = weights.get("lstm.weight_ih")
-    lstm_weight_hh = weights.get("lstm.weight_hh")
-    lstm_bias = weights.get("lstm.bias")
+    # LSTM weights - TFLite only (ONNX uses decomposed operators)
+    lstm_weight_ih = (
+        weights.get("lstm_tflite.weight_ih") or
+        weights.get("lstm_onnx.weight_ih"))
+    lstm_weight_hh = (
+        weights.get("lstm_tflite.weight_hh") or
+        weights.get("lstm_onnx.weight_hh"))
+    lstm_bias = (
+        weights.get("lstm_tflite.bias") or
+        weights.get("lstm_onnx.bias"))
     if lstm_weight_ih is not None and lstm_weight_hh is not None:
         with open(output_dir / 'lstm_weights.h', 'w') as f:
             f.write("// LSTM gate weights and bias extracted from model\n")
@@ -888,9 +888,9 @@ def export_model_weights(output_dir, model_info):
                 export_bias_to_c(lstm_bias, "lstm_bias", f)
         info(f"Generated: {output_dir}/lstm_weights.h")
 
-    # Conv weights
-    conv_weight = weights.get("conv.weight")
-    conv_bias = weights.get("conv.bias")
+    # Conv weights - try both TFLite and ONNX sources
+    conv_weight = weights.get("conv_tflite.weight") or weights.get("conv_onnx.weight")
+    conv_bias = weights.get("conv_tflite.bias") or weights.get("conv_onnx.bias")
     if conv_weight is not None:
         conv_weight_int8 = conv_weight if conv_weight.dtype == np.int8 else quantize_to_int8(conv_weight)[0]
         with open(output_dir / 'conv_weights.h', 'w') as f:
@@ -901,9 +901,9 @@ def export_model_weights(output_dir, model_info):
                 export_bias_to_c(conv_bias_int32, "conv_bias", f)
         info(f"Generated: {output_dir}/conv_weights.h")
 
-    # Depthwise Conv weights
-    dw_weight = weights.get("dw.weight")
-    dw_bias = weights.get("dw.bias")
+    # Depthwise Conv weights - try both TFLite and ONNX sources
+    dw_weight = weights.get("dw_tflite.weight") or weights.get("dw_onnx.weight")
+    dw_bias = weights.get("dw_tflite.bias") or weights.get("dw_onnx.bias")
     if dw_weight is not None:
         dw_weight_int8 = dw_weight if dw_weight.dtype == np.int8 else quantize_to_int8(dw_weight)[0]
         with open(output_dir / 'dw_weights.h', 'w') as f:
