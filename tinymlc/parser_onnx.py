@@ -246,22 +246,7 @@ def parse_model_onnx(model_path: str):
             "dtype": "float32",
         })
 
-    # 3. Extract weights and scale
-    weights = {}
-    scales = {}
-    for init in graph.initializer:
-        tensor = numpy_helper.to_array(init)
-        weights[init.name] = tensor
-
-        # Calculate scale
-        min_val = tensor.min()
-        max_val = tensor.max()
-        scale = max(abs(min_val), abs(max_val)) / 127.0
-        if scale == 0:
-            scale = 1.0
-        scales[init.name] = scale
-
-    # 4. Parse operators
+    # 3. Parse operators
     ops = []
     # Pseudo operators in QDQ models, no code generation needed
     skip_ops = {"QuantizeLinear", "DequantizeLinear", "Constant"}
@@ -366,8 +351,6 @@ def parse_model_onnx(model_path: str):
         # Handle special operators
         # Gemm is FULLY_CONNECTED
         if node.op_type == "Gemm":
-            weights_name = node.input[1]
-            op_info["fc_scale"] = scales.get(weights_name, 0.01)
             op_info["data_input_idx"] = op_info["input_indices"][0]
             op_info["fc_weights_idx"] = op_info["input_indices"][1]
             op_info["fc_bias_idx"] = (
@@ -380,25 +363,9 @@ def parse_model_onnx(model_path: str):
                 if len(node.input) >= 3 else None
             )
 
-            # Add standardized key with _onnx suffix for unified export
-            if weights_name in weights:
-                weights["fc_onnx.weight"] = weights[weights_name]
-                if len(node.input) >= 3 and node.input[2] in weights:
-                    weights["fc_onnx.bias"] = weights[node.input[2]]
-
-            # Extract output scale (if exists)
-            output_name = node.output[0]
-            output_tensor = weights.get(output_name)
-            if output_tensor is not None:
-                min_val = output_tensor.min()
-                max_val = output_tensor.max()
-                output_scale = max(abs(min_val), abs(max_val)) / 127.0
-                if output_scale == 0:
-                    output_scale = 1.0
-            else:
-                # If not in initializer, use default
-                output_scale = 1.0
-            op_info["fc_output_scale"] = output_scale
+            # fc_scale will be calculated during weight extraction
+            op_info["fc_scale"] = 0.01  # default, will be updated
+            op_info["fc_output_scale"] = 1.0  # default
 
         if node.op_type == "Conv":
             op_info["data_input_idx"] = op_info["input_indices"][0]
@@ -408,17 +375,12 @@ def parse_model_onnx(model_path: str):
                 if len(node.input) >= 3 else None
             )
 
-            # Add standardized key with _onnx suffix for unified export
             weights_name = node.input[1]
-            if weights_name in weights:
-                weights["conv_onnx.weight"] = weights[weights_name]
-                if len(node.input) >= 3 and node.input[2] in weights:
-                    weights["conv_onnx.bias"] = weights[node.input[2]]
 
             # Infer kernel_shape from weight shape
             kernel_h, kernel_w = 1, 1
-            if weights_name in weights:
-                weight_tensor = weights[weights_name]
+            if weights_name in initializer_map:
+                weight_tensor = initializer_map[weights_name]
                 if len(weight_tensor.shape) >= 4:
                     kernel_h = weight_tensor.shape[2]
                     kernel_w = weight_tensor.shape[3]
@@ -460,13 +422,27 @@ def parse_model_onnx(model_path: str):
             }
 
         if node.op_type == "Softmax":
-            # FIXME temporary debug
-            op_info["softmax_size"] = 10  # Get from output shape
+            # Get softmax axis size from output shape
+            output_shape = get_tensor_shape(graph, node.output[0], initializer_map)
+            if output_shape:
+                # Default axis is -1 (last dimension)
+                axis = -1
+                for attr in node.attribute:
+                    if attr.name == "axis":
+                        axis = attr.i
+                # Convert negative axis to positive
+                if axis < 0:
+                    axis = len(output_shape) + axis
+                op_info["softmax_size"] = output_shape[axis] if axis < len(output_shape) else output_shape[-1]
+            else:
+                # Fallback: get from output_details
+                if op_info["output_details"]:
+                    op_info["softmax_size"] = op_info["output_details"][0].get("size", 10)
 
         if node.op_type == "Reshape":
             # Target shape in inputs[1]
             target_shape_name = node.input[1]
-            target_shape = weights.get(target_shape_name)
+            target_shape = initializer_map.get(target_shape_name)
             if target_shape is not None:
                 op_info["reshape_target_shape"] = target_shape.tolist()
 
@@ -562,10 +538,87 @@ def parse_model_onnx(model_path: str):
 
         ops.append(op_info)
 
+    # Store raw weights (without standardized keys)
+    raw_weights = {}
+    for init in graph.initializer:
+        tensor = numpy_helper.to_array(init)
+        raw_weights[init.name] = tensor
+
     return {
         "input": input_details,
         "output": output_details,
         "ops": ops,
-        "weights": weights,
+        "weights": raw_weights,  # Raw weights, will be processed by extract_all_weights_onnx
         "tensors": tensors,
+        "initializer_map": initializer_map,  # Keep for weight extraction
     }
+
+
+def extract_all_weights_onnx(model_path, model_info):
+    """Extract all weights from ONNX model and store in model_info['weights']
+
+    Uses source-specific keys: fc_onnx.weight, conv_onnx.weight, etc.
+
+    Args:
+        model_path: ONNX model file path (for consistency with LiteRT interface)
+        model_info: Model info dict from parse_model_onnx
+    """
+    weights = model_info.get("weights", {})
+    initializer_map = model_info.get("initializer_map", {})
+    ops = model_info.get("ops", [])
+
+    # Extract weights with standardized keys based on operator type
+    for op in ops:
+        op_name = op.get("op_name")
+
+        if op_name == "FULLY_CONNECTED":
+            # Gemm/MatMul operator
+            input_indices = op.get("input_indices", [])
+            if len(input_indices) >= 2:
+                weights_idx = input_indices[1]
+                weights_name = op.get("weights_name")
+                if weights_name and weights_name in weights:
+                    weights["fc_onnx.weight"] = weights[weights_name]
+                if len(input_indices) >= 3:
+                    bias_name = op.get("bias_name")
+                    if bias_name and bias_name in weights:
+                        weights["fc_onnx.bias"] = weights[bias_name]
+
+        elif op_name == "CONV_2D":
+            # Conv operator
+            input_indices = op.get("input_indices", [])
+            if len(input_indices) >= 2:
+                weights_name = None
+                # Find weights name from original node input
+                for name, idx in model_info.get("tensors", {}).items():
+                    if idx.get("index") == input_indices[1]:
+                        weights_name = idx.get("name")
+                        break
+                if weights_name and weights_name in weights:
+                    weights["conv_onnx.weight"] = weights[weights_name]
+                if len(input_indices) >= 3:
+                    bias_idx = input_indices[2]
+                    bias_name = None
+                    for name, idx in model_info.get("tensors", {}).items():
+                        if idx.get("index") == bias_idx:
+                            bias_name = idx.get("name")
+                            break
+                    if bias_name and bias_name in weights:
+                        weights["conv_onnx.bias"] = weights[bias_name]
+
+        elif op_name == "SVDF":
+            # SVDF operator
+            input_indices = op.get("input_indices", [])
+            if len(input_indices) >= 3:
+                weights_idx = input_indices[1]
+                bias_idx = input_indices[2]
+                # Find weights name
+                for name, idx in model_info.get("tensors", {}).items():
+                    if idx.get("index") == weights_idx:
+                        weights["svdf_onnx.weight"] = weights.get(name)
+                    if idx.get("index") == bias_idx:
+                        weights["svdf_onnx.bias"] = weights.get(name)
+
+    # Update model_info weights
+    model_info["weights"] = weights
+    return weights

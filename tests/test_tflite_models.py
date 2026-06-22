@@ -4,13 +4,9 @@ Download tflite models from tflite-micro repository and test them with tinymlc
 """
 
 import os
-import sys
 import urllib.request
 import urllib.error
 from pathlib import Path
-
-# Add project root to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from tinymlc.parser_litert import parse_model_tflite
 

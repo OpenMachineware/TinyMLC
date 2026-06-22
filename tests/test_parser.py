@@ -1,13 +1,9 @@
 #!/usr/bin/env python3
 """Test parser module"""
 
-import sys
 from pathlib import Path
 
 import pytest
-
-# Add project root to Python path
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from tinymlc.parser_litert import parse_model_tflite
 

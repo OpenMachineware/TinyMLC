@@ -14,16 +14,16 @@ import shutil
 
 from pathlib import Path
 from jinja2 import Template
-from ai_edge_litert.interpreter import Interpreter as LiteRTInterpreter
 
-from tinymlc.extract_weights import (extract_fc_weights, extract_lstm_weights,
-                                     export_weights_to_c, export_bias_to_c,
-                                     export_concatenated_weights,
-                                     export_concatenated_bias,
-                                     extract_conv_weights, extract_dw_weights)
+from tinymlc.parser_litert import (
+    parse_model_tflite,
+    extract_all_weights_litert,
+)
+from tinymlc.parser_onnx import (
+    parse_model_onnx,
+    extract_all_weights_onnx,
+)
 from tinymlc.generate_lut import generate_lut
-from tinymlc.parser_litert import parse_model_tflite
-from tinymlc.parser_onnx import parse_model_onnx
 from tinymlc.utils import fatal_error, warning, info
 
 
@@ -711,86 +711,6 @@ def calculate_multiplier_shift_from_scale(input_scale, weight_scale,
     return calculate_multiplier_shift(input_scale, weight_scale, output_scale)
 
 
-def extract_all_weights_tflite(interpreter, model_info):
-    """Extract all weights from TFLite model and store in model_info['weights']
-
-    Weights are stored with ONNX-compatible keys for unified processing:
-    - "fc.weight", "fc.bias"
-    - "lstm.weight_ih", "lstm.weight_hh", "lstm.bias"
-    - "conv.weight", "conv.bias"
-    - "dw.weight", "dw.bias"
-    """
-    fc_op_info = None
-    lstm_op_info = None
-    conv_op_info = None
-    dw_op_info = None
-
-    for op in model_info["ops"]:
-        if op["op_name"] == "FULLY_CONNECTED":
-            fc_op_info = op
-        elif op["op_name"] == "UNIDIRECTIONAL_SEQUENCE_LSTM":
-            lstm_op_info = op
-        elif op["op_name"] == "CONV_2D":
-            conv_op_info = op
-        elif op["op_name"] == "DEPTHWISE_CONV_2D":
-            dw_op_info = op
-
-    fc_weights, fc_bias = (
-        extract_fc_weights(interpreter, fc_op_info)
-        if fc_op_info else (None, None))
-    lstm_weights = (
-        extract_lstm_weights(interpreter, lstm_op_info)
-        if lstm_op_info else None)
-    conv_weights, conv_bias = (
-        extract_conv_weights(interpreter, conv_op_info)
-        if conv_op_info else (None, None))
-    dw_weights, dw_bias = (
-        extract_dw_weights(interpreter, dw_op_info)
-        if dw_op_info else (None, None))
-
-    # Store weights in model_info["weights"] with source-specific keys
-    # Keys use format: {op}_{source}.{component}
-    # e.g., fc_tflite.weight, fc_onnx.weight, conv_tflite.weight, etc.
-    model_info["weights"] = {}
-
-    if fc_weights is not None and fc_bias is not None:
-        model_info["weights"]["fc_tflite.weight"] = fc_weights
-        model_info["weights"]["fc_tflite.bias"] = fc_bias
-
-    if lstm_weights and lstm_weights['input']:
-        # Concatenate LSTM weights (i, f, g, o)
-        gates = ['i', 'f', 'g', 'o']
-        if all(lstm_weights['input'].get(g) is not None for g in gates):
-            input_concat = np.concatenate([
-                lstm_weights['input'][g].flatten() for g in gates
-            ])
-            model_info["weights"]["lstm_tflite.weight_ih"] = input_concat
-
-        if all(lstm_weights['recurrent'].get(g) is not None for g in gates):
-            recurrent_concat = np.concatenate([
-                lstm_weights['recurrent'][g].flatten() for g in gates
-            ])
-            model_info["weights"]["lstm_tflite.weight_hh"] = recurrent_concat
-
-        if all(lstm_weights['bias'].get(g) is not None for g in gates):
-            bias_concat = np.concatenate([
-                lstm_weights['bias'][g].flatten() for g in gates
-            ])
-            model_info["weights"]["lstm_tflite.bias"] = bias_concat
-
-    if conv_weights is not None:
-        model_info["weights"]["conv_tflite.weight"] = conv_weights
-        if conv_bias is not None:
-            model_info["weights"]["conv_tflite.bias"] = conv_bias
-
-    if dw_weights is not None:
-        model_info["weights"]["dw_tflite.weight"] = dw_weights
-        if dw_bias is not None:
-            model_info["weights"]["dw_tflite.bias"] = dw_bias
-
-    return fc_weights, fc_bias, lstm_weights, conv_weights, conv_bias, dw_weights, dw_bias
-
-
 def generate_weight_headers(output_dir, fc_weights, fc_bias,
                              lstm_weights, conv_weights, conv_bias,
                              dw_weights, dw_bias):
@@ -969,6 +889,133 @@ def quantize_to_int8(tensor):
         scale = 1.0
     quantized = np.round(tensor / scale).astype(np.int8)
     return quantized, scale
+
+
+def export_weights_to_c(weights, name, output_file):
+    """Export int8 weights to C header file"""
+    if weights is None:
+        output_file.write(f"// {name} not found, using placeholder\n")
+        output_file.write(f"static const int8_t {name}[1] = {{0}};\n\n")
+        return
+
+    flat = weights.flatten()
+    output_file.write(f"static const int8_t {name}[{flat.size}] = {{\n    ")
+    for i, val in enumerate(flat):
+        output_file.write(f"{int(val)}")
+        if i < flat.size - 1:
+            output_file.write(", ")
+        if (i + 1) % 16 == 0:
+            output_file.write("\n    ")
+    output_file.write("\n};\n\n")
+
+
+def export_bias_to_c(bias, name, output_file):
+    """Export int32 bias to C header file"""
+    if bias is None:
+        output_file.write(f"// {name} not found, using placeholder\n")
+        output_file.write(f"static const int32_t {name}[1] = {{0}};\n\n")
+        return
+
+    flat = bias.flatten()
+    output_file.write(f"static const int32_t {name}[{flat.size}] = {{\n    ")
+    for i, val in enumerate(flat):
+        output_file.write(f"{int(val)}")
+        if i < flat.size - 1:
+            output_file.write(", ")
+        if (i + 1) % 8 == 0:
+            output_file.write("\n    ")
+    output_file.write("\n};\n\n")
+
+
+def export_concatenated_weights(weights_dict, output_file, array_name,
+                                dtype='int8'):
+    """Export concatenated weight array from gate dictionary.
+
+    Args:
+        weights_dict: dict with keys ['i', 'f', 'g', 'o'] containing weight arrays
+        output_file: file handle to write to
+        array_name: C array name
+        dtype: 'int8' or 'int32'
+    """
+    gate_order = ['i', 'f', 'g', 'o']
+    arrays = []
+    total_size = 0
+    missing_gates = []
+
+    for gate in gate_order:
+        w = weights_dict.get(gate)
+        if w is None:
+            missing_gates.append(gate)
+            continue
+        arrays.append(w.flatten())
+        total_size += w.size
+
+    if missing_gates:
+        warning(f"{missing_gates} gate weights missing, padding with zeros")
+        # Get shape from first non-None weight
+        for gate in gate_order:
+            w = weights_dict.get(gate)
+            if w is not None:
+                shape = w.shape
+                for mg in missing_gates:
+                    zero_array = np.zeros(shape, dtype=np.int8)
+                    arrays.append(zero_array.flatten())
+                    total_size += zero_array.size
+                break
+
+    if not arrays:
+        output_file.write(f"// {array_name} not found, using placeholder\n")
+        output_file.write(f"static const int8_t {array_name}[1] = {{0}};\n\n")
+        return
+
+    concatenated = np.concatenate(arrays)
+    total_size = len(concatenated)
+
+    c_type = 'int8_t' if dtype == 'int8' else 'int32_t'
+    output_file.write(
+        f"static const {c_type} {array_name}[{total_size}] = {{\n    ")
+    for i, val in enumerate(concatenated):
+        output_file.write(f"{int(val)}")
+        if i < total_size - 1:
+            output_file.write(", ")
+        if (i + 1) % 16 == 0:
+            output_file.write("\n    ")
+    output_file.write("\n};\n\n")
+
+
+def export_concatenated_bias(bias_dict, output_file, array_name):
+    """Export concatenated bias array from gate dictionary.
+
+    Args:
+        bias_dict: dict with keys ['i', 'f', 'g', 'o'] containing bias arrays
+        output_file: file handle to write to
+        array_name: C array name
+    """
+    gate_order = ['i', 'f', 'g', 'o']
+    arrays = []
+
+    for gate in gate_order:
+        b = bias_dict.get(gate)
+        if b is not None:
+            arrays.append(b.flatten())
+
+    if not arrays:
+        output_file.write(f"// {array_name} not found, using placeholder\n")
+        output_file.write(f"static const int32_t {array_name}[1] = {{0}};\n\n")
+        return
+
+    concatenated = np.concatenate(arrays)
+    total_size = len(concatenated)
+
+    output_file.write(
+        f"static const int32_t {array_name}[{total_size}] = {{\n    ")
+    for i, val in enumerate(concatenated):
+        output_file.write(f"{int(val)}")
+        if i < total_size - 1:
+            output_file.write(", ")
+        if (i + 1) % 8 == 0:
+            output_file.write("\n    ")
+    output_file.write("\n};\n\n")
 
 
 def export_onnx_weights(output_dir, weights):
@@ -1172,16 +1219,16 @@ def main():
     # ==========================================
     if model_path.endswith(".tflite"):
         model_info = parse_model_tflite(model_path)
-        interpreter = LiteRTInterpreter(model_path=model_path)
-        interpreter.allocate_tensors()
-        # Extract weights and store in model_info["weights"]
-        extract_all_weights_tflite(interpreter, model_info)
-        # Export weights using unified function (returns empty quant_scales)
+        # Extract weights (interpreter created internally)
+        extract_all_weights_litert(model_path, model_info)
+        # Export weights using unified function
         quant_scales = export_model_weights(output_dir, model_info)
         model_info["quant_scales"] = quant_scales
     elif model_path.endswith(".onnx"):
         model_info = parse_model_onnx(model_path)
-        # Export weights using unified function (returns quant_scales)
+        # Extract weights (model_path for consistency)
+        extract_all_weights_onnx(model_path, model_info)
+        # Export weights using unified function
         quant_scales = export_model_weights(output_dir, model_info)
         model_info["quant_scales"] = quant_scales
     else:

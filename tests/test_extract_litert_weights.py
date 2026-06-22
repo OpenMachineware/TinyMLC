@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Test extract_weights module"""
+"""Test extract_litert_weights module"""
 
 import sys
 from pathlib import Path
@@ -7,10 +7,11 @@ from pathlib import Path
 import pytest
 from ai_edge_litert.interpreter import Interpreter as LiteRTInterpreter
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from tinymlc.extract_weights import extract_fc_weights, extract_lstm_weights
-from tinymlc.parser_litert import parse_model_tflite
+from tinymlc.parser_litert import (
+    parse_model_tflite,
+    extract_fc_weights,
+    extract_lstm_weights,
+)
 
 
 @pytest.fixture
