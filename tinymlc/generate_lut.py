@@ -8,7 +8,7 @@ import numpy as np
 from pathlib import Path
 from jinja2 import Template
 
-from tinymlc.utils import fatal_error, warning, info
+from utils import fatal_error, warning, info
 
 
 def generate_sigmoid_lut():

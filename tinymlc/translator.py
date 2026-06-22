@@ -24,7 +24,7 @@ from tinymlc.parser_onnx import (
     extract_all_weights_onnx,
 )
 from tinymlc.generate_lut import generate_lut
-from tinymlc.utils import fatal_error, warning, info
+from utils import fatal_error, warning, info
 
 
 SUPPORTED_OPS = ["FULLY_CONNECTED", "UNIDIRECTIONAL_SEQUENCE_LSTM", "ADD",

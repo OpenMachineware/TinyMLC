@@ -6,7 +6,7 @@ from onnx import helper, numpy_helper
 import numpy as np
 from pathlib import Path
 
-from tinymlc.utils import fatal_error, info, warning
+from utils import fatal_error, info, warning
 
 # ONNX operator to tinymlc IR mapping
 OP_MAP = {

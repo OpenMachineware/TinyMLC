@@ -16,7 +16,7 @@ from tinymlc.parser_litert import (
     extract_all_weights_litert,
 )
 from tinymlc.translator import export_model_weights
-from tinymlc.utils import info, fatal_error
+from utils import info, fatal_error
 
 
 WEIGHTLESS_OPS = ["ADD", "SOFTMAX", "RESHAPE", "QUANTIZE", "RELU"]
