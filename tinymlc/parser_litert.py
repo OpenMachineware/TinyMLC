@@ -21,7 +21,7 @@ def parse_model_tflite(model_path: str):
 
     # 3. Get all tensor info, try to read constant tensor data
     tensor_details = interpreter.get_tensor_details()
-    tensor_map = {}
+    tensors = {}  # Unified key: tensors (was tensors)
 
     for tensor in tensor_details:
         shape = tensor["shape"]
@@ -48,7 +48,7 @@ def parse_model_tflite(model_path: str):
         except:
             pass
 
-        tensor_map[tensor["index"]] = tensor_info
+        tensors[tensor["index"]] = tensor_info
 
     # 4. Get operator list
     ops = []
@@ -117,7 +117,7 @@ def parse_model_tflite(model_path: str):
                 )
 
             shape_idx = inputs[1]
-            shape_tensor = tensor_map.get(shape_idx, {})
+            shape_tensor = tensors.get(shape_idx, {})
 
             # Prefer reading actual value from data
             if "data" in shape_tensor:
@@ -135,7 +135,7 @@ def parse_model_tflite(model_path: str):
             if -1 in target_shape:
                 # Get input tensor size
                 input_idx = inputs[0]
-                input_tensor = tensor_map.get(input_idx, {})
+                input_tensor = tensors.get(input_idx, {})
                 input_size = input_tensor.get("size", 1)
 
                 # Calculate actual value for -1
@@ -173,7 +173,7 @@ def parse_model_tflite(model_path: str):
                 }
 
                 # Extract hidden_size from output shape
-                output_shape = tensor_map.get(op_info["output_indices"][0],
+                output_shape = tensors.get(op_info["output_indices"][0],
                                               {}).get("shape", [])
                 if len(output_shape) >= 3:
                     hidden_size = output_shape[2]
@@ -184,7 +184,7 @@ def parse_model_tflite(model_path: str):
                     )
 
                 # Extract time_steps, batch_size, input_size from input shape
-                input_shape = tensor_map.get(inputs[0], {}).get("shape", [])
+                input_shape = tensors.get(inputs[0], {}).get("shape", [])
                 if len(input_shape) >= 3:
                     op_info["lstm_params"] = {
                         "time_steps": input_shape[1],
@@ -228,14 +228,14 @@ def parse_model_tflite(model_path: str):
             input_idx = inputs[0]
             output_idx = op_info["output_indices"][0]
 
-            input_tensor = tensor_map.get(input_idx, {})
-            output_tensor = tensor_map.get(output_idx, {})
+            input_tensor = tensors.get(input_idx, {})
+            output_tensor = tensors.get(output_idx, {})
 
             input_shape = input_tensor.get("shape", [])
             output_shape = output_tensor.get("shape", [])
 
             # Weight shape: [out_channels, kernel_h, kernel_w, in_channels]
-            weights_tensor = tensor_map.get(inputs[1], {})
+            weights_tensor = tensors.get(inputs[1], {})
             weights_shape = weights_tensor.get("shape", [])
 
             # Default parameters
@@ -296,8 +296,8 @@ def parse_model_tflite(model_path: str):
             input_idx = inputs[0]
             output_idx = op_info["output_indices"][0]
 
-            input_tensor = tensor_map.get(input_idx, {})
-            output_tensor = tensor_map.get(output_idx, {})
+            input_tensor = tensors.get(input_idx, {})
+            output_tensor = tensors.get(output_idx, {})
 
             input_shape = input_tensor.get("shape", [])
             output_shape = output_tensor.get("shape", [])
@@ -352,12 +352,12 @@ def parse_model_tflite(model_path: str):
             input_idx = inputs[0]
             output_idx = op_info["output_indices"][0]
 
-            input_tensor = tensor_map.get(input_idx, {})
-            output_tensor = tensor_map.get(output_idx, {})
+            input_tensor = tensors.get(input_idx, {})
+            output_tensor = tensors.get(output_idx, {})
 
             input_shape = input_tensor.get("shape", [])
             output_shape = output_tensor.get("shape", [])
-            weights_tensor = tensor_map.get(inputs[1], {})
+            weights_tensor = tensors.get(inputs[1], {})
             weights_shape = weights_tensor.get("shape", [])
 
             op_info["dw_params"] = {
@@ -400,8 +400,8 @@ def parse_model_tflite(model_path: str):
             input_idx = inputs[0]
             output_idx = op_info["output_indices"][0]
 
-            input_tensor = tensor_map.get(input_idx, {})
-            output_tensor = tensor_map.get(output_idx, {})
+            input_tensor = tensors.get(input_idx, {})
+            output_tensor = tensors.get(output_idx, {})
 
             input_shape = input_tensor.get("shape", [])
             output_shape = output_tensor.get("shape", [])
@@ -451,8 +451,8 @@ def parse_model_tflite(model_path: str):
             # Infer transpose parameters from input/output shapes
             input_idx = inputs[0]
             output_idx = op_info["output_indices"][0]
-            input_tensor = tensor_map.get(input_idx, {})
-            output_tensor = tensor_map.get(output_idx, {})
+            input_tensor = tensors.get(input_idx, {})
+            output_tensor = tensors.get(output_idx, {})
             input_shape = input_tensor.get("shape", [])
             output_shape = output_tensor.get("shape", [])
 
@@ -492,8 +492,8 @@ def parse_model_tflite(model_path: str):
             input_idx = inputs[0]
             output_idx = op_info["output_indices"][0]
 
-            input_tensor = tensor_map.get(input_idx, {})
-            output_tensor = tensor_map.get(output_idx, {})
+            input_tensor = tensors.get(input_idx, {})
+            output_tensor = tensors.get(output_idx, {})
 
             input_shape = input_tensor.get("shape", [])
             output_shape = output_tensor.get("shape", [])
@@ -518,7 +518,7 @@ def parse_model_tflite(model_path: str):
 
         # Add input/output details
         for inp_idx in op_info["input_indices"]:
-            tensor_info = tensor_map.get(inp_idx, {})
+            tensor_info = tensors.get(inp_idx, {})
             op_info["input_details"].append({
                 "index": inp_idx,
                 "name": tensor_info.get("name", "unknown"),
@@ -529,7 +529,7 @@ def parse_model_tflite(model_path: str):
             })
 
         for out_idx in op_info["output_indices"]:
-            tensor_info = tensor_map.get(out_idx, {})
+            tensor_info = tensors.get(out_idx, {})
             op_info["output_details"].append({
                 "index": out_idx,
                 "name": tensor_info.get("name", "unknown"),
@@ -545,5 +545,7 @@ def parse_model_tflite(model_path: str):
         "input": input_details,
         "output": output_details,
         "ops": ops,
-        "tensors": tensor_map,
+        "tensors": tensors,
+        "weights": {},  # LiteRT uses separate weight extraction, kept for unified interface
+        "quant_scales": {},  # Quantization scales (LiteRT stores per-tensor in tensors)
     }
