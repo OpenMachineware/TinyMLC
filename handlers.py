@@ -73,14 +73,41 @@ def handle_generate(args: argparse.Namespace) -> int:
             json.dump(model_info, f, indent=2, default=str)
         info(f"Model info saved to: {dump_model}")
 
+    # Get target, mode, accel for code generation and build
+    target = getattr(args, "target", "riscv")
+    mode = getattr(args, "mode", "release")
+    accel = getattr(args, "accel", "pure-c")
+    run = getattr(args, "run", False)
+
+    # Validate target/accel/mode combination
+    if target == "arm":
+        if accel not in ("pure-c", "cmsis-nn"):
+            fatal_error(
+                f"Invalid --accel '{accel}' for --target arm",
+                "Supported accel for ARM: pure-c, cmsis-nn")
+    elif target == "riscv":
+        if accel not in ("pure-c", "nmsis-nn", "nuclei-ai"):
+            fatal_error(
+                f"Invalid --accel '{accel}' for --target riscv",
+                "Supported accel for RISC-V: pure-c, nmsis-nn, nuclei-ai")
+    elif target == "host":
+        # Host only supports pure-c and debug mode
+        if accel != "pure-c":
+            fatal_error(
+                f"Invalid --accel '{accel}' for --target host",
+                "Host only supports pure-c (no hardware acceleration)")
+        if mode != "debug":
+            warning("Host target only supports debug mode, forcing mode=debug")
+            mode = "debug"
+
     info("Generating C code...")
     out_dir = get_output_dir(args)
     result = generate_c_code(
         model_info=model_info,
         output_dir=str(out_dir),
-        target=getattr(args, "target", "riscv"),
+        target=target,
         inference_func=getattr(args, "inference_function_name", "tinymlc_inference"),
-        with_test_main=getattr(args, "with_test_main", False),
+        with_test_main=True,  # Always generate test main for generated networks
     )
 
     for filename, content in result.items():
@@ -89,8 +116,39 @@ def handle_generate(args: argparse.Namespace) -> int:
             f.write(content)
         info(f"Generated: {filepath}")
 
-    if getattr(args, "run", False):
-        info("Running build...")
+    # Export weights (needed for ANG-generated models)
+    from tinymlc.converter.export_weights import export_model_weights
+    quant_scales = export_model_weights(out_dir, model_info)
+    model_info["quant_scales"] = quant_scales
+
+    # Generate LUT and copy build files
+    generate_lut(out_dir)
+    copy_files_to_build(out_dir, target, mode, accel)
+
+    # Determine script name
+    if target == "host":
+        script_name = "build_host_debug.sh"
+    elif accel != 'none' and accel != 'pure-c':
+        script_name = f"build_{target}_{accel.replace('-', '_')}_{mode}.sh"
+    else:
+        script_name = f"build_{target}_{mode}.sh"
+
+    if run:
+        script_path = out_dir / script_name
+        try:
+            script_path.chmod(0o755)
+        except OSError:
+            pass
+        info(f"Executing: {script_path}")
+        result = subprocess.run(
+            [str(script_path.resolve())],
+            cwd=out_dir)
+        sys.exit(result.returncode)
+
+    info(f"Done! Output directory: {out_dir}")
+    info("\nNext steps:")
+    info(f"  cd {out_dir}")
+    info(f"  ./{script_name}")
 
     return 0
 

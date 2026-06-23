@@ -49,10 +49,13 @@ class Op:
     A single operation/layer in the model.
 
     Attributes:
+        index: Unique index for this operation.
         op_name: Type of operation (e.g., "CONV_2D", "FULLY_CONNECTED").
         input_indices: List of tensor indices that are inputs to this op.
         output_indices: List of tensor indices that are outputs of this op.
         params: Dictionary of op-specific parameters (conv_params, fc_params, etc.).
+        state: Operator state ("created", "translated", "generated").
+        pass_flags: Dictionary of pass flags.
     """
 
     def __init__(
@@ -61,18 +64,26 @@ class Op:
         input_indices: List[int],
         output_indices: List[int],
         params: Optional[Dict[str, Any]] = None,
+        index: Optional[int] = None,
+        state: str = "created",
     ):
+        self.index = index
         self.op_name = op_name
         self.input_indices = input_indices
         self.output_indices = output_indices
         self.params = params or {}
+        self.state = state
+        self.pass_flags = {}
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to a dictionary representation."""
         result = {
+            "index": self.index,
             "op_name": self.op_name,
             "input_indices": self.input_indices,
             "output_indices": self.output_indices,
+            "state": self.state,
+            "pass_flags": self.pass_flags,
         }
         result.update(self.params)
         return result

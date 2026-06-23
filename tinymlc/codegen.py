@@ -21,6 +21,9 @@ def build_execution_order(ops, tensors):
 
     # Convert all indices to Python int
     for op in ops:
+        # Skip if index is not yet assigned
+        if "index" not in op or op["index"] is None:
+            continue
         op["index"] = int(op["index"])
         if "input_indices" in op:
             op["input_indices"] = [int(i) for i in op["input_indices"]]

@@ -201,17 +201,34 @@ class ModelBuilder:
             weight=bias,
         )
 
+        # Get input shape for conv params
+        input_shape = input_spec.shape
+        output_shape = self.tensors.get(output_idx).shape if output_idx in self.tensors else input_shape
+
+        # Calculate output shape (simplified)
+        out_h = (input_shape[1] + 2 * 0 - kernel_size) // stride + 1 if len(input_shape) >= 2 else 1
+        out_w = (input_shape[2] + 2 * 0 - kernel_size) // stride + 1 if len(input_shape) >= 3 else 1
+
         # Add Conv2D operation
         op = Op(
             op_name="CONV_2D",
             input_indices=[input_idx, weight_idx, bias_idx],
             output_indices=[output_idx],
             params={
+                "data_input_idx": input_idx,
                 "conv_params": {
-                    "kernel_size": kernel_size,
-                    "stride": stride,
-                    "padding": padding,
-                    "activation": activation,
+                    "input_h": input_shape[1] if len(input_shape) >= 2 else 1,
+                    "input_w": input_shape[2] if len(input_shape) >= 3 else 1,
+                    "input_c": input_shape[3] if len(input_shape) >= 4 else channels_in,
+                    "output_h": out_h,
+                    "output_w": out_w,
+                    "output_c": channels_out,
+                    "kernel_h": kernel_size,
+                    "kernel_w": kernel_size,
+                    "stride_h": stride,
+                    "stride_w": stride,
+                    "padding_h": 0,
+                    "padding_w": 0,
                 }
             },
         )
@@ -270,6 +287,7 @@ class ModelBuilder:
             input_indices=[input_idx, weight_idx, bias_idx],
             output_indices=[output_idx],
             params={
+                "data_input_idx": input_idx,
                 "fc_params": {
                     "units": units,
                     "activation": activation,
@@ -426,6 +444,11 @@ class ModelBuilder:
 
     def build(self) -> ModelInfo:
         """Build and validate the final ModelInfo."""
+        # Add index and set state to "generated" for all ops
+        for i, op in enumerate(self.ops):
+            op.index = i
+            op.state = "generated"
+
         model_info = ModelInfo(
             inputs=self.inputs,
             outputs=self.outputs,

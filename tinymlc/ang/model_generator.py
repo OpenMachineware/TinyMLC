@@ -395,10 +395,6 @@ class ModelGenerator:
         # Convert structure to model_info
         model_info = self._structure_to_model_info(structure)
 
-        # Generate random weights and fill
-        weights = generate_random_weights_from_structure(structure)
-        model_info = fill_model_info_with_weights(model_info, weights)
-
         info(f"Generated network: {len(structure['layers'])} layers")
 
         return model_info
