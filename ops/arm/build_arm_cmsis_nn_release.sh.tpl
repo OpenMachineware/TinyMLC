@@ -1,31 +1,26 @@
 #!/bin/bash
-# ARM CMSIS-NN Debug Build Script
-# This script is copied to output directory and run from there
+# ARM CMSIS-NN Release Build Script
+# Auto-generated from template - DO NOT EDIT
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPT_DIR"
+cd "$(dirname "$0")"
 
 MODEL_PATH="${1:-model.onnx}"
 
 CC="arm-none-eabi-gcc"
-SIM="qemu-system-arm"
 ARCH="cortex-m4"
 ABI="aapcs"
 FPU="fpv4-sp-d16"
 FLOAT_ABI="soft"
 
-# Default paths (can be overridden by --acc-lib-inc and --acc-lib-lib)
-CMSIS_NN_INC="${ACC_LIB_INC:-../../third_party/CMSIS-NN-7.0.0/Include}"
-CMSIS_NN_LIB="${ACC_LIB_LIB:-../../third_party/CMSIS-NN-7.0.0/Lib/libcmsis-nn.a}"
+# CMSIS-NN paths (passed from codegen.py)
+CMSIS_NN_INC="{{ accel_lib_inc }}"
+CMSIS_NN_LIB="{{ accel_lib_lib }}"
 
 CFLAGS="-mcpu=$ARCH -mthumb -mabi=$ABI -mfpu=$FPU -mfloat-abi=$FLOAT_ABI -nostdlib \
     -ffreestanding -fno-omit-frame-pointer \
-    -DTINYMLC_DEBUG -I./include -I./c -I. -I$CMSIS_NN_INC"
-LDFLAGS="-L$(dirname $CMSIS_NN_LIB) \
-    -lcmsis-nn -lgcc"
+    -I./include -I./c -I. -I$CMSIS_NN_INC"
 
 # ========== CMSIS-NN Accelerated Operators ==========
-# Files are copied to c/ by codegen.py, compile from there
 $CC $CFLAGS -c c/fc.c -o fc.o
 $CC $CFLAGS -c c/conv2d.c -o conv2d.o
 $CC $CFLAGS -c c/depthwise_conv2d.c -o depthwise_conv2d.o
@@ -66,25 +61,10 @@ $CC $CFLAGS -c c/lstm.c -o lstm.o
 $CC $CFLAGS -c lut.c -o lut.o
 LSTM_OBJ="lstm.o lut.o"
 
-# ========== Startup and Debug ==========
+# ========== Startup ==========
 $CC $CFLAGS -c start.S -o start.o
 $CC $CFLAGS -c debug_print.c -o debug_print.o
 $CC $CFLAGS -c model.c -o model.o
-$CC $CFLAGS -c main_test.c -o main_test.o
 
-# ========== Link ==========
-$CC $CFLAGS -T link_arm.ld \
-    start.o debug_print.o \
-    fc.o conv2d.o depthwise_conv2d.o avg_pool2d.o max_pool2d.o \
-    softmax.o add.o multiply.o relu.o relu6.o global_avg_pool.o \
-    sigmoid.o tanh.o reshape.o concat.o sub.o \
-    transpose.o pad.o mean.o svdf.o \
-    leaky_relu.o hard_sigmoid.o prelu.o clip.o \
-    reduce_sum.o argmax.o flatten.o split.o strided_slice.o \
-    nms.o upsample.o conv_transpose.o \
-    $LSTM_OBJ \
-    model.o main_test.o \
-    -L$(dirname $CMSIS_NN_LIB) -lcmsis-nn -lgcc -lm -o model.elf
-
-# ========== Run ==========
-$SIM -M mps2-an386 -nographic -semihosting-config enable=on,target=native -serial mon:stdio -kernel model.elf
+# ========== Release Mode: No Link, No Run ==========
+echo "Release mode: All .o files generated"
