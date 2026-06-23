@@ -1,24 +1,26 @@
 #!/bin/bash
 # ARM CMSIS-NN Debug Build Script
-#
-# Compile operators from ./c/ directory.
-# CMSIS-NN accelerated operators override pure C implementations.
+# This script is copied to output directory and run from there
 
-MODEL_PATH="${1:-trained_lstm_int8.tflite}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
+
+MODEL_PATH="${1:-model.onnx}"
 
 CC="arm-none-eabi-gcc"
 SIM="qemu-system-arm"
 ARCH="cortex-m4"
 ABI="aapcs"
+FPU="fpv4-sp-d16"
+FLOAT_ABI="soft"
 
 # Default paths (can be overridden by --acc-lib-inc and --acc-lib-lib)
-CMSIS_NN_INC="${ACC_LIB_INC:-../third_party/CMSIS-NN-7.0.0/Include}"
-CMSIS_NN_LIB="${ACC_LIB_LIB:-../third_party/CMSIS-NN-7.0.0/Lib/libcmsis-nn.a}"
+CMSIS_NN_INC="${ACC_LIB_INC:-../../third_party/CMSIS-NN-7.0.0/Include}"
+CMSIS_NN_LIB="${ACC_LIB_LIB:-../../third_party/CMSIS-NN-7.0.0/Lib/libcmsis-nn.a}"
 
-CFLAGS="-mcpu=$ARCH -mthumb -mabi=$ABI -nostdlib \
+CFLAGS="-mcpu=$ARCH -mthumb -mabi=$ABI -mfpu=$FPU -mfloat-abi=$FLOAT_ABI -nostdlib \
     -ffreestanding -fno-omit-frame-pointer \
-    -DTINYMLC_DEBUG \
-    -I./include -I./c -I. -I$CMSIS_NN_INC"
+    -DTINYMLC_DEBUG -I./include -I./c -I. -I$CMSIS_NN_INC"
 LDFLAGS="-L$(dirname $CMSIS_NN_LIB) \
     -lcmsis-nn -lgcc"
 
@@ -81,8 +83,7 @@ $CC $CFLAGS -T link_arm.ld \
     nms.o upsample.o conv_transpose.o \
     $LSTM_OBJ \
     model.o main_test.o \
-    $LDFLAGS \
-    -o model.elf
+    -L$(dirname $CMSIS_NN_LIB) -lcmsis-nn -lgcc -lm -o model.elf
 
 # ========== Run ==========
-$SIM -M mps2-an386 -nographic -semihosting -serial mon:stdio -kernel model.elf
+$SIM -M mps2-an386 -nographic -semihosting-config enable=on,target=native -serial mon:stdio -kernel model.elf

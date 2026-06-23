@@ -1,19 +1,23 @@
 #!/bin/bash
 # RISC-V NMSIS-NN Debug Build Script
+# This script is copied to output directory and run from there
 
-MODEL_PATH="${1:-trained_lstm_int8.tflite}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
+
+MODEL_PATH="${1:-model.onnx}"
 
 CC="riscv-none-elf-gcc"
 SIM="qemu-system-riscv32"
-ARCH="rv32imac"
-ABI="ilp32"
+ARCH="rv32imafc_zicsr_zaamo_zalrsc"
+ABI="ilp32f"
 
 # NMSIS-NN path
 NMSIS_NN_INC="${NMSIS_NN_INC:-../../../third_party/NMSIS-1.6.0/Include}"
 NMSIS_NN_LIB="${NMSIS_NN_LIB:-../../../third_party/NMSIS-1.6.0/Lib/libNMSISNN.a}"
 
-CFLAGS="-march=$ARCH -mabi=$ABI -nostdlib -ffreestanding"
-CFLAGS="$CFLAGS -fno-omit-frame-pointer -nostartfiles -nodefaultlibs"
+CFLAGS="-march=$ARCH -mabi=$ABI -ffreestanding -mno-save-restore"
+CFLAGS="$CFLAGS -fno-omit-frame-pointer"
 CFLAGS="$CFLAGS -DTINYMLC_DEBUG -I./include -I./c -I. -I$NMSIS_NN_INC"
 
 # ========== Compile NMSIS-NN Accelerated Operators ==========
@@ -64,7 +68,7 @@ $CC $CFLAGS -c model.c -o model.o
 $CC $CFLAGS -c main_test.c -o main_test.o
 
 # ========== Link ==========
-$CC -T link_riscv.ld -Wl,--no-dynamic-linker \
+$CC $CFLAGS -nostartfiles -nodefaultlibs -s -T link_riscv.ld \
     start.o debug_print.o \
     fc.o softmax.o conv2d.o depthwise_conv2d.o \
     avg_pool2d.o max_pool2d.o add.o multiply.o \
@@ -77,7 +81,7 @@ $CC -T link_riscv.ld -Wl,--no-dynamic-linker \
     $LSTM_OBJ \
     model.o main_test.o \
     $NMSIS_NN_LIB \
-    -o model.elf
+    -o model.elf -lgcc
 
 # ========== Run ==========
 $SIM -M virt -nographic -bios none -kernel model.elf
