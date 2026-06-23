@@ -135,7 +135,9 @@ def calculate_multiplier_shift_from_scale(input_scale, weight_scale,
 
 def generate_c_code(model_info, output_dir, target,
                     inference_func="tinymlc_inference",
-                    with_test_main=False):
+                    with_test_main=False,
+                    accel_lib_inc=None,
+                    accel_lib_lib=None):
     ops = model_info.get("ops", [])
     tensors = model_info.get("tensors", {})
 
@@ -629,7 +631,8 @@ def generate_c_code(model_info, output_dir, target,
     return result
 
 
-def copy_files_to_build(output_dir: Path, target: str, mode: str, accel: str):
+def copy_files_to_build(output_dir: Path, target: str, mode: str, accel: str,
+                       accel_lib_inc=None, accel_lib_lib=None):
     """
     Copy all files needed for build to tinymlc_generated/
 
@@ -698,7 +701,23 @@ def copy_files_to_build(output_dir: Path, target: str, mode: str, accel: str):
 
     if Path(build_script).exists():
         dest_build_script = output_dir / build_script.name
-        shutil.copy2(build_script, dest_build_script)
+
+        # Check if there's a template file (.tpl)
+        tpl_script = src_dir / f"{build_script.name}.tpl"
+        if tpl_script.exists() and accel_lib_inc and accel_lib_lib:
+            # Render template with accel library paths
+            with open(tpl_script, 'r') as f:
+                tmpl = Template(f.read())
+            rendered = tmpl.render(
+                accel_lib_inc=accel_lib_inc,
+                accel_lib_lib=accel_lib_lib
+            )
+            with open(dest_build_script, 'w') as f:
+                f.write(rendered)
+        else:
+            # Just copy the script
+            shutil.copy2(build_script, dest_build_script)
+
         try:
             current_mode = dest_build_script.stat().st_mode
             dest_build_script.chmod(

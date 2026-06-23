@@ -123,12 +123,25 @@ def handle_generate(args: argparse.Namespace) -> int:
 
     # Generate LUT and copy build files
     generate_lut(out_dir)
-    copy_files_to_build(out_dir, target, mode, accel)
 
-    # Determine script name
+    # Compute accel library paths if not provided
+    project_root = Path(__file__).parent
+    accel_lib_inc = getattr(args, "accel_lib_inc", None)
+    accel_lib_lib = getattr(args, "accel_lib_lib", None)
+
+    if accel == "cmsis-nn" and (not accel_lib_inc or not accel_lib_lib):
+        accel_lib_inc = str(project_root / "third_party" / "CMSIS-NN-7.0.0" / "Include")
+        accel_lib_lib = str(project_root / "third_party" / "CMSIS-NN-7.0.0" / "Lib" / "libcmsis-nn.a")
+    elif accel == "nmsis-nn" and (not accel_lib_inc or not accel_lib_lib):
+        accel_lib_inc = str(project_root / "third_party" / "NMSIS-1.6.0" / "Include")
+        accel_lib_lib = str(project_root / "third_party" / "NMSIS-1.6.0" / "Lib" / "libNMSISNN.a")
+
+    copy_files_to_build(out_dir, target, mode, accel, accel_lib_inc, accel_lib_lib)
+
+    # Determine script name (must match copy_files_to_build logic)
     if target == "host":
         script_name = "build_host_debug.sh"
-    elif accel != 'none' and accel != 'pure-c':
+    elif accel != 'none':
         script_name = f"build_{target}_{accel.replace('-', '_')}_{mode}.sh"
     else:
         script_name = f"build_{target}_{mode}.sh"
@@ -287,7 +300,20 @@ def handle_convert(args: argparse.Namespace) -> int:
         info(f"Generated: {output_path}")
 
     generate_lut(output_dir)
-    copy_files_to_build(output_dir, target, mode, accel)
+
+    # Compute accel library paths if not provided
+    project_root = Path(__file__).parent
+    accel_lib_inc = getattr(args, "accel_lib_inc", None)
+    accel_lib_lib = getattr(args, "accel_lib_lib", None)
+
+    if accel == "cmsis-nn" and (not accel_lib_inc or not accel_lib_lib):
+        accel_lib_inc = str(project_root / "third_party" / "CMSIS-NN-7.0.0" / "Include")
+        accel_lib_lib = str(project_root / "third_party" / "CMSIS-NN-7.0.0" / "Lib" / "libcmsis-nn.a")
+    elif accel == "nmsis-nn" and (not accel_lib_inc or not accel_lib_lib):
+        accel_lib_inc = str(project_root / "third_party" / "NMSIS-1.6.0" / "Include")
+        accel_lib_lib = str(project_root / "third_party" / "NMSIS-1.6.0" / "Lib" / "libNMSISNN.a")
+
+    copy_files_to_build(output_dir, target, mode, accel, accel_lib_inc, accel_lib_lib)
 
     # Determine script name
     if target == "host":

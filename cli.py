@@ -69,6 +69,10 @@ def main() -> int:
     gen_parser.add_argument(
         "--generate-mode", type=str, default="genetic", choices=["random", "genetic"]
     )
+    gen_parser.add_argument("--accel-lib-inc", type=str,
+        help="Path to accelerator library include directory")
+    gen_parser.add_argument("--accel-lib-lib", type=str,
+        help="Path to accelerator library lib file")
     gen_parser.add_argument("--population", type=int, default=50)
     gen_parser.add_argument("--generations", type=int, default=50)
     gen_parser.add_argument("--early-stop", type=int, default=10)
