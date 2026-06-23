@@ -632,7 +632,7 @@ def copy_files_to_build(output_dir: Path, target: str, mode: str, accel: str):
 
     Args:
         output_dir: output directory (tinymlc_generated)
-        target: target architecture (riscv / arm)
+        target: target architecture (riscv / arm / host)
         mode: build mode (debug / release)
         accel: acceleration library
     """
@@ -643,7 +643,7 @@ def copy_files_to_build(output_dir: Path, target: str, mode: str, accel: str):
     if not src_dir.exists():
         fatal_error(
             f"Architecture directory not found: {src_dir}",
-            f"Supported architectures: riscv, arm")
+            f"Supported architectures: riscv, arm, host")
 
     # 1. Copy common header files
     include_src = ops_root / "include"
@@ -661,17 +661,33 @@ def copy_files_to_build(output_dir: Path, target: str, mode: str, accel: str):
         if accel_src.exists():
             for file in accel_src.glob("*.c"):
                 shutil.copy2(file, output_dir / "c" / file.name)
+    elif accel == "nmsis-nn":
+        accel_src = ops_root / target / "nmsis_nn"
+        if accel_src.exists():
+            for file in accel_src.glob("*.c"):
+                shutil.copy2(file, output_dir / "c" / file.name)
 
-    # 4. Copy target architecture .c and .S files
-    for file in src_dir.glob("*.c"):
-        shutil.copy2(file, output_dir / file.name)
-    for file in src_dir.glob("*.S"):
-        shutil.copy2(file, output_dir / file.name)
-    for file in src_dir.glob("*.ld"):
-        shutil.copy2(file, output_dir / file.name)
+    # 4. Copy target architecture files
+    # Host only needs .c files (no .S, .ld)
+    if target == "host":
+        # Create host directory in output
+        host_src = ops_root / "host"
+        if host_src.exists():
+            shutil.copytree(host_src, output_dir / "host", dirs_exist_ok=True)
+    else:
+        # ARM/RISC-V need .c, .S, .ld files
+        for file in src_dir.glob("*.c"):
+            shutil.copy2(file, output_dir / file.name)
+        for file in src_dir.glob("*.S"):
+            shutil.copy2(file, output_dir / file.name)
+        for file in src_dir.glob("*.ld"):
+            shutil.copy2(file, output_dir / file.name)
 
-    # 4. Copy corresponding build script
-    if accel != 'none':
+    # 5. Copy corresponding build script
+    if target == "host":
+        # Host only has debug build script
+        build_script = src_dir / "build_host_debug.sh"
+    elif accel != 'none':
         accel_underscore = accel.replace("-", "_")
         build_script = src_dir / f"build_{target}_{accel_underscore}_{mode}.sh"
     else:

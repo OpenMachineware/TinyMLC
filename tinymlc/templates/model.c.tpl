@@ -13,7 +13,11 @@
 
 // Intermediate tensor memory (static allocation, placed outside function)
 {% for tensor in tensors_to_define %}
+{% if target == "host" %}
+{{ tensor.type }} tensor_{{ tensor.index }}[{{ tensor.size }}];
+{% else %}
 {{ tensor.type }} tensor_{{ tensor.index }}[{{ tensor.size }}] __attribute__((section(".bss")));
+{% endif %}
 {% endfor %}
 
 {% if has_lstm %}

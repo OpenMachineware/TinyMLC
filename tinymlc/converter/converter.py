@@ -2,30 +2,27 @@
 """
 TinyMLC - TinyML Compiler
 Convert TFLite/ONNX models to C code executable on MCU
+
+This module is a thin wrapper around handlers.handle_convert.
 """
 
-import subprocess
 import sys
-import argparse
-import numpy as np
+import os
 
-from pathlib import Path
+# Add project root to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from tinymlc.converter.parser_litert import (
-    parse_model_tflite,
-    extract_all_weights_litert,
-)
-from tinymlc.converter.parser_onnx import (
-    parse_model_onnx,
-    extract_all_weights_onnx,
-)
-from tinymlc.codegen import generate_c_code, copy_files_to_build
-from tinymlc.generate_lut import generate_lut
-from tinymlc.converter.export_weights import export_model_weights
-from utils.dump import fatal_error, warning, info, dump_model_info
+from handlers import handle_convert
 
 
 def main():
+    """
+    Simple CLI wrapper that calls handle_convert.
+    Uses minimal argument parsing and delegates to the unified handler.
+    """
+    import argparse
+    from pathlib import Path
+
     parser = argparse.ArgumentParser(
         description="tinymlc - TinyML Compiler")
     parser.add_argument(
@@ -64,111 +61,43 @@ def main():
 
     args = parser.parse_args()
 
-    # Validate arch and accel combination
-    arch = args.arch
-    accel = args.accel
-
-    if arch == "arm":
-        if accel not in ("none", "cmsis-nn"):
-            fatal_error(
-                f"Invalid --accel '{accel}' for --arch arm",
-                "Supported accel for ARM: none, cmsis-nn")
-    elif arch == "riscv":
-        if accel not in ("none", "nmsis-nn", "nuclei-ai"):
-            fatal_error(
-                f"Invalid --accel '{accel}' for --arch riscv",
-                "Supported accel for RISC-V: none, nmsis-nn, nuclei-ai")
-    else:
-        fatal_error(
-            f"Invalid --arch '{arch}'",
-            "Supported architectures: arm, riscv")
-
-    model_path = args.model
-    if not Path(model_path).exists():
-        fatal_error(f"Model file not found: {model_path}", "Please check file path")
-
-    info(f"Parsing model: {model_path}")
-    output_dir = Path(args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    # ==========================================
-    # 1. Unified parsing and weight extraction
-    # ==========================================
-    if model_path.endswith(".tflite"):
-        model_info = parse_model_tflite(model_path)
-        # Extract weights (interpreter created internally)
-        extract_all_weights_litert(model_path, model_info)
-        # Export weights using unified function
-        quant_scales = export_model_weights(output_dir, model_info)
-        model_info["quant_scales"] = quant_scales
-    elif model_path.endswith(".onnx"):
-        model_info = parse_model_onnx(model_path)
-        # Extract weights (model_path for consistency)
-        extract_all_weights_onnx(model_path, model_info)
-        # Export weights using unified function
-        quant_scales = export_model_weights(output_dir, model_info)
-        model_info["quant_scales"] = quant_scales
-    else:
-        fatal_error("Unsupported model format", "Supported: .tflite and .onnx")
-
-    # ==========================================
-    # 2. Print execution info
-    # ==========================================
-    if args.verbose:
-        dump_model_info(model_info)
-
-    # ==========================================
-    # 3. Generate common model C code
-    # ==========================================
-    info("Generating C code...")
+    # Map old arch to new target
     target = args.arch
-    mode = "debug" if args.with_test_main else "release"
 
-    generated_files = generate_c_code(
-        model_info, output_dir, target,
-        inference_func=args.entry_point,
-        with_test_main=args.with_test_main
-    )
+    # Map old accel to new accel (map 'none' to 'pure-c')
+    accel = args.accel if args.accel != 'none' else 'pure-c'
 
-    for filename, content in generated_files.items():
-        output_path = output_dir / filename
-        with open(output_path, 'w') as f:
-            f.write(content)
-        info(f"Generated: {output_path}")
+    # Map old entry-point to new inference-function-name
+    inference_function_name = args.entry_point
 
-    # ==========================================
-    # 4. Generate LUT and build script
-    # ==========================================
-    generate_lut(output_dir)
-    copy_files_to_build(output_dir, target, mode, args.accel)
+    # Map old with_test_main to new with_test_main
+    with_test_main = args.with_test_main
 
-    if args.accel != 'none':
-        script_name = (
-            f"build_{target}_{args.accel.replace('-', '_')}_{mode}.sh")
-    else:
-        script_name = f"build_{target}_{mode}.sh"
+    # Map old run to new run
+    run = args.run
 
-    # ==========================================
-    # 5. Auto run (optional)
-    # ==========================================
-    if args.run:
-        script_path = output_dir / script_name
-        try:
-            script_path.chmod(0o755)
-        except OSError:
-            pass
-        info(f"Executing: {script_path} {args.model}")
-        result = subprocess.run(
-            [str(script_path.resolve()), args.model],
-            cwd=output_dir)
-        sys.exit(result.returncode)
+    # Map old verbose to new verbose
+    verbose = args.verbose
 
-    info(f"Done! Output directory: {output_dir}")
-    info("\nNext steps:")
-    info(f"  cd {output_dir}")
-    info(f"  ./{script_name} {args.model}")
+    # For this legacy CLI, mode is determined by with_test_main
+    mode = "debug" if with_test_main else "release"
 
-    return 0
+    # Build namespace for handle_convert
+    class Args:
+        pass
+    ns = Args()
+    ns.model = args.model
+    ns.target = target
+    ns.accel = accel
+    ns.mode = mode
+    ns.inference_function_name = inference_function_name
+    ns.with_test_main = with_test_main
+    ns.output_dir = args.output_dir
+    ns.verbose = verbose
+    ns.run = run
+
+    return handle_convert(ns)
+
 
 if __name__ == "__main__":
     sys.exit(main())

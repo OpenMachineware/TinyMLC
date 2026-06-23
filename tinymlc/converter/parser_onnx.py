@@ -590,18 +590,19 @@ def extract_all_weights_onnx(model_path, model_info):
             if len(input_indices) >= 2:
                 weights_name = None
                 # Find weights name from original node input
-                for name, idx in model_info.get("tensors", {}).items():
-                    if idx.get("index") == input_indices[1]:
-                        weights_name = idx.get("name")
+                tensors = model_info.get("tensors", {})
+                for idx, tensor_info in tensors.items():
+                    if idx == input_indices[1]:
+                        weights_name = tensor_info.get("name")
                         break
                 if weights_name and weights_name in weights:
                     weights["conv_onnx.weight"] = weights[weights_name]
                 if len(input_indices) >= 3:
                     bias_idx = input_indices[2]
                     bias_name = None
-                    for name, idx in model_info.get("tensors", {}).items():
-                        if idx.get("index") == bias_idx:
-                            bias_name = idx.get("name")
+                    for idx, tensor_info in tensors.items():
+                        if idx == bias_idx:
+                            bias_name = tensor_info.get("name")
                             break
                     if bias_name and bias_name in weights:
                         weights["conv_onnx.bias"] = weights[bias_name]
@@ -613,11 +614,12 @@ def extract_all_weights_onnx(model_path, model_info):
                 weights_idx = input_indices[1]
                 bias_idx = input_indices[2]
                 # Find weights name
-                for name, idx in model_info.get("tensors", {}).items():
-                    if idx.get("index") == weights_idx:
-                        weights["svdf_onnx.weight"] = weights.get(name)
-                    if idx.get("index") == bias_idx:
-                        weights["svdf_onnx.bias"] = weights.get(name)
+                tensors = model_info.get("tensors", {})
+                for idx, tensor_info in tensors.items():
+                    if idx == weights_idx:
+                        weights["svdf_onnx.weight"] = weights.get(tensor_info.get("name"))
+                    if idx == bias_idx:
+                        weights["svdf_onnx.bias"] = weights.get(tensor_info.get("name"))
 
     # Update model_info weights
     model_info["weights"] = weights

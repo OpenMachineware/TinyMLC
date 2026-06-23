@@ -8,65 +8,16 @@
 import argparse
 import json
 import sys
-from pathlib import Path
-from typing import Dict, Any, Optional, List
+import os
+from typing import Dict, Any
 
-from tinymlc.ang.model_info import (ModelInfo, TensorSpec, Op,
-                                    create_default_tensor_spec)
-from tinymlc.ang.model_builder import ModelBuilder
-from tinymlc.ang.estimator import Estimator
-from tinymlc.ang.estimator_software import SoftwareEstimator
-from tinymlc.ang.estimator_qemu import QemuEstimator
-from tinymlc.ang.estimator_hal import HardwareHALEstimator
+# Add project root to path if running as script
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
 from tinymlc.ang.model_generator import ModelGenerator
 from tinymlc.ang.table import TableManager
-from tinymlc.ang.utils import (calculate_macs, calculate_params,
-                               calculate_peak_ram)
+from tinymlc.ang.args import create_estimator, parse_shape
 from utils.dump import fatal_error, warning, info
-
-
-def create_estimator(args: argparse.Namespace) -> Estimator:
-    """
-    Create an estimator based on command-line arguments.
-    """
-    estimator_type = getattr(args, "estimator", "software")
-
-    # 直接读独立参数
-    max_macs = getattr(args, "max_macs", 100000)
-    max_ram_kb = getattr(args, "max_ram", 30)
-    max_flash_kb = getattr(args, "max_flash", 64)
-
-    if estimator_type == "software":
-        return SoftwareEstimator({
-            "max_macs": max_macs,
-            "max_params": 50000,  # TODO: Independently configurable.
-            "max_ram": max_ram_kb * 1024,
-            "clock_speed": getattr(args, "clock_speed", 100000000),
-        })
-
-    elif estimator_type == "qemu":
-        return QemuEstimator({
-            "max_macs": max_macs,
-            "max_params": 50000,
-            "max_ram": max_ram_kb * 1024,
-            "qemu_binary": getattr(args, "qemu_binary", "qemu-system-arm"),
-            "cpu": getattr(args, "qemu_cpu", "cortex-m4"),
-            "icount_shift": getattr(args, "icount_shift", 0),
-            "clock_speed": getattr(args, "clock_speed", 100000000),
-        })
-
-    elif estimator_type == "hardware":
-        return HardwareHALEstimator({
-            "max_macs": max_macs,
-            "max_params": 50000,
-            "max_ram": max_ram_kb * 1024,
-            "script_path": getattr(args, "estimator_script", None),
-            "function_name": getattr(args, "estimator_function", "estimate"),
-            "clock_speed": getattr(args, "clock_speed", 100000000),
-        })
-
-    else:
-        fatal_error(f"Unknown estimator type: {estimator_type}")
 
 
 def do_generate(args: argparse.Namespace) -> Dict[str, Any]:
@@ -125,7 +76,7 @@ def do_build_table(args: argparse.Namespace) -> None:
     Build a hardware profile table.
     """
     board = getattr(args, "board", "unknown")
-    output = getattr(args, "output", "table.json")
+    output = getattr(args, "dump_table", "table.json")
     estimator = create_estimator(args)
 
     input_shape = getattr(args, "input_shape", [1, 28, 28, 1])
@@ -152,7 +103,7 @@ def do_update_table(args: argparse.Namespace) -> None:
     if not table_file:
         fatal_error("--table-file is required for update")
 
-    output = getattr(args, "output", table_file)
+    output = getattr(args, "update_table", table_file)
     add_ops = getattr(args, "add_ops", "").split(",") if args.add_ops else []
     recalibrate = getattr(args, "recalibrate", False)
 
@@ -171,13 +122,13 @@ def main() -> int:
     # ========== Global arguments ==========
     parent_parser.add_argument(
         "--input-shape",
-        type=lambda s: [int(x) for x in s.split(",")],
+        type=parse_shape,
         default=[1, 28, 28, 1],
         help='Input shape: "1,28,28,1"',
     )
     parent_parser.add_argument(
         "--output-shape",
-        type=lambda s: [int(x) for x in s.split(",")],
+        type=parse_shape,
         default=[1, 10],
         help='Output shape: "1,10"',
     )
@@ -315,6 +266,11 @@ def main() -> int:
         required=True,
         help="Path to the table file",
     )
+    table_parser.add_argument(
+        "--dump-table",
+        type=str,
+        help="Output file for the model info (defaults to model_info.json)",
+    )
 
     # ---- build-table command ----
     build_parser = subparsers.add_parser(
@@ -387,6 +343,10 @@ def main() -> int:
     )
 
     args = parser.parse_args()
+
+    # Set default dump_table to model_info.json if not provided
+    if hasattr(args, 'dump_table') and args.dump_table is None:
+        args.dump_table = "model_info.json"
 
     try:
         if args.command == "generate":
