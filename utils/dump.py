@@ -1,4 +1,4 @@
-# tinymlc/utils.py
+# tinymlc/dump.py
 import sys
 
 try:

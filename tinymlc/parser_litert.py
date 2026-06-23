@@ -9,7 +9,7 @@ from ai_edge_litert.interpreter import Interpreter
 from ai_edge_litert.compiled_model import CompiledModel
 import numpy as np
 
-from utils import fatal_error, info, warning
+from utils.dump import fatal_error, info, warning
 
 
 # Weight extraction functions

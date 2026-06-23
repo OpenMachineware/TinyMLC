@@ -16,7 +16,7 @@ from tinymlc.parser_onnx import (
     extract_all_weights_onnx,
 )
 from tinymlc.translator import export_model_weights
-from utils import info, fatal_error
+from utils.dump import info, fatal_error
 
 
 WEIGHTLESS_OPS = ["ADD", "SOFTMAX", "RESHAPE", "RELU", "SIGMOID", "TANH", "SUB", "MULTIPLY"]
