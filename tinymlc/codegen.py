@@ -699,33 +699,40 @@ def copy_files_to_build(output_dir: Path, target: str, mode: str, accel: str,
     else:
         build_script = src_dir / f"build_{target}_{mode}.sh"
 
-    if Path(build_script).exists():
-        dest_build_script = output_dir / build_script.name
-
-        # Check if there's a template file (.tpl)
-        tpl_script = src_dir / f"{build_script.name}.tpl"
-        if tpl_script.exists() and accel_lib_inc and accel_lib_lib:
-            # Render template with accel library paths
-            with open(tpl_script, 'r') as f:
-                tmpl = Template(f.read())
-            rendered = tmpl.render(
-                accel_lib_inc=accel_lib_inc,
-                accel_lib_lib=accel_lib_lib
-            )
-            with open(dest_build_script, 'w') as f:
-                f.write(rendered)
-        else:
-            # Just copy the script
-            shutil.copy2(build_script, dest_build_script)
-
-        try:
-            current_mode = dest_build_script.stat().st_mode
-            dest_build_script.chmod(
-                current_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-        except OSError:
-            pass
+    # Check if .sh or .tpl exists
+    tpl_script = src_dir / f"{build_script.name}.tpl"
+    if build_script.exists():
+        # Use .sh as source
+        source_script = build_script
+        use_template = tpl_script.exists() and accel_lib_inc and accel_lib_lib
+    elif tpl_script.exists():
+        # Use .tpl as source (no .sh file)
+        source_script = tpl_script
+        use_template = True
+        dest_build_script = output_dir / build_script.name  # Output still .sh
     else:
         fatal_error(
             f"Build script not found: {build_script}",
             suggestion=f"Please check if accelerator type {accel} "
                       "is supported")
+
+    if use_template:
+        # Render template with accel library paths
+        with open(source_script, 'r') as f:
+            tmpl = Template(f.read())
+        rendered = tmpl.render(
+            accel_lib_inc=accel_lib_inc,
+            accel_lib_lib=accel_lib_lib
+        )
+        with open(dest_build_script, 'w') as f:
+            f.write(rendered)
+    else:
+        # Just copy the script
+        shutil.copy2(source_script, dest_build_script)
+
+    try:
+        current_mode = dest_build_script.stat().st_mode
+        dest_build_script.chmod(
+            current_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    except OSError:
+        pass
