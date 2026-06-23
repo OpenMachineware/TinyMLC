@@ -1,5 +1,5 @@
 #!/bin/bash
-# RISC-V NMSIS-NN Release Build Script
+# RISC-V NMSIS-NN Debug Build Script
 # Auto-generated from template - DO NOT EDIT
 
 cd "$(dirname "$0")"
@@ -7,16 +7,17 @@ cd "$(dirname "$0")"
 MODEL_PATH="${1:-model.onnx}"
 
 CC="riscv-none-elf-gcc"
-ARCH="rv32imac_zicsr_zaamo_zalrsc"
-ABI="ilp32"
+SIM="qemu-system-riscv32"
+ARCH="rv32imafc_zicsr_zaamo_zalrsc"
+ABI="ilp32f"
 
 # NMSIS-NN paths (passed from codegen.py)
-NMSIS_NN_INC="{{ accel_lib_inc }}"
-NMSIS_NN_LIB="{{ accel_lib_lib }}"
+NMSIS_NN_INC="/Users/jia/Desktop/TinyMLC/third_party/NMSIS-1.6.0/Include"
+NMSIS_NN_LIB="/Users/jia/Desktop/TinyMLC/third_party/NMSIS-1.6.0/Lib/libNMSISNN.a"
 
 CFLAGS="-march=$ARCH -mabi=$ABI -ffreestanding -mno-save-restore"
 CFLAGS="$CFLAGS -fno-omit-frame-pointer"
-CFLAGS="$CFLAGS -I./include -I./c -I. -I$NMSIS_NN_INC"
+CFLAGS="$CFLAGS -DTINYMLC_DEBUG -I./include -I./c -I. -I$NMSIS_NN_INC"
 
 # ========== Compile NMSIS-NN Accelerated Operators ==========
 $CC $CFLAGS -c c/fc.c -o fc.o
@@ -31,7 +32,7 @@ $CC $CFLAGS -c c/relu.c -o relu.o
 $CC $CFLAGS -c c/relu6.c -o relu6.o
 $CC $CFLAGS -c c/global_avg_pool.c -o global_avg_pool.o
 
-# ========== Compile Pure C Operators ==========
+# ========== Compile Pure C Operators (No NMSIS-NN acceleration) ==========
 $CC $CFLAGS -c c/reshape.c -o reshape.o
 $CC $CFLAGS -c c/svdf.c -o svdf.o
 $CC $CFLAGS -c c/transpose.c -o transpose.o
@@ -59,10 +60,27 @@ $CC $CFLAGS -c c/lstm.c -o lstm.o
 $CC $CFLAGS -c lut.c -o lut.o
 LSTM_OBJ="lstm.o lut.o"
 
-# ========== Startup ==========
+# ========== Startup and Debug ==========
 $CC $CFLAGS -c start.S -o start.o
 $CC $CFLAGS -c debug_print.c -o debug_print.o
 $CC $CFLAGS -c model.c -o model.o
+$CC $CFLAGS -c main_test.c -o main_test.o
 
-# ========== Release Mode: No Link, No Run ==========
-echo "Release mode: All .o files generated"
+# ========== Link ==========
+$CC $CFLAGS -nostartfiles -nodefaultlibs -s -T link_riscv.ld \
+    start.o debug_print.o \
+    fc.o softmax.o conv2d.o depthwise_conv2d.o \
+    avg_pool2d.o max_pool2d.o add.o multiply.o \
+    relu.o relu6.o global_avg_pool.o \
+    reshape.o svdf.o transpose.o pad.o mean.o \
+    sigmoid.o tanh.o sub.o concat.o \
+    leaky_relu.o hard_sigmoid.o prelu.o clip.o \
+    reduce_sum.o argmax.o flatten.o split.o strided_slice.o \
+    nms.o upsample.o conv_transpose.o \
+    $LSTM_OBJ \
+    model.o main_test.o \
+    $NMSIS_NN_LIB \
+    -o model.elf -lgcc
+
+# ========== Run ==========
+$SIM -M virt -nographic -bios none -kernel model.elf

@@ -8,8 +8,8 @@ MODEL_PATH="${1:-model.onnx}"
 
 CC="riscv-none-elf-gcc"
 SIM="qemu-system-riscv32"
-ARCH="rv32imafc_zicsr_zaamo_zalrsc"
-ABI="ilp32f"
+ARCH="rv32imac_zicsr_zaamo_zalrsc"
+ABI="ilp32"
 
 # NMSIS-NN paths (passed from codegen.py)
 NMSIS_NN_INC="{{ accel_lib_inc }}"
