@@ -80,6 +80,7 @@ $CC $CFLAGS -nostartfiles -nodefaultlibs -s -T link_riscv.ld \
     $LSTM_OBJ \
     model.o main_test.o \
     $NMSIS_NN_LIB \
+    -lc \
     -o model.elf -lgcc
 
 # ========== Run ==========
