@@ -259,15 +259,15 @@ def handle_convert(args: argparse.Namespace) -> int:
         dump_model_info(model_info)
 
     if target == "arm":
-        if accel not in ("none", "cmsis-nn"):
+        if accel not in ("pure-c", "cmsis-nn"):
             fatal_error(
                 f"Invalid --accel '{accel}' for --target arm",
-                "Supported accel for ARM: none, cmsis-nn")
+                "Supported accel for ARM: pure-c, cmsis-nn")
     elif target == "riscv":
-        if accel not in ("none", "nmsis-nn", "nuclei-ai"):
+        if accel not in ("pure-c", "nmsis-nn", "nuclei-ai"):
             fatal_error(
                 f"Invalid --accel '{accel}' for --target riscv",
-                "Supported accel for RISC-V: none, nmsis-nn, nuclei-ai")
+                "Supported accel for RISC-V: pure-c, nmsis-nn, nuclei-ai")
     else:
         fatal_error(
             f"Invalid --target '{target}'",
