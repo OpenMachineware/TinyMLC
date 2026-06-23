@@ -25,17 +25,18 @@ LDFLAGS="-L$(dirname $CMSIS_NN_LIB) \
     -lcmsis-nn -lgcc"
 
 # ========== CMSIS-NN Accelerated Operators ==========
-$CC $CFLAGS -c cmsis_nn/fc.c -o fc.o
-$CC $CFLAGS -c cmsis_nn/conv2d.c -o conv2d.o
-$CC $CFLAGS -c cmsis_nn/depthwise_conv2d.c -o depthwise_conv2d.o
-$CC $CFLAGS -c cmsis_nn/avg_pool2d.c -o avg_pool2d.o
-$CC $CFLAGS -c cmsis_nn/max_pool2d.c -o max_pool2d.o
-$CC $CFLAGS -c cmsis_nn/softmax.c -o softmax.o
-$CC $CFLAGS -c cmsis_nn/add.c -o add.o
-$CC $CFLAGS -c cmsis_nn/multiply.c -o multiply.o
-$CC $CFLAGS -c cmsis_nn/relu.c -o relu.o
-$CC $CFLAGS -c cmsis_nn/relu6.c -o relu6.o
-$CC $CFLAGS -c cmsis_nn/global_avg_pool.c -o global_avg_pool.o
+# Files are copied to c/ by codegen.py, compile from there
+$CC $CFLAGS -c c/fc.c -o fc.o
+$CC $CFLAGS -c c/conv2d.c -o conv2d.o
+$CC $CFLAGS -c c/depthwise_conv2d.c -o depthwise_conv2d.o
+$CC $CFLAGS -c c/avg_pool2d.c -o avg_pool2d.o
+$CC $CFLAGS -c c/max_pool2d.c -o max_pool2d.o
+$CC $CFLAGS -c c/softmax.c -o softmax.o
+$CC $CFLAGS -c c/add.c -o add.o
+$CC $CFLAGS -c c/multiply.c -o multiply.o
+$CC $CFLAGS -c c/relu.c -o relu.o
+$CC $CFLAGS -c c/relu6.c -o relu6.o
+$CC $CFLAGS -c c/global_avg_pool.c -o global_avg_pool.o
 
 # ========== Pure C Operators (No CMSIS-NN acceleration) ==========
 $CC $CFLAGS -c c/sigmoid.c -o sigmoid.o
