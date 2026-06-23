@@ -12,7 +12,7 @@
 #include "rnn_nnfunctions.h"
 
 // NMSIS-NN context for optimized operations (scratch buffer)
-static cmsis_nn_context ctx;
+static nmsis_nn_context ctx;
 
 // Buffer for NMSIS-NN LSTM internal operations
 // Size depends on batch_size and hidden_size
@@ -32,7 +32,7 @@ void tmlc_unidirectional_sequence_lstm_s8(
     int hidden_size)
 {
     // NMSIS-NN LSTM parameters
-    cmsis_nn_lstm_params lstm_params = {
+    nmsis_nn_lstm_params lstm_params = {
         .input_offset = 0,
         .output_offset = 0,
         .hidden_state_offset = 0,
@@ -40,16 +40,16 @@ void tmlc_unidirectional_sequence_lstm_s8(
         .activation = {.min = -128, .max = 127},
     };
 
-    cmsis_nn_per_tensor_quant_params quant_params = {
+    nmsis_nn_per_tensor_quant_params quant_params = {
         .multiplier = 1,  // TODO: calculate from model scales
         .shift = 8,       // TODO: calculate from model scales
     };
 
     // NMSIS-NN dimensions
-    cmsis_nn_dims input_dims = {
+    nmsis_nn_dims input_dims = {
         .n = batch_size, .h = 1, .w = 1, .c = input_size
     };
-    cmsis_nn_dims output_dims = {
+    nmsis_nn_dims output_dims = {
         .n = batch_size, .h = 1, .w = 1, .c = hidden_size
     };
 
