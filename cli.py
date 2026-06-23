@@ -237,6 +237,9 @@ def handle_convert(args: argparse.Namespace) -> int:
         fatal_error("--model is required for convert")
     if not Path(model_path).exists():
         fatal_error(f"Model file not found: {model_path}", "Please check file path")
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     if model_path.endswith(".tflite"):
         model_info = parse_model_tflite(model_path)
         # Extract weights (interpreter created internally)
@@ -253,6 +256,7 @@ def handle_convert(args: argparse.Namespace) -> int:
         model_info["quant_scales"] = quant_scales
     else:
         fatal_error("Unsupported model format", "Supported: .tflite and .onnx")
+
     info(f"Converting model: {model_path}")
 
     if verbose:
@@ -273,7 +277,6 @@ def handle_convert(args: argparse.Namespace) -> int:
             f"Invalid --target '{target}'",
             "Supported targets: arm, riscv")
 
-    output_dir.mkdir(parents=True, exist_ok=True)
     generated_files = generate_c_code(
         model_info, output_dir, target,
         inference_func=inference_function_name,
