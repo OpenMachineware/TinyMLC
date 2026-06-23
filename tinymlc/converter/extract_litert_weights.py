@@ -1,31 +1,31 @@
 #!/usr/bin/env python3
-"""CLI tool to extract weights from ONNX models
+"""CLI tool to extract weights from TFLite models using LiteRT
 
 Usage:
-    uv run python -m tinymlc.extract_onnx_weights model.onnx --output-dir output/
+    uv run python -m tinymlc.extract_litert_weights model.tflite --output-dir output/
 
 Or:
-    python -m tinymlc.extract_onnx_weights model.onnx --output-dir output/
+    python -m tinymlc.extract_litert_weights model.tflite --output-dir output/
 """
 
 import argparse
 from pathlib import Path
 
-from tinymlc.model_converter.parser_onnx import (
-    parse_model_onnx,
-    extract_all_weights_onnx,
+from tinymlc.converter.parser_litert import (
+    parse_model_tflite,
+    extract_all_weights_litert,
 )
-from tinymlc.converter import export_model_weights
+from converter.converter import export_model_weights
 from utils.dump import info, fatal_error
 
 
-WEIGHTLESS_OPS = ["ADD", "SOFTMAX", "RESHAPE", "RELU", "SIGMOID", "TANH", "SUB", "MULTIPLY"]
+WEIGHTLESS_OPS = ["ADD", "SOFTMAX", "RESHAPE", "QUANTIZE", "RELU"]
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Extract weights from ONNX model')
-    parser.add_argument('model', help='ONNX model file path')
+        description='Extract weights from TFLite model using LiteRT')
+    parser.add_argument('model', help='TFLite model file path')
     parser.add_argument('--output-dir', default='tinymlc_generated',
                         help='Output directory (default: tinymlc_generated)')
     args = parser.parse_args()
@@ -34,10 +34,10 @@ def main():
 
     # 1. Parse model
     info(f"Loading model: {model_path}")
-    model_info = parse_model_onnx(model_path)
+    model_info = parse_model_tflite(model_path)
 
-    # 2. Extract weights (model_path for consistency)
-    extract_all_weights_onnx(model_path, model_info)
+    # 2. Extract weights (interpreter created internally)
+    extract_all_weights_litert(model_path, model_info)
 
     # 3. Check if any weights were extracted
     has_weights = bool(model_info.get("weights"))

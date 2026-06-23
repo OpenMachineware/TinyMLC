@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# angc.py - ANG CLI entry point
+# ang.py - ANG CLI entry point
 # ANG (Automatic Network Generator) - Main entry point.
 #
 # ANG is a frontend for TinyMLC that automatically generates

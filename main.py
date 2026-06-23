@@ -5,7 +5,7 @@ Command line entry point
 """
 
 import sys
-from tinymlc.converter import main
+from cli import main
 
 if __name__ == "__main__":
     sys.exit(main())

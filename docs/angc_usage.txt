@@ -1,0 +1,97 @@
+# Genetic search with software estimator (open-loop)
+ python ang_cli.py generate \
+    --task-type classification \
+    --input-shape "1,28,28,1" \
+    --output-shape "1,10" \
+    --max-macs 100000 \
+    --max-ram 30 \
+    --max-flash 64 \
+    --mode genetic \
+    --generations 5 \
+    --population 10 \
+    --estimator software \
+    --dump-model test_model.json
+
+python ang_cli.py generate \
+    --mode genetic \
+    --estimator software \
+    --constraints "macs<100k,ram<30kb,flash<64kb" \
+    --input-shape "1,28,28,1" \
+    --num-classes 10 \
+    --population 50 \
+    --generations 50 \
+    --output model_info.json
+
+# Random generate
+python ang_cli.py generate \
+    --mode random \
+    --estimator software \
+    --constraints "macs<100k,ram<30kb" \
+    --num-samples 200 \
+    --output model_info.json
+
+# QEMU-based genetic generate
+python ang_cli.py generate \
+    --mode genetic \
+    --estimator qemu \
+    --constraints "macs<100k,ram<30kb,flash<64kb" \
+    --qemu-cpu cortex-m4 \
+    --icount-shift 0 \
+    --population 20 \
+    --generations 30 \
+    --output model_info.json
+
+# With custom clock speed
+python ang_cli.py generate \
+    --mode genetic \
+    --estimator qemu \
+    --clock-speed 168000000 \
+    --constraints "macs<200k,ram<64kb" \
+    --output model_info.json
+
+# Hardware-aware generate with user-provided script
+python ang_cli.py generate \
+    --mode genetic \
+    --estimator hardware \
+    --estimator-script vendor_estimator.py \
+    --estimator-function estimate \
+    --population 15 \
+    --generations 20 \
+    --constraints "macs<100k,ram<30kb" \
+    --output model_info.json
+
+# Look up from pre-built table
+python ang_cli.py table \
+    --table-file stm32f4_table.json \
+    --constraints "macs<100k,ram<30kb" \
+    --output model_info.json
+
+# Build a table for a specific board
+python ang_cli.py build-table \
+    --board stm32f4 \
+    --estimator qemu \
+    --qemu-cpu cortex-m4 \
+    --output stm32f4_table.json
+
+# Build with hardware HAL
+python ang_cli.py build-table \
+    --board stm32f4 \
+    --estimator hardware \
+    --estimator-script vendor_estimator.py \
+    --output stm32f4_table.json
+
+# Add new operators to the table
+python ang_cli.py update-table \
+    --table-file stm32f4_table.json \
+    --add-ops dwconv,group_conv \
+    --output stm32f4_v2.json
+
+# Recalibrate specific entries
+python ang_cli.py update-table \
+    --table-file stm32f4_table.json \
+    --recalibrate \
+    --entries conv_3x3_16_32,fc_128_64 \
+    --output stm32f4_v2.json
+
+# Show table statistics
+python ang_cli.py show-table --table-file stm32f4_table.json --stats
