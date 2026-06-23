@@ -1,15 +1,16 @@
 #!/bin/bash
-# ARM Pure C Release Build Script
+# ARM Pure C Debug Build Script
 
 MODEL_PATH="${1:-model.onnx}"
 
 CC="arm-none-eabi-gcc"
+SIM="qemu-system-arm"
 ARCH="cortex-m4"
 ABI="aapcs"
 
 CFLAGS="-mcpu=$ARCH -mthumb -mabi=$ABI -nostdlib \
     -ffreestanding -fno-omit-frame-pointer \
-    -I./include -I./c -I."
+    -DTINYMLC_DEBUG -I./include -I./c -I."
 
 # ========== Compile Pure C Operators ==========
 $CC $CFLAGS -c c/fc.c -o fc.o
@@ -54,6 +55,7 @@ LSTM_OBJ="lstm.o lut.o"
 $CC $CFLAGS -c start.S -o start.o
 $CC $CFLAGS -c debug_print.c -o debug_print.o
 $CC $CFLAGS -c model.c -o model.o
+$CC $CFLAGS -c main_test.c -o main_test.o
 
 # ========== Link ==========
 $CC $CFLAGS -T link_arm.ld \
@@ -65,7 +67,8 @@ $CC $CFLAGS -T link_arm.ld \
     reduce_sum.o argmax.o flatten.o split.o strided_slice.o \
     nms.o upsample.o conv_transpose.o svdf.o \
     $LSTM_OBJ \
-    model.o \
+    model.o main_test.o \
     -o model.elf
 
-echo "Build complete: model.elf"
+# ========== Run ==========
+$SIM -M mps2-an386 -nographic -semihosting -serial mon:stdio -kernel model.elf

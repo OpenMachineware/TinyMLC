@@ -1,15 +1,17 @@
 #!/bin/bash
-# ARM Pure C Release Build Script
+# RISC-V Pure C Debug Build Script
 
 MODEL_PATH="${1:-model.onnx}"
 
-CC="arm-none-eabi-gcc"
-ARCH="cortex-m4"
-ABI="aapcs"
+CC="riscv-none-elf-gcc"
+SIM="qemu-system-riscv32"
+ARCH="rv32imac"
+ABI="ilp32"
+LD="riscv-none-elf-ld"
 
-CFLAGS="-mcpu=$ARCH -mthumb -mabi=$ABI -nostdlib \
-    -ffreestanding -fno-omit-frame-pointer \
-    -I./include -I./c -I."
+CFLAGS="-march=$ARCH -mabi=$ABI -nostdlib -ffreestanding"
+CFLAGS="$CFLAGS -fno-omit-frame-pointer -nostartfiles -nodefaultlibs"
+CFLAGS="$CFLAGS -DTINYMLC_DEBUG -I./include -I./c -I."
 
 # ========== Compile Pure C Operators ==========
 $CC $CFLAGS -c c/fc.c -o fc.o
@@ -54,9 +56,10 @@ LSTM_OBJ="lstm.o lut.o"
 $CC $CFLAGS -c start.S -o start.o
 $CC $CFLAGS -c debug_print.c -o debug_print.o
 $CC $CFLAGS -c model.c -o model.o
+$CC $CFLAGS -c main_test.c -o main_test.o
 
 # ========== Link ==========
-$CC $CFLAGS -T link_arm.ld \
+$LD -T link_riscv.ld --no-dynamic-linker \
     start.o debug_print.o \
     fc.o softmax.o conv2d.o depthwise_conv2d.o \
     avg_pool2d.o max_pool2d.o global_avg_pool.o add.o multiply.o \
@@ -65,7 +68,8 @@ $CC $CFLAGS -T link_arm.ld \
     reduce_sum.o argmax.o flatten.o split.o strided_slice.o \
     nms.o upsample.o conv_transpose.o svdf.o \
     $LSTM_OBJ \
-    model.o \
+    model.o main_test.o \
     -o model.elf
 
-echo "Build complete: model.elf"
+# ========== Run ==========
+$SIM -M virt -nographic -bios none -kernel model.elf
