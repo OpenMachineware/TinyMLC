@@ -19,6 +19,9 @@ void qemu_exit(int exit_code) {
 }
 
 int main() {
+    // Initialize UART for debug output
+    uart_init();
+
     // Test inputs - initialized with constant value
     static int8_t input1[INPUT_SIZE_1];
     static int8_t output[OUTPUT_SIZE];

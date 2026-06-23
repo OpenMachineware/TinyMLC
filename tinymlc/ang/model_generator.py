@@ -172,10 +172,12 @@ class ModelGenerator:
                 # Middle layers: mix of conv, pool
                 if task_type == "segmentation":
                     # Segmentation needs upsample in decoder
-                    # For now, keep it simple with conv/pool
-                    layer_type = random.choice(["conv", "pool"])
+                    # For now, keep it simple with conv only (pool not implemented)
+                    layer_type = "conv"
                 else:
-                    layer_type = random.choice(["conv", "pool"])
+                    layer_type = "conv"
+                    # TODO: Re-enable pool layer after implementing builder.add_pool()
+                    # layer_type = random.choice(["conv", "pool"])
 
             if layer_type == "conv":
                 channels = random.choice(self.config["channels_options"])

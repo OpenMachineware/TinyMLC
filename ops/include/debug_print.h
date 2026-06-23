@@ -14,6 +14,7 @@
     void debug_int(int n);
     void debug_hex(unsigned int n);
     void debug_endl(void);
+    void uart_init(void);
 
     #define TMLC_PUTCHAR(c) tinymlc_putchar(c)
     #define TMLC_PRINT_INT(n) tinymlc_print_int(n)

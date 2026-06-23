@@ -1,16 +1,20 @@
 #!/bin/bash
 # RISC-V Pure C Debug Build Script
+# This script is copied to output directory and run from there
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
 
 MODEL_PATH="${1:-model.onnx}"
 
 CC="riscv-none-elf-gcc"
-SIM="qemu-system-riscv32"
-ARCH="rv32imac"
-ABI="ilp32"
 LD="riscv-none-elf-ld"
+SIM="qemu-system-riscv32"
+ARCH="rv32imafc_zicsr_zaamo_zalrsc"
+ABI="ilp32f"
 
-CFLAGS="-march=$ARCH -mabi=$ABI -nostdlib -ffreestanding"
-CFLAGS="$CFLAGS -fno-omit-frame-pointer -nostartfiles -nodefaultlibs"
+CFLAGS="-march=$ARCH -mabi=$ABI -ffreestanding -mno-save-restore"
+CFLAGS="$CFLAGS -fno-omit-frame-pointer"
 CFLAGS="$CFLAGS -DTINYMLC_DEBUG -I./include -I./c -I."
 
 # ========== Compile Pure C Operators ==========
@@ -59,7 +63,9 @@ $CC $CFLAGS -c model.c -o model.o
 $CC $CFLAGS -c main_test.c -o main_test.o
 
 # ========== Link ==========
-$LD -T link_riscv.ld --no-dynamic-linker \
+# Use -nostartfiles to skip crt0.o and avoid _start multiple definition
+# Use -nodefaultlibs to skip default libraries but still link gcc library
+$CC $CFLAGS -nostartfiles -nodefaultlibs -s -T link_riscv.ld \
     start.o debug_print.o \
     fc.o softmax.o conv2d.o depthwise_conv2d.o \
     avg_pool2d.o max_pool2d.o global_avg_pool.o add.o multiply.o \
@@ -69,7 +75,7 @@ $LD -T link_riscv.ld --no-dynamic-linker \
     nms.o upsample.o conv_transpose.o svdf.o \
     $LSTM_OBJ \
     model.o main_test.o \
-    -o model.elf
+    -o model.elf -lgcc
 
 # ========== Run ==========
 $SIM -M virt -nographic -bios none -kernel model.elf
