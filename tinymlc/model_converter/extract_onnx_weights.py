@@ -11,11 +11,11 @@ Or:
 import argparse
 from pathlib import Path
 
-from tinymlc.parser_onnx import (
+from tinymlc.model_converter.parser_onnx import (
     parse_model_onnx,
     extract_all_weights_onnx,
 )
-from tinymlc.translator import export_model_weights
+from tinymlc.converter import export_model_weights
 from utils.dump import info, fatal_error
 
 

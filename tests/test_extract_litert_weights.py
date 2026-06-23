@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """Test extract_litert_weights module"""
 
-import sys
 from pathlib import Path
 
 import pytest
 from ai_edge_litert.interpreter import Interpreter as LiteRTInterpreter
 
-from tinymlc.parser_litert import (
+from tinymlc.model_converter.parser_litert import (
     parse_model_tflite,
     extract_fc_weights,
     extract_lstm_weights,

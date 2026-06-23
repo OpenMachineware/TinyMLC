@@ -11,11 +11,11 @@ Or:
 import argparse
 from pathlib import Path
 
-from tinymlc.parser_litert import (
+from tinymlc.model_converter.parser_litert import (
     parse_model_tflite,
     extract_all_weights_litert,
 )
-from tinymlc.translator import export_model_weights
+from tinymlc.converter import export_model_weights
 from utils.dump import info, fatal_error
 
 

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from tinymlc.parser_litert import parse_model_tflite
+from tinymlc.model_converter.parser_litert import parse_model_tflite
 
 
 @pytest.fixture
