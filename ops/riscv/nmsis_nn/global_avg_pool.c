@@ -18,14 +18,12 @@ void tmlc_global_avg_pool_s8(const int8_t* input, int8_t* output,
     ctx.buf = buffer;
     ctx.size = buffer_size;
 
-    // Pool parameters
+    // Pool parameters (no ksize - derived from filter_dims)
     nmsis_nn_pool_params pool_params;
     pool_params.padding.h = 0;
     pool_params.padding.w = 0;
     pool_params.stride.h = 1;
     pool_params.stride.w = 1;
-    pool_params.ksize.h = H;
-    pool_params.ksize.w = W;
     pool_params.activation.min = -128;
     pool_params.activation.max = 127;
 
@@ -36,7 +34,7 @@ void tmlc_global_avg_pool_s8(const int8_t* input, int8_t* output,
     input_dims.w = W;
     input_dims.c = C;
 
-    // Filter dimensions (same as input for global pool)
+    // Filter dimensions (kernel size = H x W for global pool)
     nmsis_nn_dims filter_dims;
     filter_dims.n = 1;
     filter_dims.h = H;
