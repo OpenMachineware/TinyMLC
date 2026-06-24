@@ -136,6 +136,8 @@ def handle_generate(args: argparse.Namespace) -> int:
         accel_lib_inc = str(project_root / "third_party" / "NMSIS-1.6.0" / "Include")
         accel_lib_lib = str(project_root / "third_party" / "NMSIS-1.6.0" / "Lib" / "libNMSISNN.a")
 
+    if accel == "pure-c":
+        copy_files_to_build(out_dir, target, mode, accel)
     copy_files_to_build(out_dir, target, mode, accel, accel_lib_inc, accel_lib_lib)
 
     # Determine script name (must match copy_files_to_build logic)

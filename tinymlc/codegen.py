@@ -699,6 +699,8 @@ def copy_files_to_build(output_dir: Path, target: str, mode: str, accel: str,
     else:
         build_script = src_dir / f"build_{target}_{mode}.sh"
 
+    dest_build_script = output_dir / build_script.name
+
     # Check if .sh or .tpl exists
     tpl_script = src_dir / f"{build_script.name}.tpl"
     if build_script.exists():
