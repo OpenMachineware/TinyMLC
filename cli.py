@@ -16,16 +16,20 @@ global_parent.add_argument(
     "--target", "-t", type=str, default="riscv", choices=["riscv", "arm", "host"]
 )
 global_parent.add_argument(
-    "--mode", type=str, default="release", choices=["debug", "release"]
-)
+    "--mode", type=str, default="release", choices=["debug", "release"])
 global_parent.add_argument(
-    "--accel", type=str, default="pure-c", choices=["cmsis-nn", "nmsis-nn", "pure-c"]
-)
+    "--accel", type=str, default="pure-c",
+    choices=["cmsis-nn", "nmsis-nn", "pure-c"])
+global_parent.add_argument(
+    "--accel-lib-inc", type=str,
+    help="Path to accelerator library include directory")
+global_parent.add_argument(
+    "--accel-lib-lib", type=str, help="Path to accelerator library lib file")
+
 global_parent.add_argument("--with-test-main", action="store_true")
 global_parent.add_argument("--run", action="store_true")
 global_parent.add_argument(
-    "--inference-function-name", type=str, default="tinymlc_inference"
-)
+    "--inference-function-name", type=str, default="tinymlc_inference")
 global_parent.add_argument("--output-dir", type=str, default=".")
 global_parent.add_argument("--table-name", type=str)
 
@@ -67,12 +71,8 @@ def main() -> int:
     gen_parser.add_argument("--estimator-script", type=str)
     gen_parser.add_argument("--estimator-function", type=str, default="estimate")
     gen_parser.add_argument(
-        "--generate-mode", type=str, default="genetic", choices=["random", "genetic"]
-    )
-    gen_parser.add_argument("--accel-lib-inc", type=str,
-        help="Path to accelerator library include directory")
-    gen_parser.add_argument("--accel-lib-lib", type=str,
-        help="Path to accelerator library lib file")
+        "--generate-mode", type=str, default="genetic",
+        choices=["random", "genetic"])
     gen_parser.add_argument("--population", type=int, default=50)
     gen_parser.add_argument("--generations", type=int, default=50)
     gen_parser.add_argument("--early-stop", type=int, default=10)
