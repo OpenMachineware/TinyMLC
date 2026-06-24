@@ -33,23 +33,3 @@ void tmlc_global_avg_pool_s8(
         output[c] = (int8_t)tmp;
     }
 }
-
-void tmlc_global_avg_pool_f32(
-    const float* input,
-    float* output,
-    int H, int W, int C)
-{
-    int total_pixels = H * W;
-
-    for (int c = 0; c < C; c++) {
-        float sum = 0.0f;
-        for (int h = 0; h < H; h++) {
-            for (int w = 0; w < W; w++) {
-                int idx = (h * W + w) * C + c;
-                sum += input[idx];
-            }
-        }
-        output[c] = sum / total_pixels;
-    }
-}
-

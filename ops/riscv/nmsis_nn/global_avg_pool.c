@@ -6,6 +6,7 @@
 #include "tinymlc.h"
 #include "riscv_nnfunctions.h"
 
+
 void tmlc_global_avg_pool_s8(const int8_t* input, int8_t* output,
                              int H, int W, int C,
                              int32_t input_zero_point,
@@ -50,19 +51,4 @@ void tmlc_global_avg_pool_s8(const int8_t* input, int8_t* output,
 
     riscv_avgpool_s8(&ctx, &pool_params, &input_dims, input,
                      &filter_dims, &output_dims, output);
-}
-
-void tmlc_global_avg_pool_f32(const float* input, float* output,
-                              int H, int W, int C) {
-    int total_pixels = H * W;
-    for (int c = 0; c < C; c++) {
-        float sum = 0.0f;
-        for (int h = 0; h < H; h++) {
-            for (int w = 0; w < W; w++) {
-                int idx = (h * W + w) * C + c;
-                sum += input[idx];
-            }
-        }
-        output[c] = sum / total_pixels;
-    }
 }

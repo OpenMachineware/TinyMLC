@@ -6,30 +6,38 @@ void tmlc_hard_sigmoid_s8(
     int8_t* output,
     int size,
     int32_t zero_point,
-    float input_scale,
-    float output_scale)
+    int32_t input_scale_q,   // Q15 format
+    int32_t output_scale_q)  // Q15 format
 {
-    // Convert 3.0 and 6.0 to int8 scale
-    float three_f = 3.0f / input_scale;
-    float six_f = 6.0f / input_scale;
-    int32_t three_q = (int32_t)(three_f + 0.5f);
-    int32_t six_q = (int32_t)(six_f + 0.5f);
+    // 3.0 in Q15: 3 * 32768 = 98304
+    // 6.0 in Q15: 6 * 32768 = 196608
+    int32_t three_q15 = 98304;
+    int32_t six_q15 = 196608;
 
     for (int i = 0; i < size; i++) {
-        int32_t x = (int32_t)input[i] - zero_point;
+        // Dequantize input to Q15: x * input_scale
+        int32_t x = ((int32_t)input[i] - zero_point) * input_scale_q;
 
-        // Hard sigmoid: min(max(x + 3, 0), 6)
-        int32_t y = x + three_q;
+        // x + 3
+        int32_t y = x + three_q15;
+
+        // clamp to [0, 6]
         if (y < 0) y = 0;
-        if (y > six_q) y = six_q;
+        if (y > six_q15) y = six_q15;
 
-        // Divide by 6 (scale to output)
-        float y_f = (float)y * input_scale / 6.0f;
-        int32_t out = (int32_t)(y_f / output_scale + 0.5f);
+        // Divide by 6: (y / 6) * (1 / output_scale)
+        // y / 6 = y * (1/6) ≈ y / 6
+        // Then quantize to output scale
+        int32_t y_div_6 = y / 6;
+
+        // Scale to output: y_div_6 / output_scale
+        int32_t out = (y_div_6 * 32768) / output_scale_q;
+
         out += zero_point;
 
         if (out > 127) out = 127;
         if (out < -128) out = -128;
+
         output[i] = (int8_t)out;
     }
 }

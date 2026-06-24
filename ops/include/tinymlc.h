@@ -131,15 +131,6 @@ void tmlc_upsample_nearest_s8(const int8_t* input, int8_t* output,
                               // scale * 2^15, Q15 format
                               int32_t output_scale_q);
 
-void tmlc_upsample_bilinear_f32(const float* input, float* output,
-                                int H, int W, int C, int scale_h, int scale_w);
-
-void tmlc_upsample_bilinear_s8(const int8_t* input, int8_t* output,
-                               int H, int W, int C, int scale_h, int scale_w,
-                               int32_t input_zero_point,
-                               int32_t output_zero_point,
-                               float input_scale, float output_scale);
-
 void tmlc_conv_transpose_s8(const int8_t* input, const int8_t* weights,
                             const int32_t* bias, int8_t* output,
                             int in_h, int in_w, int in_c,
@@ -156,9 +147,6 @@ void tmlc_global_avg_pool_s8(const int8_t* input, int8_t* output,
                              int32_t input_zero_point,
                              int32_t output_zero_point,
                              int32_t input_scale_q, int32_t output_scale_q);
-
-void tmlc_global_avg_pool_f32(const float* input, float* output,
-                              int H, int W, int C);
 
 void tmlc_flatten_s8(const int8_t* input, int8_t* output,
                      int in_h, int in_w, int in_c);
@@ -193,12 +181,15 @@ void tmlc_leaky_relu_s8(const int8_t* input, int8_t* output, int size,
 
 // y = min(max(x, 0), 6)
 void tmlc_relu6_s8(const int8_t* input, int8_t* output, int size,
-                   int32_t zero_point, float input_scale, float output_scale);
+                   int32_t zero_point,
+                   int32_t input_scale_q,    // Q15 format
+                   int32_t output_scale_q);  // Q15 format
 
 // y = min(max(x + 3, 0), 6) / 6
 void tmlc_hard_sigmoid_s8(const int8_t* input, int8_t* output, int size,
-                          int32_t zero_point, float input_scale,
-                          float output_scale);
+                          int32_t zero_point,
+                          int32_t input_scale_q,    // Q15 format
+                          int32_t output_scale_q);  // Q15 format
 
 // y = (x > 0) ? x : x * alpha
 // alpha is per-channel
