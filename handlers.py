@@ -297,11 +297,11 @@ def handle_convert(args: argparse.Namespace) -> int:
             f"Invalid --target '{target}'",
             "Supported targets: arm, riscv, host")
 
-        # ---- Optimization passes ----
-        pm = PassManager.default_pipeline()
-        info("Running optimization passes...")
-        optimized_model_info = pm.run(model_info)
-        pm.dump_summary()
+    # ---- Optimization passes ----
+    pm = PassManager.default_pipeline()
+    info("Running optimization passes...")
+    optimized_model_info = pm.run(model_info)
+    pm.dump_summary()
 
     info("Generating C code...")
     generated_files = generate_c_code(

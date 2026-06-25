@@ -6,6 +6,8 @@ from tinymlc.transform.base import Pass
 from tinymlc.transform.constant_folding import ConstantFolding
 from tinymlc.transform.dce import DeadCodeElimination
 from tinymlc.transform.cse import CommonSubexpressionElimination
+from tinymlc.transform.simplify import Simplify
+from tinymlc.transform.algebraic import AlgebraicSimplify
 from tinymlc.transform.fusion import OperatorFusion
 from tinymlc.transform.memory import MemoryReuse
 from utils.dump import fatal_error, warning, info
@@ -51,7 +53,11 @@ class PassManager:
         pm.add_pass(DeadCodeElimination())
         pm.add_pass(CommonSubexpressionElimination())
         pm.add_pass(DeadCodeElimination())
+        pm.add_pass(Simplify())
+        pm.add_pass(DeadCodeElimination())
         pm.add_pass(OperatorFusion())
+        pm.add_pass(DeadCodeElimination())
+        pm.add_pass(AlgebraicSimplify())
         pm.add_pass(DeadCodeElimination())
         pm.add_pass(MemoryReuse())
         return pm

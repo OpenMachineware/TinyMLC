@@ -542,6 +542,21 @@ def generate_c_code(model_info, output_dir, target,
                         })
                         defined_set.add(idx)
 
+    for op in execution_order:
+        if op.get("op_name") in ("AVERAGE_POOL_2D", "MAX_POOL_2D"):
+            pool_params = op.get("pool_params", {})
+            if "pool_size_h" not in pool_params or pool_params[
+                "pool_size_h"] is None:
+                pool_params["pool_size_h"] = 2
+            if "pool_size_w" not in pool_params or pool_params[
+                "pool_size_w"] is None:
+                pool_params["pool_size_w"] = 2
+            if "stride_h" not in pool_params or pool_params["stride_h"] is None:
+                pool_params["stride_h"] = 2
+            if "stride_w" not in pool_params or pool_params["stride_w"] is None:
+                pool_params["stride_w"] = 2
+            op["pool_params"] = pool_params
+
     context = {
         "input_size": input_size,
         "output_size": output_size,

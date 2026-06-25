@@ -66,7 +66,8 @@ $CC $CFLAGS -c main_test.c -o main_test.o
 # Use -nostartfiles to skip crt0.o and avoid _start multiple definition
 # Use -nodefaultlibs to skip default libraries but still link gcc library
 $CC $CFLAGS -nostartfiles -nodefaultlibs -s -T link_riscv.ld \
-    start.o debug_print.o \
+    start.o \
+    debug_print.o \
     fc.o softmax.o conv2d.o depthwise_conv2d.o \
     avg_pool2d.o max_pool2d.o global_avg_pool.o add.o multiply.o \
     relu.o relu6.o leaky_relu.o hard_sigmoid.o prelu.o clip.o \

@@ -175,8 +175,8 @@ void {{ inference_func }}(const int8_t* input1, const int8_t* input2, int8_t* ou
             {{ op.pool_params.output_h }},
             {{ op.pool_params.output_w }},
             {{ op.pool_params.output_c }},
-            {{ op.pool_params.pool_h }},
-            {{ op.pool_params.pool_w }},
+            {{ op.pool_params.pool_size_h }},
+            {{ op.pool_params.pool_size_w }},
             {{ op.pool_params.stride_h }},
             {{ op.pool_params.stride_w }},
             0, 0

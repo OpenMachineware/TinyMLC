@@ -120,13 +120,16 @@ class DeadCodeElimination(Pass):
         """
         # For each op, check if any of its outputs are used
         ops = model_info.get("ops", [])
+        tensors = model_info.get("tensors", {})
         dead_ops = []
         alive_ops = []
 
         for op in ops:
             outputs = op.get("output_indices", [])
+            # Check if all output indices are in tensors.
+            all_outputs_valid = all(idx in tensors for idx in outputs)
             # An op is alive if any of its outputs is used
-            is_alive = any(idx in used_indices for idx in outputs)
+            is_alive = any(idx in used_indices for idx in outputs) and all_outputs_valid
 
             # Also: if this op produces an output tensor that is the final output
             # For now, keep it if it's the last op in the graph

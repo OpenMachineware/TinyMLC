@@ -57,7 +57,7 @@ def main():
         help="Output directory (default: tinymlc_generated)")
     parser.add_argument(
         "-v", "--verbose", action="store_true",
-        help="Print detailed info")
+        help="Dump detailed info")
 
     args = parser.parse_args()
 
