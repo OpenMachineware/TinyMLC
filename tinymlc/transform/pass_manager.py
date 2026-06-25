@@ -4,11 +4,11 @@
 from typing import Dict, Any, List
 from tinymlc.transform.base import Pass
 from tinymlc.transform.constant_folding import ConstantFolding
-from tinymlc.transform.dead_code import DeadCodeElimination
+from tinymlc.transform.dce import DeadCodeElimination
 from tinymlc.transform.cse import CommonSubexpressionElimination
 from tinymlc.transform.fusion import OperatorFusion
 from tinymlc.transform.memory import MemoryReuse
-
+from utils.dump import fatal_error, warning, info
 
 class PassManager:
     """
@@ -34,7 +34,7 @@ class PassManager:
         self._results = []
 
         for pass_obj in self.passes:
-            print(f"  Running: {pass_obj.name}")
+            info(f"  Running: {pass_obj.name}")
             current = pass_obj.run(current)
             self._results.append({
                 "name": pass_obj.name,
@@ -61,11 +61,11 @@ class PassManager:
         return self._results
 
     def dump_summary(self) -> None:
-        """Print a summary of all passes."""
-        print("\n=== Pass Summary ===")
+        """Dump a summary of all passes."""
+        info("\n=== Pass Summary ===")
         for result in self._results:
             stats = result["stats"]
             changes = stats.get("changes", [])
-            print(f"  {result['name']}: {len(changes)} changes")
+            info(f"  {result['name']}: {len(changes)} changes")
             for change in changes:
-                print(f"    - {change}")
+                info(f"    - {change}")

@@ -5,12 +5,10 @@ import shutil
 from pathlib import Path
 from jinja2 import Template
 
+from tinymlc.ops import SUPPORTED_OPS
 from utils.dump import fatal_error, warning, info
 
 
-SUPPORTED_OPS = ["FULLY_CONNECTED", "UNIDIRECTIONAL_SEQUENCE_LSTM", "ADD",
-                 "SOFTMAX", "RESHAPE", "QUANTIZE", "SVDF", "CONV_2D",
-                 "MULTIPLY", "SIGMOID", "CONCAT", "SUB", "TANH"]
 # Fallback values, used when valid scale cannot be read from model
 DEFAULT_SCALE = 0.01  # empirical value
 DEFAULT_SHIFT = 8     # empirical value

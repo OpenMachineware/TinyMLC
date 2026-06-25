@@ -1,7 +1,7 @@
-# tinymlc/transform/dead_code.py
+# tinymlc/transform/dce.py
 # Dead Code Elimination pass.
 
-from typing import Dict, Any, Set
+from typing import Dict, Any, Set, List
 from tinymlc.transform.base import Pass
 
 
@@ -54,15 +54,23 @@ class DeadCodeElimination(Pass):
         """
         used = set()
 
-        # Input tensors are always used
+        # 1. All input tensors are used
         for inp in model_info.get("input", []):
-            # Inputs don't have indices in this representation
-            # They are identified by name, not index
-            pass
+            idx = inp.get("tensor_index")
+            if idx is not None:
+                used.add(idx)
 
-        # Ops: all input indices are used
+        # 2. All output tensors are used
+        for out in model_info.get("output", []):
+            idx = out.get("tensor_index")
+            if idx is not None:
+                used.add(idx)
+
+        # 3. All tensor indices referenced by ops
         for op in model_info.get("ops", []):
             for idx in op.get("input_indices", []):
+                used.add(idx)
+            for idx in op.get("output_indices", []):
                 used.add(idx)
 
         return used

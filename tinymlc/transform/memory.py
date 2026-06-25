@@ -136,7 +136,7 @@ class MemoryReuse(Pass):
         tensors = model_info.get("tensors", {})
         for idx, spec in tensors.items():
             # Add buffer_id to the tensor spec (will be used by codegen)
-            spec.buffer_id = self._allocation_map.get(idx, -1)
+            spec["buffer_id"] = self._allocation_map.get(idx, -1)
 
         # For JSON output, we also add it to the dict representation
         # But we don't need to expose it to codegen yet
