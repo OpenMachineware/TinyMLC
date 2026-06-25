@@ -1,14 +1,19 @@
 #!/bin/bash
 # RISC-V Pure C Release Build Script
+# This script is copied to output directory and run from there
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
 
 MODEL_PATH="${1:-model.onnx}"
 
 CC="riscv-none-elf-gcc"
-ARCH="rv32imac"
+SIM="qemu-system-riscv32"
+ARCH="rv32imac_zicsr_zaamo_zalrsc"
 ABI="ilp32"
 
-CFLAGS="-march=$ARCH -mabi=$ABI -nostdlib -ffreestanding"
-CFLAGS="$CFLAGS -fno-omit-frame-pointer -nostartfiles -nodefaultlibs"
+CFLAGS="-march=$ARCH -mabi=$ABI -ffreestanding -mno-save-restore"
+CFLAGS="$CFLAGS -fno-omit-frame-pointer"
 CFLAGS="$CFLAGS -I./include -I./c -I."
 
 # ========== Compile Pure C Operators ==========
@@ -54,10 +59,14 @@ LSTM_OBJ="lstm.o lut.o"
 $CC $CFLAGS -c start.S -o start.o
 $CC $CFLAGS -c debug_print.c -o debug_print.o
 $CC $CFLAGS -c model.c -o model.o
+$CC $CFLAGS -c main_test.c -o main_test.o
 
 # ========== Link ==========
-$CC -T link_riscv.ld -Wl,--no-dynamic-linker \
-    start.o debug_print.o \
+# Use -nostartfiles to skip crt0.o and avoid _start multiple definition
+# Use -nodefaultlibs to skip default libraries but still link gcc library
+$CC $CFLAGS -nostartfiles -nodefaultlibs -s -T link_riscv.ld \
+    start.o \
+    debug_print.o \
     fc.o softmax.o conv2d.o depthwise_conv2d.o \
     avg_pool2d.o max_pool2d.o global_avg_pool.o add.o multiply.o \
     relu.o relu6.o leaky_relu.o hard_sigmoid.o prelu.o clip.o \
@@ -65,7 +74,10 @@ $CC -T link_riscv.ld -Wl,--no-dynamic-linker \
     reduce_sum.o argmax.o flatten.o split.o strided_slice.o \
     nms.o upsample.o conv_transpose.o svdf.o \
     $LSTM_OBJ \
-    model.o \
-    -o model.elf
+    model.o main_test.o \
+    -o model.elf -lgcc
 
 echo "Build complete: model.elf"
+
+# ========== Run ==========
+$SIM -M virt -nographic -bios none -kernel model.elf
