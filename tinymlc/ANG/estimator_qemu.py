@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 import numpy as np
 
-from tinymlc.ang.estimator import Estimator
-from tinymlc.ang.utils import (calculate_macs, calculate_params,
+from tinymlc.ANG.estimator import Estimator
+from tinymlc.ANG.utils import (calculate_macs, calculate_params,
                                calculate_peak_ram)
 
 

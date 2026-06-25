@@ -2,8 +2,8 @@
 # Software-based estimator using MACs and parameter counts.
 
 from typing import Dict, Any, Optional
-from tinymlc.ang.estimator import Estimator
-from tinymlc.ang.utils import (calculate_macs, calculate_params,
+from tinymlc.ANG.estimator import Estimator
+from tinymlc.ANG.utils import (calculate_macs, calculate_params,
                                calculate_peak_ram)
 
 

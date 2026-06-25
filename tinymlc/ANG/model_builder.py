@@ -1,11 +1,11 @@
-# ang/model_builder.py
+# ANG/model_builder.py
 # Builder for constructing ModelInfo structures from scratch.
 
 import copy
 from typing import List, Optional, Dict, Any, Union
 import numpy as np
 
-from .model_info import (
+from tinymlc.ANG.model_info import (
     ModelInfo,
     TensorSpec,
     Op,
@@ -102,17 +102,17 @@ class ModelBuilder:
         if scale is None and dtype.startswith("int"):
             scale = 1.0 / 256.0
             zero_point = 0
+        idx = self._next_tensor()
 
         spec = TensorSpec(
             name=name,
             shape=shape,
             dtype=dtype,
+            tensor_index=idx,
             scale=scale,
             zero_point=zero_point,
         )
         self.inputs.append(spec)
-
-        idx = self._next_tensor()
         self.tensors[idx] = spec
         return idx
 
@@ -128,17 +128,17 @@ class ModelBuilder:
         if scale is None and dtype.startswith("int"):
             scale = 1.0 / 256.0
             zero_point = 0
+        idx = self._next_tensor()
 
         spec = TensorSpec(
             name=name,
             shape=shape,
             dtype=dtype,
+            tensor_index=idx,
             scale=scale,
             zero_point=zero_point,
         )
         self.outputs.append(spec)
-
-        idx = self._next_tensor()
         self.tensors[idx] = spec
         return idx
 

@@ -8,7 +8,7 @@ import tempfile
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tinymlc.ang.model_info import TensorSpec, Op, ModelInfo
+from tinymlc.ANG.model_info import TensorSpec, Op, ModelInfo
 import numpy as np
 
 

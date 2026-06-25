@@ -21,10 +21,10 @@ from typing import Dict, Any, Optional, List, Tuple
 from pathlib import Path
 import numpy as np
 
-from tinymlc.ang.estimator import Estimator
-from tinymlc.ang.model_generator import ModelGenerator
-from tinymlc.ang.model_builder import ModelBuilder
-from tinymlc.ang.utils import (calculate_macs, calculate_params,
+from tinymlc.ANG.estimator import Estimator
+from tinymlc.ANG.model_generator import ModelGenerator
+from tinymlc.ANG.model_builder import ModelBuilder
+from tinymlc.ANG.utils import (calculate_macs, calculate_params,
                                calculate_peak_ram)
 
 

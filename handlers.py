@@ -10,12 +10,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-from tinymlc.ang.model_generator import ModelGenerator
-from tinymlc.ang.table import TableManager
-from tinymlc.ang.args import create_estimator, get_table_name, parse_shape
+from tinymlc.ANG.model_generator import ModelGenerator
+from tinymlc.ANG.table import TableManager
+from tinymlc.ANG.args import create_estimator, get_table_name, parse_shape
 from utils.path import get_output_dir
 from tinymlc.codegen import generate_c_code, copy_files_to_build
 from tinymlc.generate_lut import generate_lut
+from tinymlc.transform.pass_manager import PassManager
 from utils.dump import fatal_error, warning, info, dump_model_info
 
 
@@ -100,10 +101,16 @@ def handle_generate(args: argparse.Namespace) -> int:
             warning("Host target only supports debug mode, forcing mode=debug")
             mode = "debug"
 
+    # ---- Optimization passes ----
+    pm = PassManager.default_pipeline()
+    info("Running optimization passes...")
+    optimized_model_info = pm.run(model_info)
+    pm.dump_summary()
+
     info("Generating C code...")
     out_dir = get_output_dir(args)
     result = generate_c_code(
-        model_info=model_info,
+        model_info=optimized_model_info,
         output_dir=str(out_dir),
         target=target,
         inference_func=getattr(args, "inference_function_name", "tinymlc_inference"),
@@ -118,8 +125,8 @@ def handle_generate(args: argparse.Namespace) -> int:
 
     # Export weights (needed for ANG-generated models)
     from tinymlc.converter.export_weights import export_model_weights
-    quant_scales = export_model_weights(out_dir, model_info)
-    model_info["quant_scales"] = quant_scales
+    quant_scales = export_model_weights(out_dir, optimized_model_info)
+    optimized_model_info["quant_scales"] = quant_scales
 
     # Generate LUT and copy build files
     generate_lut(out_dir)
@@ -290,8 +297,15 @@ def handle_convert(args: argparse.Namespace) -> int:
             f"Invalid --target '{target}'",
             "Supported targets: arm, riscv, host")
 
+        # ---- Optimization passes ----
+        pm = PassManager.default_pipeline()
+        info("Running optimization passes...")
+        optimized_model_info = pm.run(model_info)
+        pm.dump_summary()
+
+    info("Generating C code...")
     generated_files = generate_c_code(
-        model_info, output_dir, target,
+        optimized_model_info, output_dir, target,
         inference_func=inference_function_name,
         with_test_main=with_test_main)
 

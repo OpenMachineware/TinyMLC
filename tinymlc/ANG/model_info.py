@@ -24,12 +24,14 @@ class TensorSpec:
         name: str,
         shape: List[int],
         dtype: str,
+        tensor_index: Optional[int] = None,
         scale: Optional[float] = None,
         zero_point: Optional[int] = None,
     ):
         self.name = name
         self.shape = shape
         self.dtype = dtype
+        self.tensor_index = tensor_index
         self.scale = scale
         self.zero_point = zero_point
 
@@ -39,6 +41,7 @@ class TensorSpec:
             "name": self.name,
             "shape": self.shape,
             "dtype": self.dtype,
+            "tensor_index": self.tensor_index,
             "scale": self.scale,
             "zero_point": self.zero_point,
         }

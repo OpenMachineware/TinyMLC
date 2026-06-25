@@ -14,9 +14,9 @@ from typing import Dict, Any
 # Add project root to path if running as script
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from tinymlc.ang.model_generator import ModelGenerator
-from tinymlc.ang.table import TableManager
-from tinymlc.ang.args import create_estimator, parse_shape
+from tinymlc.ANG.model_generator import ModelGenerator
+from tinymlc.ANG.table import TableManager
+from tinymlc.ANG.args import create_estimator, parse_shape
 from utils.dump import fatal_error, warning, info
 
 

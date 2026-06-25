@@ -4,10 +4,10 @@
 import argparse
 from typing import List, Optional
 
-from tinymlc.ang.estimator import Estimator
-from tinymlc.ang.estimator_software import SoftwareEstimator
-from tinymlc.ang.estimator_qemu import QemuEstimator
-from tinymlc.ang.estimator_hal import HardwareHALEstimator
+from tinymlc.ANG.estimator import Estimator
+from tinymlc.ANG.estimator_software import SoftwareEstimator
+from tinymlc.ANG.estimator_qemu import QemuEstimator
+from tinymlc.ANG.estimator_hal import HardwareHALEstimator
 
 
 def parse_shape(shape_str: str) -> List[int]:

@@ -7,7 +7,7 @@ from typing import List
 
 from handlers import handle_generate, handle_table, handle_convert
 from utils.dump import fatal_error
-from tinymlc.ang.args import parse_shape
+from tinymlc.ANG.args import parse_shape
 
 
 global_parent = argparse.ArgumentParser(add_help=False)

@@ -5,10 +5,10 @@ import random
 import copy
 from typing import Dict, Any, List, Optional
 
-from tinymlc.ang.model_builder import ModelBuilder
-from tinymlc.ang.model_info import ModelInfo
-from tinymlc.ang.estimator import Estimator
-from tinymlc.ang.utils import (generate_random_weights_from_structure,
+from tinymlc.ANG.model_builder import ModelBuilder
+from tinymlc.ANG.model_info import ModelInfo
+from tinymlc.ANG.estimator import Estimator
+from tinymlc.ANG.utils import (generate_random_weights_from_structure,
                                fill_model_info_with_weights)
 from utils.dump import fatal_error, warning, info
 
