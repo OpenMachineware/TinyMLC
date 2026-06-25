@@ -232,7 +232,7 @@ third_party/
 tinymlc_generated
 
 # Test models (local only)
-test_models/
+model_tests/
 
 # Test output directories (local only)
 test_*_output/
