@@ -5,6 +5,9 @@ from typing import Dict, Any, List, Set, Tuple
 from tinymlc.transform.base import Pass
 
 
+ALIGN = 4  # Change to 8 if needed
+
+
 class MemoryReuse(Pass):
     """
     Memory reuse optimization.
@@ -163,4 +166,7 @@ class MemoryReuse(Pass):
 
         # Assume 1 byte per element for int8
         # TODO: Handle different dtypes
+
+        # Align to ALIGN bytes
+        aligned_size = ((size + ALIGN - 1) // ALIGN) * ALIGN
         return size
