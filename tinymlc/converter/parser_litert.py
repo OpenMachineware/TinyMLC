@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """LiteRT-based TFLite model parser
 
-Note: Uses private API _get_ops_details() as LiteRT has no public operator list API.
-LSTM input indices [1:5], [5:9], [9:13] follow TFLite UNIDIRECTIONAL_SEQUENCE_LSTM spec.
+Note: Uses private API _get_ops_details() as LiteRT has no
+public operator list API.
+LSTM input indices [1:5], [5:9], [9:13] follow TFLite
+UNIDIRECTIONAL_SEQUENCE_LSTM spec.
 """
 
 from ai_edge_litert.interpreter import Interpreter
@@ -23,9 +25,11 @@ def extract_fc_weights(interpreter, op_info):
 
     try:
         weights = interpreter.get_tensor(weights_idx)
-        bias = interpreter.get_tensor(bias_idx) if bias_idx is not None else None
+        bias = (interpreter.get_tensor(bias_idx)
+                if bias_idx is not None else None)
     except ValueError as e:
-        fatal_error(f"Cannot get FC tensor: {e}", "Ensure model is loaded correctly")
+        fatal_error(f"Cannot get FC tensor: {e}",
+                    "Ensure model is loaded correctly")
 
     info(f"FC weights: shape={weights.shape}, dtype={weights.dtype}")
     if bias is not None:
@@ -83,9 +87,11 @@ def extract_conv_weights(interpreter, op_info):
 
     try:
         weights = interpreter.get_tensor(weights_idx)
-        bias = interpreter.get_tensor(bias_idx) if bias_idx is not None else None
+        bias = (interpreter.get_tensor(bias_idx)
+                if bias_idx is not None else None)
     except ValueError as e:
-        fatal_error(f"Cannot get CONV_2D tensor: {e}", "Ensure model is loaded correctly")
+        fatal_error(f"Cannot get CONV_2D tensor: {e}",
+                    "Ensure model is loaded correctly")
 
     info(f"CONV_2D weights: shape={weights.shape}, dtype={weights.dtype}")
     if bias is not None:
@@ -103,11 +109,14 @@ def extract_dw_weights(interpreter, op_info):
 
     try:
         weights = interpreter.get_tensor(weights_idx)
-        bias = interpreter.get_tensor(bias_idx) if bias_idx is not None else None
+        bias = (interpreter.get_tensor(bias_idx)
+                if bias_idx is not None else None)
     except ValueError as e:
-        fatal_error(f"Cannot get DEPTHWISE_CONV_2D tensor: {e}", "Ensure model is loaded correctly")
+        fatal_error(f"Cannot get DEPTHWISE_CONV_2D tensor: {e}",
+                    "Ensure model is loaded correctly")
 
-    info(f"DEPTHWISE_CONV_2D weights: shape={weights.shape}, dtype={weights.dtype}")
+    info(f"DEPTHWISE_CONV_2D weights: shape={weights.shape}, "
+         f"dtype={weights.dtype}")
     if bias is not None:
         info(f"DEPTHWISE_CONV_2D bias: shape={bias.shape}, dtype={bias.dtype}")
     return weights, bias
@@ -141,10 +150,14 @@ def extract_all_weights_litert(model_path, model_info):
         elif op["op_name"] == "DEPTHWISE_CONV_2D":
             dw_op_info = op
 
-    fc_weights, fc_bias = extract_fc_weights(interpreter, fc_op_info) if fc_op_info else (None, None)
-    lstm_weights = extract_lstm_weights(interpreter, lstm_op_info) if lstm_op_info else None
-    conv_weights, conv_bias = extract_conv_weights(interpreter, conv_op_info) if conv_op_info else (None, None)
-    dw_weights, dw_bias = extract_dw_weights(interpreter, dw_op_info) if dw_op_info else (None, None)
+    fc_weights, fc_bias = (extract_fc_weights(interpreter, fc_op_info)
+                          if fc_op_info else (None, None))
+    lstm_weights = (extract_lstm_weights(interpreter, lstm_op_info)
+                   if lstm_op_info else None)
+    conv_weights, conv_bias = (extract_conv_weights(interpreter, conv_op_info)
+                              if conv_op_info else (None, None))
+    dw_weights, dw_bias = (extract_dw_weights(interpreter, dw_op_info)
+                          if dw_op_info else (None, None))
 
     model_info["weights"] = {}
 
@@ -155,13 +168,16 @@ def extract_all_weights_litert(model_path, model_info):
     if lstm_weights and lstm_weights['input']:
         gates = ['i', 'f', 'g', 'o']
         if all(lstm_weights['input'].get(g) is not None for g in gates):
-            input_concat = np.concatenate([lstm_weights['input'][g].flatten() for g in gates])
+            input_concat = np.concatenate(
+                [lstm_weights['input'][g].flatten() for g in gates])
             model_info["weights"]["lstm_tflite.weight_ih"] = input_concat
         if all(lstm_weights['recurrent'].get(g) is not None for g in gates):
-            recurrent_concat = np.concatenate([lstm_weights['recurrent'][g].flatten() for g in gates])
+            recurrent_concat = np.concatenate(
+                [lstm_weights['recurrent'][g].flatten() for g in gates])
             model_info["weights"]["lstm_tflite.weight_hh"] = recurrent_concat
         if all(lstm_weights['bias'].get(g) is not None for g in gates):
-            bias_concat = np.concatenate([lstm_weights['bias'][g].flatten() for g in gates])
+            bias_concat = np.concatenate(
+                [lstm_weights['bias'][g].flatten() for g in gates])
             model_info["weights"]["lstm_tflite.bias"] = bias_concat
 
     if conv_weights is not None:
@@ -174,7 +190,8 @@ def extract_all_weights_litert(model_path, model_info):
         if dw_bias is not None:
             model_info["weights"]["dw_tflite.bias"] = dw_bias
 
-    return fc_weights, fc_bias, lstm_weights, conv_weights, conv_bias, dw_weights, dw_bias
+    return fc_weights, fc_bias, lstm_weights, conv_weights, \
+           conv_bias, dw_weights, dw_bias
 
 
 def parse_model_tflite(model_path: str):
@@ -715,6 +732,8 @@ def parse_model_tflite(model_path: str):
         "output": output_details,
         "ops": ops,
         "tensors": tensors,
-        "weights": {},  # LiteRT uses separate weight extraction, kept for unified interface
-        "quant_scales": {},  # Quantization scales (LiteRT stores per-tensor in tensors)
+        "weights": {},  # LiteRT uses separate weight extraction,
+                        # kept for unified interface
+        "quant_scales": {},  # Quantization scales
+                             # (LiteRT stores per-tensor in tensors)
     }

@@ -11,7 +11,8 @@ from tinymlc.converter.parser_litert import parse_model_tflite
 @pytest.fixture
 def lstm_model_path():
     """LSTM test model path"""
-    path = Path(__file__).parent.parent / "test_models" / "trained_lstm_int8.tflite"
+    path = (Path(__file__).parent.parent / "test_models" /
+            "trained_lstm_int8.tflite")
     if not path.exists():
         pytest.skip(f"Test model not found: {path}")
     return path

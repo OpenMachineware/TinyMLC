@@ -143,7 +143,8 @@ void tmlc_unidirectional_sequence_lstm_s8(
         }
 
         // Update state
-        // TODO: The >> 8 here is hardcoded, should use actual quantization scale
+        // TODO: The >> 8 here is hardcoded, should use
+        // actual quantization scale
         // cell state update: c = f * c_prev + i * g
         // hidden state update: h = o * tanh(c)
         // Need to calculate multiplier and shift based on each state's scale

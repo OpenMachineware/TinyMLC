@@ -14,7 +14,7 @@ class TensorSpec:
     Attributes:
         name: Unique identifier for the tensor.
         shape: List of dimensions (batch, height, width, channels, ...).
-        dtype: Data type of the tensor values (e.g., "int8", "int32", "float32").
+        dtype: Data type of tensor values (e.g., "int8", "int32", "float32").
         scale: Quantization scale factor (optional, None for float models).
         zero_point: Quantization zero point (optional, None for float models).
     """
@@ -56,7 +56,7 @@ class Op:
         op_name: Type of operation (e.g., "CONV_2D", "FULLY_CONNECTED").
         input_indices: List of tensor indices that are inputs to this op.
         output_indices: List of tensor indices that are outputs of this op.
-        params: Dictionary of op-specific parameters (conv_params, fc_params, etc.).
+        params: Op-specific parameters (conv_params, fc_params, etc.).
         state: Operator state ("created", "translated", "generated").
         pass_flags: Dictionary of pass flags.
     """
@@ -131,9 +131,12 @@ class ModelInfo:
             "input": [t.to_dict() for t in self.inputs],
             "output": [t.to_dict() for t in self.outputs],
             "ops": [op.to_dict() for op in self.ops],
-            "tensors": {idx: spec.to_dict() for idx, spec in self.tensors.items()},
+            "tensors": {
+                idx: spec.to_dict() for idx, spec in self.tensors.items()
+            },
             "weights": {
-                str(idx): weight.tolist() for idx, weight in self.weights.items()
+                str(idx): weight.tolist()
+                for idx, weight in self.weights.items()
             },
             "quant_scales": self.quant_scales,
         }

@@ -54,11 +54,15 @@ class HardwareHALEstimator(Estimator):
         """
         script_path = self.config.get("script_path")
         if not script_path:
-            raise ValueError("HardwareHALEstimator requires 'script_path' in config")
+            raise ValueError(
+                "HardwareHALEstimator requires 'script_path' in config"
+            )
 
         path = Path(script_path)
         if not path.exists():
-            raise FileNotFoundError(f"Estimator script not found: {script_path}")
+            raise FileNotFoundError(
+                f"Estimator script not found: {script_path}"
+            )
 
         # Dynamic import of the user script
         spec = importlib.util.spec_from_file_location("user_estimator", path)
@@ -73,7 +77,9 @@ class HardwareHALEstimator(Estimator):
 
         func_name = self.config.get("function_name", "estimate")
         if not hasattr(module, func_name):
-            raise AttributeError(f"Function '{func_name}' not found in {script_path}")
+            raise AttributeError(
+                f"Function '{func_name}' not found in {script_path}"
+            )
 
         self._estimator_func = getattr(module, func_name)
 
@@ -103,7 +109,9 @@ class HardwareHALEstimator(Estimator):
             required_keys = ["score", "macs", "params", "peak_ram", "flash"]
             for key in required_keys:
                 if key not in result:
-                    raise ValueError(f"Estimator result missing required key: {key}")
+                    raise ValueError(
+                        f"Estimator result missing required key: {key}"
+                    )
 
             # If latency_ms is not provided, estimate it
             if "latency_ms" not in result:
@@ -118,13 +126,19 @@ class HardwareHALEstimator(Estimator):
             max_params = self.config["max_params"]
             max_ram = self.config["max_ram"]
 
-            macs_score = 1.0 - min(macs / max_macs, 1.0) if max_macs > 0 else 0.0
+            macs_score = (
+                1.0 - min(macs / max_macs, 1.0) if max_macs > 0 else 0.0
+            )
             params_score = (
                 1.0 - min(params / max_params, 1.0) if max_params > 0 else 0.0
             )
-            ram_score = 1.0 - min(peak_ram / max_ram, 1.0) if max_ram > 0 else 0.0
+            ram_score = (
+                1.0 - min(peak_ram / max_ram, 1.0) if max_ram > 0 else 0.0
+            )
 
-            score = (0.4 * macs_score + 0.3 * params_score + 0.3 * ram_score) * 100.0
+            score = (
+                0.4 * macs_score + 0.3 * params_score + 0.3 * ram_score
+            ) * 100.0
 
             return {
                 "score": score,

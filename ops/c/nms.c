@@ -36,7 +36,8 @@ static int compute_iou_q7(const Box* a, const Box* b) {
     return iou_q7;
 }
 
-int tmlc_nms(Box* boxes, int num_boxes, int iou_threshold_q7, int max_output_size) {
+int tmlc_nms(Box* boxes, int num_boxes,
+             int iou_threshold_q7, int max_output_size) {
     if (num_boxes == 0) return 0;
 
     // Mark all boxes as keep

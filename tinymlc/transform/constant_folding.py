@@ -91,7 +91,9 @@ class ConstantFolding(Pass):
             model_info["ops"] = new_ops
             self._log_change(f"Folded {folded_count} ops")
 
-    def _fold_reshape(self, model_info: Dict[str, Any], op: Dict[str, Any]) -> bool:
+    def _fold_reshape(
+        self, model_info: Dict[str, Any], op: Dict[str, Any]
+    ) -> bool:
         """Fold reshape if input is constant."""
         input_idx = op.get("input_indices", [])[0]
         output_idx = op.get("output_indices", [])[0]
@@ -113,14 +115,18 @@ class ConstantFolding(Pass):
                 # Add to weights so it gets written out
                 model_info["weights"][output_idx] = folded
 
-                self._log_change(f"  Reshape constant: {data.shape} -> {folded.shape}")
+                self._log_change(
+                    f"  Reshape constant: {data.shape} -> {folded.shape}"
+                )
                 return True
             except Exception as e:
                 print(f"  Warning: failed to fold reshape: {e}")
                 return False
         return False
 
-    def _fold_transpose(self, model_info: Dict[str, Any], op: Dict[str, Any]) -> bool:
+    def _fold_transpose(
+        self, model_info: Dict[str, Any], op: Dict[str, Any]
+    ) -> bool:
         """Fold transpose if input is constant."""
         input_idx = op.get("input_indices", [])[0]
         output_idx = op.get("output_indices", [])[0]
@@ -136,14 +142,18 @@ class ConstantFolding(Pass):
                 self._const_tensors[output_idx] = folded
                 model_info["weights"][output_idx] = folded
 
-                self._log_change(f"  Transpose constant: {data.shape} -> {folded.shape}")
+                self._log_change(
+                    f"  Transpose constant: {data.shape} -> {folded.shape}"
+                )
                 return True
             except Exception as e:
                 print(f"  Warning: failed to fold transpose: {e}")
                 return False
         return False
 
-    def _fold_binary_op(self, model_info: Dict[str, Any], op: Dict[str, Any]) -> bool:
+    def _fold_binary_op(
+        self, model_info: Dict[str, Any], op: Dict[str, Any]
+    ) -> bool:
         """Fold binary ops (ADD, MULTIPLY, SUB) if all inputs constant."""
         op_name = op.get("op_name")
         input_indices = op.get("input_indices", [])
@@ -166,14 +176,19 @@ class ConstantFolding(Pass):
                 self._const_tensors[output_idx] = folded
                 model_info["weights"][output_idx] = folded
 
-                self._log_change(f"  {op_name} constant: {a.shape} + {b.shape} -> {folded.shape}")
+                self._log_change(
+                    f"  {op_name} constant: {a.shape} + {b.shape} "
+                    f"-> {folded.shape}"
+                )
                 return True
             except Exception as e:
                 print(f"  Warning: failed to fold {op_name}: {e}")
                 return False
         return False
 
-    def _fold_mean(self, model_info: Dict[str, Any], op: Dict[str, Any]) -> bool:
+    def _fold_mean(
+        self, model_info: Dict[str, Any], op: Dict[str, Any]
+    ) -> bool:
         """Fold MEAN if input is constant."""
         input_idx = op.get("input_indices", [0])[0]
         output_idx = op.get("output_indices", [0])[0]
@@ -190,7 +205,9 @@ class ConstantFolding(Pass):
                 self._const_tensors[output_idx] = folded
                 model_info["weights"][output_idx] = folded
 
-                self._log_change(f"  Mean constant: {data.shape} -> {folded.shape}")
+                self._log_change(
+                    f"  Mean constant: {data.shape} -> {folded.shape}"
+                )
                 return True
             except Exception as e:
                 print(f"  Warning: failed to fold mean: {e}")

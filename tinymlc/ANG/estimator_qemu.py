@@ -77,7 +77,11 @@ class QemuEstimator(Estimator):
         latency_ms = (instr_count / self.config["clock_speed"]) * 1000.0
 
         # Flash usage from ELF size
-        flash = self._get_elf_flash_size(elf_path) if elf_path else params + 1024
+        flash = (
+            self._get_elf_flash_size(elf_path)
+            if elf_path
+            else params + 1024
+        )
 
         # Calculate score (same as software estimator)
         max_macs = self.config["max_macs"]
@@ -85,10 +89,14 @@ class QemuEstimator(Estimator):
         max_ram = self.config["max_ram"]
 
         macs_score = 1.0 - min(macs / max_macs, 1.0) if max_macs > 0 else 0.0
-        params_score = 1.0 - min(params / max_params, 1.0) if max_params > 0 else 0.0
+        params_score = (
+            1.0 - min(params / max_params, 1.0) if max_params > 0 else 0.0
+        )
         ram_score = 1.0 - min(peak_ram / max_ram, 1.0) if max_ram > 0 else 0.0
 
-        score = (0.4 * macs_score + 0.3 * params_score + 0.3 * ram_score) * 100.0
+        score = (
+            0.4 * macs_score + 0.3 * params_score + 0.3 * ram_score
+        ) * 100.0
 
         return {
             "score": score,

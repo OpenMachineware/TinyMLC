@@ -52,7 +52,9 @@ class AlgebraicSimplify(Pass):
                 self._log_change(f"Iteration {iteration}: applied")
 
         if self._simplified_count > 0:
-            self._log_change(f"Total: {self._simplified_count} algebraic simplifications")
+            self._log_change(
+                f"Total: {self._simplified_count} algebraic simplifications"
+            )
 
         return model_info
 
@@ -72,7 +74,8 @@ class AlgebraicSimplify(Pass):
             op = ops[i]
             if op.get("op_name") == "SUB":
                 input_indices = op.get("input_indices", [])
-                if len(input_indices) == 2 and input_indices[0] == input_indices[1]:
+                if (len(input_indices) == 2
+                        and input_indices[0] == input_indices[1]):
                     # Create a constant zero tensor
                     zero_idx = self._create_constant_zero(model_info)
                     self._remove_op_and_forward(ops, i, zero_idx, model_info)
@@ -107,16 +110,21 @@ class AlgebraicSimplify(Pass):
                 if len(input_indices) == 2:
                     a = input_indices[0]
                     b = input_indices[1]
-                    # Check if a is constant and b is the same constant with opposite sign
+                    # Check if a is constant and b is the same constant
+                    # with opposite sign
                     const_val = self._get_constant_value(model_info, a)
                     if const_val is not None:
                         const_b = self._get_constant_value(model_info, b)
                         if const_b is not None and const_b == -const_val:
                             zero_idx = self._create_constant_zero(model_info)
-                            self._remove_op_and_forward(ops, i, zero_idx, model_info)
+                            self._remove_op_and_forward(
+                                ops, i, zero_idx, model_info
+                            )
                             changed = True
                             self._simplified_count += 1
-                            self._log_change(f"  ADD({const_val}, {-const_val}) -> 0")
+                            self._log_change(
+                                f"  ADD({const_val}, {-const_val}) -> 0"
+                            )
                             continue
 
             i += 1
@@ -154,9 +162,12 @@ class AlgebraicSimplify(Pass):
 
                     if const_idx is not None and other_idx is not None:
                         # Fold constant into the op's params
-                        const_val = self._get_constant_value(model_info, const_idx)
+                        const_val = self._get_constant_value(
+                            model_info, const_idx
+                        )
                         if const_val is not None:
-                            # Replace with a new op that has the constant baked in
+                            # Replace with a new op that has the constant
+                            # baked in
                             # For now, we just keep the constant as a tensor and
                             # let the constant folding pass handle it.
                             # But we can mark it for later folding.

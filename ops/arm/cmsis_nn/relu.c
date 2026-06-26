@@ -25,7 +25,8 @@ void tmlc_relu_s8(const int8_t* input, int8_t* output, int size) {
         temp_buf[i] = input[i];
     }
 
-    // Call CMSIS-NN relu6 (in-place, acts as relu since input range is [0, 127])
+    // Call CMSIS-NN relu6 (in-place, acts as relu since
+    // input range is [0, 127])
     arm_relu6_s8(temp_buf, size);
 
     // Copy back to output

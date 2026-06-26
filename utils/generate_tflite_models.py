@@ -9,11 +9,13 @@ from pathlib import Path
 
 
 def build_cnn_model():
-    """Conv2D, DepthwiseConv2D, MaxPool2D, AvgPool2D, GlobalAvgPool2D, FC, Softmax, Relu"""
+    """Conv2D, DepthwiseConv2D, MaxPool2D, AvgPool2D,
+       GlobalAvgPool2D, FC, Softmax, Relu"""
     inputs = tf.keras.Input(shape=(28, 28, 1), name='input')
     x = tf.keras.layers.Conv2D(8, 3, padding='same', name='conv2d')(inputs)
     x = tf.keras.layers.ReLU(name='relu')(x)
-    x = tf.keras.layers.DepthwiseConv2D(3, padding='same', name='depthwise_conv2d')(x)
+    x = tf.keras.layers.DepthwiseConv2D(
+        3, padding='same', name='depthwise_conv2d')(x)
     x = tf.keras.layers.ReLU(name='relu2')(x)
     x = tf.keras.layers.MaxPooling2D(2, name='max_pool2d')(x)
     x = tf.keras.layers.AveragePooling2D(2, name='avg_pool2d')(x)
@@ -35,9 +37,11 @@ def build_activations_model():
     hs = tf.keras.layers.Activation('hard_sigmoid', name='hard_sigmoid')(prelu)
     sig = tf.keras.layers.Activation('sigmoid', name='sigmoid')(hs)
     tanh = tf.keras.layers.Activation('tanh', name='tanh')(sig)
-    clip = tf.keras.layers.Lambda(lambda z: tf.clip_by_value(z, -2.0, 2.0), name='clip')(tanh)
+    clip = tf.keras.layers.Lambda(
+        lambda z: tf.clip_by_value(z, -2.0, 2.0), name='clip')(tanh)
     outputs = clip
-    model = tf.keras.Model(inputs=inputs, outputs=outputs, name='model_activations')
+    model = tf.keras.Model(
+        inputs=inputs, outputs=outputs, name='model_activations')
     return model
 
 
@@ -48,13 +52,14 @@ def build_tensor_ops_model():
     # Split
     splits = tf.keras.layers.Lambda(lambda z: tf.split(z, 2, axis=-1))(x)
 
-    # Pad channels only (H/W 不变，只改 channel 维度)
+    # Pad channels only (H/W unchanged, only modify channel dimension)
     pad = tf.keras.layers.Lambda(
-        lambda z: tf.pad(z, [[0,0], [0,0], [0,0], [1,1]]),  # [batch, H, W, channels]
+        lambda z: tf.pad(z, [[0,0], [0,0], [0,0], [1,1]]),
+        # [batch, H, W, channels]
         name='pad'
     )(splits[0])
 
-    # Concat back (现在形状一致：H/W 都是 8)
+    # Concat back (shapes now match: H/W are both 8)
     concat = tf.keras.layers.Concatenate(name='concat')([pad, splits[1]])
 
     # Flatten
@@ -75,7 +80,8 @@ def build_tensor_ops_model():
         name='strided_slice'
     )(transpose)
 
-    return tf.keras.Model(inputs=inputs, outputs=slice_out, name='model_tensor_ops')
+    return tf.keras.Model(
+        inputs=inputs, outputs=slice_out, name='model_tensor_ops')
 
 
 def build_arithmetic_model():
@@ -84,7 +90,8 @@ def build_arithmetic_model():
     x = tf.keras.layers.Dense(8, name='dummy')(inputs)
 
     # split into two branches
-    split = tf.keras.layers.Lambda(lambda z: tf.split(z, 2, axis=-1), name='split')(x)
+    split = tf.keras.layers.Lambda(
+        lambda z: tf.split(z, 2, axis=-1), name='split')(x)
     a = split[0]
     b = split[1]
 
@@ -112,7 +119,8 @@ def build_arithmetic_model():
         name='cast_out'
     )(argmax)
 
-    model = tf.keras.Model(inputs=inputs, outputs=outputs, name='model_arithmetic')
+    model = tf.keras.Model(
+        inputs=inputs, outputs=outputs, name='model_arithmetic')
     return model
 
 
@@ -121,7 +129,8 @@ def build_upsample_model():
     inputs = tf.keras.Input(shape=(8, 8, 2), name='input')
 
     # Conv2DTranspose
-    x = tf.keras.layers.Conv2DTranspose(4, 3, strides=2, padding='same', name='conv_transpose')(inputs)
+    x = tf.keras.layers.Conv2DTranspose(
+        4, 3, strides=2, padding='same', name='conv_transpose')(inputs)
 
     # Upsample (ResizeNearestNeighbor)
     upsample = tf.keras.layers.Lambda(
@@ -130,7 +139,8 @@ def build_upsample_model():
     )(x)
 
     outputs = upsample
-    model = tf.keras.Model(inputs=inputs, outputs=outputs, name='model_upsample')
+    model = tf.keras.Model(
+        inputs=inputs, outputs=outputs, name='model_upsample')
     return model
 
 

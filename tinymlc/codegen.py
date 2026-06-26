@@ -365,15 +365,18 @@ def generate_c_code(model_info, output_dir, target,
                 f"multiplier={conv_multiplier}, shift={conv_shift}")
             break
 
-    # If CONV_2D params not found but has DEPTHWISE_CONV_2D, calculate from DW params
+    # If CONV_2D params not found but has DEPTHWISE_CONV_2D,
+    # calculate from DW params
     if (conv_multiplier is None or conv_shift is None) and has_dw:
         for op in model_info.get("ops", []):
             if op.get("op_name") == "DEPTHWISE_CONV_2D":
                 dw_scale = op.get("dw_scale", 0.01)
                 dw_output_scale = op.get("dw_output_scale", 0.00390625)
                 conv_input_scale = 0.00390625
-                conv_multiplier, conv_shift = calculate_multiplier_shift_from_scale(
-                    conv_input_scale, dw_scale, dw_output_scale
+                conv_multiplier, conv_shift = (
+                    calculate_multiplier_shift_from_scale(
+                        conv_input_scale, dw_scale, dw_output_scale
+                    )
                 )
                 info(
                     f"DEPTHWISE_CONV_2D quantization params: scale={dw_scale}, "

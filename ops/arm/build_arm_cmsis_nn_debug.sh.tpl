@@ -17,7 +17,8 @@ FLOAT_ABI="soft"
 CMSIS_NN_INC="{{ accel_lib_inc }}"
 CMSIS_NN_LIB="{{ accel_lib_lib }}"
 
-CFLAGS="-mcpu=$ARCH -mthumb -mabi=$ABI -mfpu=$FPU -mfloat-abi=$FLOAT_ABI -nostdlib \
+CFLAGS="-mcpu=$ARCH -mthumb -mabi=$ABI \
+    -mfpu=$FPU -mfloat-abi=$FLOAT_ABI -nostdlib \
     -ffreestanding -fno-omit-frame-pointer \
     -DTINYMLC_DEBUG -I./include -I./c -I. -I$CMSIS_NN_INC"
 
@@ -83,4 +84,6 @@ $CC $CFLAGS -T link_arm.ld \
     -L$(dirname $CMSIS_NN_LIB) -lcmsis-nn -lgcc -lm -o model.elf
 
 # ========== Run ==========
-$SIM -M mps2-an386 -nographic -semihosting-config enable=on,target=native -serial mon:stdio -kernel model.elf
+$SIM -M mps2-an386 -nographic \
+    -semihosting-config enable=on,target=native \
+    -serial mon:stdio -kernel model.elf

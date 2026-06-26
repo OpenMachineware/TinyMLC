@@ -16,7 +16,8 @@ void tmlc_strided_slice_s8(
                 int iw = start_w + ow * stride_w;
                 int ic = start_c + oc * stride_c;
 
-                if (ih >= 0 && ih < in_h && iw >= 0 && iw < in_w && ic >= 0 && ic < in_c) {
+                if (ih >= 0 && ih < in_h && iw >= 0 &&
+                    iw < in_w && ic >= 0 && ic < in_c) {
                     int in_idx = (ih * in_w + iw) * in_c + ic;
                     int out_idx = (oh * size_w + ow) * size_c + oc;
                     output[out_idx] = input[in_idx];

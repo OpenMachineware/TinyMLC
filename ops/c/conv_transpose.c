@@ -39,8 +39,10 @@ void tmlc_conv_transpose_s8(
                         if (ih >= 0 && ih < in_h && iw >= 0 && iw < in_w) {
                             for (int ic = 0; ic < in_c; ic++) {
                                 int in_idx = (ih * in_w + iw) * in_c + ic;
-                                int w_idx = ((oc * in_c + ic) * kernel_h + kh) * kernel_w + kw;
-                                int32_t in_val = (int32_t)input[in_idx] - input_zero_point;
+                                int w_idx = ((oc * in_c + ic) * kernel_h + kh) *
+                                            kernel_w + kw;
+                                int32_t in_val = (int32_t)input[in_idx];
+                                in_val -= input_zero_point;
                                 int32_t w_val = (int32_t)weights[w_idx];
                                 acc += in_val * w_val;
                             }

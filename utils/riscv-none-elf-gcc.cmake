@@ -22,4 +22,10 @@ set(CMAKE_OBJDUMP ${CROSS_COMPILE}objdump)
 set(RISCV_ARCH "rv32imac")
 set(RISCV_ABI "ilp32")
 
-add_compile_options(-march=${RISCV_ARCH} -mabi=${RISCV_ABI} -mcmodel=medany -O2 -Wall)
+add_compile_options(
+    -march=${RISCV_ARCH}
+    -mabi=${RISCV_ABI}
+    -mcmodel=medany
+    -O2
+    -Wall
+)

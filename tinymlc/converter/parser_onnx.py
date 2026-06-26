@@ -423,7 +423,8 @@ def parse_model_onnx(model_path: str):
 
         if node.op_type == "Softmax":
             # Get softmax axis size from output shape
-            output_shape = get_tensor_shape(graph, node.output[0], initializer_map)
+            output_shape = get_tensor_shape(
+                graph, node.output[0], initializer_map)
             if output_shape:
                 # Default axis is -1 (last dimension)
                 axis = -1
@@ -433,11 +434,14 @@ def parse_model_onnx(model_path: str):
                 # Convert negative axis to positive
                 if axis < 0:
                     axis = len(output_shape) + axis
-                op_info["softmax_size"] = output_shape[axis] if axis < len(output_shape) else output_shape[-1]
+                op_info["softmax_size"] = (output_shape[axis]
+                                          if axis < len(output_shape)
+                                          else output_shape[-1])
             else:
                 # Fallback: get from output_details
                 if op_info["output_details"]:
-                    op_info["softmax_size"] = op_info["output_details"][0].get("size", 10)
+                    op_info["softmax_size"] = (
+                        op_info["output_details"][0].get("size", 10))
 
         if node.op_type == "Reshape":
             # Target shape in inputs[1]
@@ -548,7 +552,8 @@ def parse_model_onnx(model_path: str):
         "input": input_details,
         "output": output_details,
         "ops": ops,
-        "weights": raw_weights,  # Raw weights, will be processed by extract_all_weights_onnx
+        "weights": raw_weights,  # Raw weights, will be processed
+                                  # by extract_all_weights_onnx
         "tensors": tensors,
         "initializer_map": initializer_map,  # Keep for weight extraction
     }
@@ -617,9 +622,11 @@ def extract_all_weights_onnx(model_path, model_info):
                 tensors = model_info.get("tensors", {})
                 for idx, tensor_info in tensors.items():
                     if idx == weights_idx:
-                        weights["svdf_onnx.weight"] = weights.get(tensor_info.get("name"))
+                        weights["svdf_onnx.weight"] = weights.get(
+                            tensor_info.get("name"))
                     if idx == bias_idx:
-                        weights["svdf_onnx.bias"] = weights.get(tensor_info.get("name"))
+                        weights["svdf_onnx.bias"] = weights.get(
+                            tensor_info.get("name"))
 
     # Update model_info weights
     model_info["weights"] = weights

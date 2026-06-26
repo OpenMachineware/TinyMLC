@@ -2,7 +2,8 @@
 """CLI tool to extract weights from TFLite models using LiteRT
 
 Usage:
-    uv run python -m tinymlc.extract_litert_weights model.tflite --output-dir output/
+    uv run python -m tinymlc.extract_litert_weights \
+        model.tflite --output-dir output/
 
 Or:
     python -m tinymlc.extract_litert_weights model.tflite --output-dir output/
@@ -51,7 +52,9 @@ def main():
                 "Check if model contains supported operators"
             )
         else:
-            info("Note: Model only contains weightless operators, continuing...")
+            info(
+                "Note: Model only contains weightless operators, continuing..."
+            )
 
     # 4. Create output directory
     output_dir = Path(args.output_dir)

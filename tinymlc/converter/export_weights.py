@@ -70,7 +70,8 @@ def export_concatenated_weights(weights_dict, output_file, array_name,
     """Export concatenated weight array from gate dictionary.
 
     Args:
-        weights_dict: dict with keys ['i', 'f', 'g', 'o'] containing weight arrays
+        weights_dict: dict with keys ['i', 'f', 'g', 'o']
+            containing weight arrays
         output_file: file handle to write to
         array_name: C array name
         dtype: 'int8' or 'int32'
@@ -160,7 +161,8 @@ def export_model_weights(output_dir, model_info):
     """Unified weight export function for ONNX, TFLite and ANG models.
 
     Weights are identified by source-specific keys:
-    - TFLite: "fc_tflite.weight", "fc_tflite.bias", "lstm_tflite.weight_ih", etc.
+    - TFLite: "fc_tflite.weight", "fc_tflite.bias",
+      "lstm_tflite.weight_ih", etc.
     - ONNX: "fc_onnx.weight", "fc_onnx.bias", "conv_onnx.weight", etc.
     - ANG: tensor index as key in weights dict
 
@@ -218,12 +220,18 @@ def export_model_weights(output_dir, model_info):
             else:
                 all_fc_bias.append(np.zeros(fc_w.shape[-1], dtype=np.int32))
 
-        fc_weights_concat = np.concatenate(all_fc_weights) if len(all_fc_weights) > 1 else all_fc_weights[0]
-        fc_bias_concat = np.concatenate(all_fc_bias) if len(all_fc_bias) > 1 else all_fc_bias[0]
+        fc_weights_concat = (np.concatenate(all_fc_weights)
+                            if len(all_fc_weights) > 1 else all_fc_weights[0])
+        fc_bias_concat = (np.concatenate(all_fc_bias)
+                         if len(all_fc_bias) > 1 else all_fc_bias[0])
 
         fc_scale = 0.01
-        fc_weight_int8 = fc_weights_concat if fc_weights_concat.dtype == np.int8 else quantize_to_int8(fc_weights_concat)[0]
-        fc_bias_int32 = fc_bias_concat.astype(np.int32) if fc_bias_concat.dtype != np.int32 else fc_bias_concat
+        fc_weight_int8 = (fc_weights_concat
+                         if fc_weights_concat.dtype == np.int8
+                         else quantize_to_int8(fc_weights_concat)[0])
+        fc_bias_int32 = (fc_bias_concat.astype(np.int32)
+                        if fc_bias_concat.dtype != np.int32
+                        else fc_bias_concat)
 
         with open(output_dir / 'fc_weights.h', 'w') as f:
             f.write("// FC layer weights and bias extracted from ANG model\n\n")
@@ -242,21 +250,30 @@ def export_model_weights(output_dir, model_info):
                 weight_idx = input_indices[1]
                 bias_idx = input_indices[2] if len(input_indices) >= 3 else None
                 conv_w = get_weight_by_idx(weights, weight_idx)
-                conv_b = get_weight_by_idx(weights, bias_idx) if bias_idx else None
+                conv_b = (get_weight_by_idx(weights, bias_idx)
+                          if bias_idx else None)
                 if conv_w is not None:
                     conv_w = np.array(conv_w)
                     conv_weights_list.append(conv_w)
                     if conv_b is not None:
                         conv_b = np.array(conv_b)
-                    conv_bias_list.append(conv_b if conv_b is not None else np.zeros(conv_w.shape[-1], dtype=np.int32))
+                    conv_bias_list.append(
+                    conv_b if conv_b is not None
+                    else np.zeros(conv_w.shape[-1], dtype=np.int32))
 
     # Export CONV weights
     if conv_weights_list:
-        conv_weights_concat = np.concatenate([np.array(w).flatten() for w in conv_weights_list])
-        conv_bias_concat = np.concatenate([np.array(b).flatten() for b in conv_bias_list])
+        conv_weights_concat = np.concatenate(
+            [np.array(w).flatten() for w in conv_weights_list])
+        conv_bias_concat = np.concatenate(
+            [np.array(b).flatten() for b in conv_bias_list])
 
-        conv_weight_int8 = conv_weights_concat if conv_weights_concat.dtype == np.int8 else quantize_to_int8(conv_weights_concat)[0]
-        conv_bias_int32 = conv_bias_concat.astype(np.int32) if conv_bias_concat.dtype != np.int32 else conv_bias_concat
+        conv_weight_int8 = (conv_weights_concat
+                           if conv_weights_concat.dtype == np.int8
+                           else quantize_to_int8(conv_weights_concat)[0])
+        conv_bias_int32 = (conv_bias_concat.astype(np.int32)
+                          if conv_bias_concat.dtype != np.int32
+                          else conv_bias_concat)
 
         with open(output_dir / 'conv_weights.h', 'w') as f:
             f.write("// CONV_2D weights and bias extracted from ANG model\n\n")
@@ -271,10 +288,12 @@ def export_model_weights(output_dir, model_info):
         fc_scale = 0.01
         if fc_weight.dtype == np.int8:
             fc_weight_int8 = fc_weight
-            fc_bias_int32 = fc_bias.astype(np.int32) if fc_bias.dtype != np.int32 else fc_bias
+            fc_bias_int32 = (fc_bias.astype(np.int32)
+                            if fc_bias.dtype != np.int32 else fc_bias)
         else:
             fc_weight_int8, fc_scale = quantize_to_int8(fc_weight)
-            fc_bias_int32 = (fc_bias / (input_scale * fc_scale)).astype(np.int32)
+            fc_bias_int32 = (fc_bias / (input_scale * fc_scale)
+                            ).astype(np.int32)
 
         with open(output_dir / 'fc_weights.h', 'w') as f:
             f.write("// FC layer weights and bias extracted from model\n\n")
@@ -304,28 +323,39 @@ def export_model_weights(output_dir, model_info):
         info(f"Generated: {output_dir}/lstm_weights.h")
 
     # Conv weights - try both TFLite and ONNX sources
-    conv_weight = weights.get("conv_tflite.weight") or weights.get("conv_onnx.weight")
-    conv_bias = weights.get("conv_tflite.bias") or weights.get("conv_onnx.bias")
+    conv_weight = (weights.get("conv_tflite.weight") or
+                   weights.get("conv_onnx.weight"))
+    conv_bias = (weights.get("conv_tflite.bias") or
+                 weights.get("conv_onnx.bias"))
     if conv_weight is not None:
-        conv_weight_int8 = conv_weight if conv_weight.dtype == np.int8 else quantize_to_int8(conv_weight)[0]
+        conv_weight_int8 = (conv_weight
+                           if conv_weight.dtype == np.int8
+                           else quantize_to_int8(conv_weight)[0])
         with open(output_dir / 'conv_weights.h', 'w') as f:
             f.write("// CONV_2D weights and bias extracted from model\n\n")
             export_weights_to_c(conv_weight_int8, "conv_weights", f)
             if conv_bias is not None:
-                conv_bias_int32 = conv_bias.astype(np.int32) if conv_bias.dtype != np.int32 else conv_bias
+                conv_bias_int32 = (conv_bias.astype(np.int32)
+                                  if conv_bias.dtype != np.int32 else conv_bias)
                 export_bias_to_c(conv_bias_int32, "conv_bias", f)
         info(f"Generated: {output_dir}/conv_weights.h")
 
     # Depthwise Conv weights
-    dw_weight = weights.get("dw_tflite.weight") or weights.get("dw_onnx.weight")
-    dw_bias = weights.get("dw_tflite.bias") or weights.get("dw_onnx.bias")
+    dw_weight = (weights.get("dw_tflite.weight") or
+                 weights.get("dw_onnx.weight"))
+    dw_bias = (weights.get("dw_tflite.bias") or
+               weights.get("dw_onnx.bias"))
     if dw_weight is not None:
-        dw_weight_int8 = dw_weight if dw_weight.dtype == np.int8 else quantize_to_int8(dw_weight)[0]
+        dw_weight_int8 = (dw_weight
+                         if dw_weight.dtype == np.int8
+                         else quantize_to_int8(dw_weight)[0])
         with open(output_dir / 'dw_weights.h', 'w') as f:
-            f.write("// Depthwise Conv2D weights and bias extracted from model\n\n")
+            f.write("// Depthwise Conv2D weights and bias "
+                    "extracted from model\n\n")
             export_weights_to_c(dw_weight_int8, "dw_weights", f)
             if dw_bias is not None:
-                dw_bias_int32 = dw_bias.astype(np.int32) if dw_bias.dtype != np.int32 else dw_bias
+                dw_bias_int32 = (dw_bias.astype(np.int32)
+                                if dw_bias.dtype != np.int32 else dw_bias)
                 export_bias_to_c(dw_bias_int32, "dw_bias", f)
         info(f"Generated: {output_dir}/dw_weights.h")
 

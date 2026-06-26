@@ -12,7 +12,10 @@ import os
 from typing import Dict, Any
 
 # Add project root to path if running as script
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.insert(
+    0,
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 
 from tinymlc.ANG.model_generator import ModelGenerator
 from tinymlc.ANG.table import TableManager
@@ -210,7 +213,9 @@ def main() -> int:
     )
 
     # ========== Subcommands ==========
-    subparsers = parser.add_subparsers(dest="command", help="Command to execute")
+    subparsers = parser.add_subparsers(
+        dest="command", help="Command to execute"
+    )
 
     # ---- generate command ----
     gen_parser = subparsers.add_parser(

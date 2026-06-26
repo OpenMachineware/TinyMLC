@@ -38,7 +38,8 @@ class SoftwareEstimator(Estimator):
             "weight_macs": 0.4,  # Weight for MACs in score
             "weight_params": 0.3,  # Weight for params in score
             "weight_ram": 0.3,  # Weight for RAM in score
-            "clock_speed": 100000000,  # Clock speed in Hz (for latency estimate)
+            "clock_speed": 100000000,
+            # Clock speed in Hz (for latency estimate)
         }
         # Merge with user config
         self.config = {**self.default_config, **(config or {})}
@@ -73,7 +74,9 @@ class SoftwareEstimator(Estimator):
 
         # Avoid division by zero
         macs_score = 1.0 - min(macs / max_macs, 1.0) if max_macs > 0 else 0.0
-        params_score = 1.0 - min(params / max_params, 1.0) if max_params > 0 else 0.0
+        params_score = (
+            1.0 - min(params / max_params, 1.0) if max_params > 0 else 0.0
+        )
         ram_score = 1.0 - min(peak_ram / max_ram, 1.0) if max_ram > 0 else 0.0
 
         # Weighted combination

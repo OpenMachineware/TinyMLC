@@ -36,7 +36,8 @@ void tmlc_fully_connected_s8(const int8_t* input,
     };
 
     nmsis_nn_dims input_dims = {.n = 1, .h = 1, .w = 1, .c = input_size};
-    nmsis_nn_dims filter_dims = {.n = input_size, .h = 1, .w = 1, .c = output_size};
+    nmsis_nn_dims filter_dims = {
+        .n = input_size, .h = 1, .w = 1, .c = output_size};
     nmsis_nn_dims bias_dims = {.n = output_size, .h = 1, .w = 1, .c = 1};
     nmsis_nn_dims output_dims = {.n = 1, .h = 1, .w = 1, .c = output_size};
 

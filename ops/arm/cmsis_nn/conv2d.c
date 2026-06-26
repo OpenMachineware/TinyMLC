@@ -41,10 +41,13 @@ void tmlc_conv2d_s8(const int8_t* input,
         .shift = shift_arr
     };
 
-    cmsis_nn_dims input_dims = {.n = 1, .h = input_h, .w = input_w, .c = input_c};
-    cmsis_nn_dims filter_dims = {.n = 1, .h = kernel_h, .w = kernel_w, .c = input_c};
+    cmsis_nn_dims input_dims = {
+        .n = 1, .h = input_h, .w = input_w, .c = input_c};
+    cmsis_nn_dims filter_dims = {
+        .n = 1, .h = kernel_h, .w = kernel_w, .c = input_c};
     cmsis_nn_dims bias_dims = {.n = 1, .h = 1, .w = 1, .c = output_c};
-    cmsis_nn_dims output_dims = {.n = 1, .h = output_h, .w = output_w, .c = output_c};
+    cmsis_nn_dims output_dims = {
+        .n = 1, .h = output_h, .w = output_w, .c = output_c};
 
     ctx.buf = cmsis_nn_buf;
     ctx.size = sizeof(cmsis_nn_buf);

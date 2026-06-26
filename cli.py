@@ -13,7 +13,8 @@ from tinymlc.ANG.args import parse_shape
 global_parent = argparse.ArgumentParser(add_help=False)
 global_parent.add_argument("--verbose", "-v", action="store_true")
 global_parent.add_argument(
-    "--target", "-t", type=str, default="riscv", choices=["riscv", "arm", "host"]
+    "--target", "-t", type=str, default="riscv",
+    choices=["riscv", "arm", "host"]
 )
 global_parent.add_argument(
     "--mode", type=str, default="release", choices=["debug", "release"])
@@ -41,7 +42,9 @@ def main() -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    subparsers = parser.add_subparsers(dest="command", help="Command to execute")
+    subparsers = parser.add_subparsers(
+        dest="command", help="Command to execute"
+    )
 
     # ---- generate ----
     gen_parser = subparsers.add_parser(
@@ -53,7 +56,9 @@ def main() -> int:
         default="classification",
         choices=["classification", "detection", "segmentation"],
     )
-    gen_parser.add_argument("--input-shape", type=parse_shape, default=[1, 28, 28, 1])
+    gen_parser.add_argument(
+        "--input-shape", type=parse_shape, default=[1, 28, 28, 1]
+    )
     gen_parser.add_argument("--output-shape", type=parse_shape, default=[1, 10])
     gen_parser.add_argument("--max-macs", type=int, default=100000)
     gen_parser.add_argument("--max-ram", type=int, default=30)
@@ -69,7 +74,9 @@ def main() -> int:
         choices=["software", "qemu", "hardware"],
     )
     gen_parser.add_argument("--estimator-script", type=str)
-    gen_parser.add_argument("--estimator-function", type=str, default="estimate")
+    gen_parser.add_argument(
+        "--estimator-function", type=str, default="estimate"
+    )
     gen_parser.add_argument(
         "--generate-mode", type=str, default="genetic",
         choices=["random", "genetic"])

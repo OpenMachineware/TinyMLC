@@ -52,7 +52,8 @@ class Simplify(Pass):
             changed |= self._simplify_pool_k1(model_info)
 
             if changed:
-                self._log_change(f"Iteration {iteration}: simplifications applied")
+                self._log_change(
+                    f"Iteration {iteration}: simplifications applied")
 
         if self._simplified_count > 0:
             self._log_change(f"Total: {self._simplified_count} simplifications")
@@ -84,7 +85,8 @@ class Simplify(Pass):
 
             # Pattern: RESHAPE -> RESHAPE
             if op_name == "RESHAPE" and next_name == "RESHAPE":
-                # Check that the first reshape's output goes directly to the second
+                # Check that the first reshape's output goes directly
+                # to the second
                 if self._is_direct_connection(op, next_op):
                     self._forward_output(op, next_op, model_info)
                     del ops[i]
@@ -110,14 +112,15 @@ class Simplify(Pass):
                     # Check if reshape target shape matches after transpose
                     reshape_params = op.get("reshape_params", {})
                     target_shape = reshape_params.get("shape", [])
-                    if target_shape and self._is_reshape_redundant_after_transpose(
-                        op, next_op, target_shape, model_info
-                    ):
+                    if (target_shape and
+                        self._is_reshape_redundant_after_transpose(
+                            op, next_op, target_shape, model_info)):
                         self._forward_output(op, next_op, model_info)
                         del ops[i]
                         changed = True
                         self._simplified_count += 1
-                        self._log_change("  Removed redundant RESHAPE before TRANSPOSE")
+                        self._log_change(
+                            "  Removed redundant RESHAPE before TRANSPOSE")
                         continue
 
             # Pattern: TRANSPOSE -> RESHAPE (symmetric)
@@ -125,14 +128,15 @@ class Simplify(Pass):
                 if self._is_direct_connection(op, next_op):
                     reshape_params = next_op.get("reshape_params", {})
                     target_shape = reshape_params.get("shape", [])
-                    if target_shape and self._is_reshape_redundant_after_transpose(
-                        next_op, op, target_shape, model_info
-                    ):
+                    if (target_shape and
+                        self._is_reshape_redundant_after_transpose(
+                            next_op, op, target_shape, model_info)):
                         self._forward_output(next_op, op, model_info)
                         del ops[i]
                         changed = True
                         self._simplified_count += 1
-                        self._log_change("  Removed redundant TRANSPOSE before RESHAPE")
+                        self._log_change(
+                            "  Removed redundant TRANSPOSE before RESHAPE")
                         continue
 
             i += 1
@@ -148,7 +152,8 @@ class Simplify(Pass):
         in_idx = op_b.get("input_indices", [])
         return out_idx and in_idx and out_idx[0] == in_idx[0]
 
-    def _forward_output(self, from_op: Dict, to_op: Dict, model_info: Dict) -> None:
+    def _forward_output(self, from_op: Dict, to_op: Dict,
+                        model_info: Dict) -> None:
         """Forward to_op's output to from_op, then remove from_op."""
         # from_op's output is the same as to_op's input
         # We need to redirect all uses of from_op's output to to_op's output
@@ -169,11 +174,14 @@ class Simplify(Pass):
 
         # Now to_op's output is the effective output
         # to_op's input is from_op's input, but we're removing from_op
-        # Actually we want to keep to_op, so from_op's input becomes to_op's input
+        # Actually we want to keep to_op, so from_op's input
+        # becomes to_op's input
         to_op["input_indices"] = from_op.get("input_indices", [])
 
-    def _merge_transposes(self, op_a: Dict, op_b: Dict, model_info: Dict) -> bool:
-        """Merge two consecutive transposes into one, or remove both if inverse."""
+    def _merge_transposes(self, op_a: Dict, op_b: Dict,
+                          model_info: Dict) -> bool:
+        """Merge two consecutive transposes into one,
+        or remove both if inverse."""
         perm_a = op_a.get("transpose_params", {}).get("perm", [])
         perm_b = op_b.get("transpose_params", {}).get("perm", [])
 
@@ -186,7 +194,8 @@ class Simplify(Pass):
             self._forward_output(op_a, op_b, model_info)
             # Remove both ops
             ops = model_info.get("ops", [])
-            # We already removed op_a in the outer loop, so we handle this differently
+            # We already removed op_a in the outer loop, so
+            # we handle this differently
             # For simplicity, we just remove op_b here
             return False  # Let the caller handle removal
 
@@ -272,7 +281,9 @@ class Simplify(Pass):
 
                 if op_name == "ADD" and zero_idx is not None:
                     # ADD with 0: forward the other input
-                    other_idx = input_indices[0] if zero_idx == input_indices[1] else input_indices[1]
+                    other_idx = (input_indices[0]
+                                if zero_idx == input_indices[1]
+                                else input_indices[1])
                     self._remove_op_and_forward(ops, i, other_idx, model_info)
                     changed = True
                     self._simplified_count += 1
@@ -281,7 +292,9 @@ class Simplify(Pass):
 
                 if op_name == "MULTIPLY" and one_idx is not None:
                     # MULTIPLY with 1: forward the other input
-                    other_idx = input_indices[0] if one_idx == input_indices[1] else input_indices[1]
+                    other_idx = (input_indices[0]
+                                if one_idx == input_indices[1]
+                                else input_indices[1])
                     self._remove_op_and_forward(ops, i, other_idx, model_info)
                     changed = True
                     self._simplified_count += 1
@@ -369,7 +382,8 @@ class Simplify(Pass):
                     # Single input concat: just forward
                     forward_idx = input_indices[0] if input_indices else None
                     if forward_idx is not None:
-                        self._remove_op_and_forward(ops, i, forward_idx, model_info)
+                        self._remove_op_and_forward(
+                            ops, i, forward_idx, model_info)
                         changed = True
                         self._simplified_count += 1
                         self._log_change("  Removed CONCAT with single input")
@@ -471,7 +485,8 @@ class Simplify(Pass):
                     self._remove_op_and_forward(ops, i, input_idx, model_info)
                     changed = True
                     self._simplified_count += 1
-                    self._log_change(f"  Removed {op_name} with kernel=1, stride=1")
+                    self._log_change(
+                        f"  Removed {op_name} with kernel=1, stride=1")
                     continue
 
             i += 1

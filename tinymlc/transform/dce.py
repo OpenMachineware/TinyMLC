@@ -38,13 +38,18 @@ class DeadCodeElimination(Pass):
             dead_tensors = self._remove_dead_tensors(model_info, used_indices)
             if dead_tensors:
                 changed = True
-                self._log_change(f"Iteration {iteration}: removed {len(dead_tensors)} dead tensors")
+                self._log_change(
+                    f"Iteration {iteration}: removed {len(dead_tensors)} "
+                    f"dead tensors"
+                )
 
             # 3. Remove dead ops
             dead_ops = self._remove_dead_ops(model_info, used_indices)
             if dead_ops:
                 changed = True
-                self._log_change(f"Iteration {iteration}: removed {len(dead_ops)} dead ops")
+                self._log_change(
+                    f"Iteration {iteration}: removed {len(dead_ops)} dead ops"
+                )
 
         return model_info
 
@@ -129,9 +134,13 @@ class DeadCodeElimination(Pass):
             # Check if all output indices are in tensors.
             all_outputs_valid = all(idx in tensors for idx in outputs)
             # An op is alive if any of its outputs is used
-            is_alive = any(idx in used_indices for idx in outputs) and all_outputs_valid
+            is_alive = (
+                any(idx in used_indices for idx in outputs)
+                and all_outputs_valid
+            )
 
-            # Also: if this op produces an output tensor that is the final output
+            # Also: if this op produces an output tensor that is
+            # the final output
             # For now, keep it if it's the last op in the graph
             # (we'll use a more sophisticated analysis later)
 
@@ -148,7 +157,8 @@ class DeadCodeElimination(Pass):
             for op in dead_ops:
                 for idx in op.get("output_indices", []):
                     if idx in model_info.get("tensors", {}):
-                        # Don't delete right away, let the tensor removal handle it
+                        # Don't delete right away, let the tensor removal
+                        # handle it
                         pass
 
         return dead_ops

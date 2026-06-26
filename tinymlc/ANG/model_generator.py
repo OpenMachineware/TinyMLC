@@ -47,7 +47,8 @@ class ModelGenerator:
             "fc_units_options": [32, 64, 128],
             "upsample_factors": [2, 4],
             # Task config
-            "task_type": "classification",      # classification / detection / segmentation
+            "task_type": "classification",
+            # classification / detection / segmentation
             "input_shape": [1, 28, 28, 1],
             "output_shape": [1, 10],
             # Constraints (for scoring)
@@ -131,7 +132,8 @@ class ModelGenerator:
                 if random.random() < self.config["crossover_rate"]:
                     child1, child2 = self._crossover(parent1, parent2)
                 else:
-                    child1, child2 = copy.deepcopy(parent1), copy.deepcopy(parent2)
+                    child1 = copy.deepcopy(parent1)
+                    child2 = copy.deepcopy(parent2)
 
                 child1 = self._mutate(child1)
                 child2 = self._mutate(child2)
@@ -172,11 +174,11 @@ class ModelGenerator:
                 # Middle layers: mix of conv, pool
                 if task_type == "segmentation":
                     # Segmentation needs upsample in decoder
-                    # For now, keep it simple with conv only (pool not implemented)
+                    # Keep simple with conv only (pool not implemented)
                     layer_type = "conv"
                 else:
                     layer_type = "conv"
-                    # TODO: Re-enable pool layer after implementing builder.add_pool()
+                    # TODO: Re-enable pool after implementing builder.add_pool()
                     # layer_type = random.choice(["conv", "pool"])
 
             if layer_type == "conv":
@@ -216,7 +218,9 @@ class ModelGenerator:
             "output_shape": output_shape,
         }
 
-    def _structure_to_model_info(self, structure: Dict[str, Any]) -> Dict[str, Any]:
+    def _structure_to_model_info(
+        self, structure: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Convert structure to model_info without weights."""
         builder = ModelBuilder("ang_generated")
 
@@ -261,15 +265,20 @@ class ModelGenerator:
                 # Pool reduces spatial dimensions
                 if len(current_shape) == 4:  # NHWC
                     output_shape_layer = list(current_shape)
-                    output_shape_layer[1] = max(1, output_shape_layer[1] // stride)
-                    output_shape_layer[2] = max(1, output_shape_layer[2] // stride)
+                    stride_div = max(1, output_shape_layer[1] // stride)
+                    output_shape_layer[1] = stride_div
+                    stride_div = max(1, output_shape_layer[2] // stride)
+                    output_shape_layer[2] = stride_div
                 elif len(current_shape) == 3:
                     output_shape_layer = list(current_shape)
-                    output_shape_layer[1] = max(1, output_shape_layer[1] // stride)
+                    stride_div = max(1, output_shape_layer[1] // stride)
+                    output_shape_layer[1] = stride_div
                 else:
                     output_shape_layer = current_shape
 
-                output_idx = builder.add_tensor("pool_out", output_shape_layer, "int8")
+                output_idx = builder.add_tensor(
+                    "pool_out", output_shape_layer, "int8"
+                )
                 # TODO: Add pool op to builder
                 current_idx = output_idx
                 current_shape = output_shape_layer
@@ -358,13 +367,14 @@ class ModelGenerator:
             if random.random() < mutation_rate:
                 layer_type = layer["type"]
                 if layer_type == "conv":
-                    layer["channels"] = random.choice(self.config["channels_options"])
-                    layer["kernel"] = random.choice(self.config["kernel_options"])
+                    opts = self.config
+                    layer["channels"] = random.choice(opts["channels_options"])
+                    layer["kernel"] = random.choice(opts["kernel_options"])
                 elif layer_type == "pool":
                     layer["kernel"] = random.choice([2, 3])
                     layer["stride"] = random.choice([2, 3])
                 elif layer_type == "fc":
-                    layer["units"] = random.choice(self.config["fc_units_options"])
+                    layer["units"] = random.choice(opts["fc_units_options"])
                 elif layer_type == "detection_head":
                     layer["num_anchors"] = random.choice([3, 4, 5])
 

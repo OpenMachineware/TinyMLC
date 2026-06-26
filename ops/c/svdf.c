@@ -27,7 +27,8 @@ void tmlc_svdf_s8(const int8_t* input,
         for (int i = 0; i < output_size; i++) {
             int32_t sum = bias[i];
             for (int j = 0; j < input_size; j++) {
-                sum += (int32_t)input_ptr[j] * (int32_t)weights[i * input_size + j];
+                int32_t w_val = (int32_t)weights[i * input_size + j];
+                sum += (int32_t)input_ptr[j] * w_val;
             }
             output_ptr[i] = svdf_clip(sum >> 8);
         }

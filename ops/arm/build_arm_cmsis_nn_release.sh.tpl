@@ -16,7 +16,8 @@ FLOAT_ABI="soft"
 CMSIS_NN_INC="{{ accel_lib_inc }}"
 CMSIS_NN_LIB="{{ accel_lib_lib }}"
 
-CFLAGS="-mcpu=$ARCH -mthumb -mabi=$ABI -mfpu=$FPU -mfloat-abi=$FLOAT_ABI -nostdlib \
+CFLAGS="-mcpu=$ARCH -mthumb -mabi=$ABI \
+    -mfpu=$FPU -mfloat-abi=$FLOAT_ABI -nostdlib \
     -ffreestanding -fno-omit-frame-pointer \
     -I./include -I./c -I. -I$CMSIS_NN_INC"
 

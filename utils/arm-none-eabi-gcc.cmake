@@ -1,9 +1,12 @@
 # For building CMSIS-NN
-# cmake .. -DCMAKE_TOOLCHAIN_FILE=../arm-none-eabi-gcc.cmake \
-#          -DCMAKE_BUILD_TYPE=Release \
-#          -DCMAKE_INSTALL_PREFIX=/opt/cmsis-nn \
-#          -DCMAKE_C_FLAGS="-mcpu=cortex-m4 -mthumb -mabi=aapcs -mfloat-abi=soft -Ofast -DNDEBUG" \
-#          -DCMAKE_CXX_FLAGS="-mcpu=cortex-m4 -mthumb -mabi=aapcs -mfloat-abi=soft -Ofast -DNDEBUG"
+# cmake .. \
+#     -DCMAKE_TOOLCHAIN_FILE=../arm-none-eabi-gcc.cmake \
+#     -DCMAKE_BUILD_TYPE=Release \
+#     -DCMAKE_INSTALL_PREFIX=/opt/cmsis-nn \
+#     -DCMAKE_C_FLAGS="-mcpu=cortex-m4 -mthumb -mabi=aapcs \
+#                      -mfloat-abi=soft -Ofast -DNDEBUG" \
+#     -DCMAKE_CXX_FLAGS="-mcpu=cortex-m4 -mthumb -mabi=aapcs \
+#                        -mfloat-abi=soft -Ofast -DNDEBUG"
 # make
 # Then copy Include and libcmsis-nn.a
 
@@ -19,10 +22,12 @@ set(CMAKE_OBJCOPY arm-none-eabi-objcopy)
 set(CMAKE_OBJDUMP arm-none-eabi-objdump)
 set(CMAKE_SIZE arm-none-eabi-size)
 
-# Disable CMake from trying to compile and run test programs (cross-compiled binaries cannot run on host)
+# Disable CMake from trying to compile and run test programs
+# (cross-compiled binaries cannot run on host)
 set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
 
-# Set path search rules to prevent accidentally including host libraries and headers
+# Set path search rules to prevent accidentally
+# including host libraries and headers
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)

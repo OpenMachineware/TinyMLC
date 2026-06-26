@@ -18,7 +18,8 @@ class MemoryReuse(Pass):
 
     def __init__(self, name: str = "MemoryReuse"):
         super().__init__(name)
-        self._tensor_lifetimes: Dict[int, Tuple[int, int]] = {}  # idx -> (birth, death)
+        self._tensor_lifetimes: Dict[int, Tuple[int, int]] = {}
+        # idx -> (birth, death)
         self._allocation_map: Dict[int, int] = {}  # tensor_idx -> buffer_id
 
     def run(self, model_info: Dict[str, Any]) -> Dict[str, Any]:
@@ -81,7 +82,9 @@ class MemoryReuse(Pass):
             for idx in set(birth.keys()) | set(death.keys())
         }
 
-        self._log_change(f"Computed lifetimes for {len(self._tensor_lifetimes)} tensors")
+        self._log_change(
+            f"Computed lifetimes for {len(self._tensor_lifetimes)} tensors"
+        )
 
     def _build_allocation(self, model_info: Dict[str, Any]) -> None:
         """
@@ -128,7 +131,9 @@ class MemoryReuse(Pass):
                 buffer_sizes[buffer_id] = size
 
         self._allocation_map = allocations
-        self._log_change(f"Allocated {len(buffer_sizes)} buffers for {len(tensors)} tensors")
+        self._log_change(
+            f"Allocated {len(buffer_sizes)} buffers for {len(tensors)} tensors"
+        )
 
     def _assign_buffers(self, model_info: Dict[str, Any]) -> None:
         """
@@ -144,13 +149,18 @@ class MemoryReuse(Pass):
         # For JSON output, we also add it to the dict representation
         # But we don't need to expose it to codegen yet
 
-        total_bytes = sum(self._get_tensor_size(model_info, idx) for idx in tensors.keys())
+        total_bytes = sum(
+            self._get_tensor_size(model_info, idx) for idx in tensors.keys()
+        )
         peak_bytes = sum(
             self._get_tensor_size(model_info, idx)
             for idx, buf_id in self._allocation_map.items()
             if idx in tensors
         )
-        self._log_change(f"Peak RAM: {peak_bytes} bytes (total unique: {total_bytes})")
+        self._log_change(
+            f"Peak RAM: {peak_bytes} bytes "
+            f"(total unique: {total_bytes})"
+        )
 
     def _get_tensor_size(self, model_info: Dict[str, Any], idx: int) -> int:
         """Get the size (in bytes) of a tensor."""

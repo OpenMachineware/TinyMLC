@@ -13,7 +13,8 @@ from pathlib import Path
 
 
 class CNNModel(nn.Module):
-    """Conv2D, DepthwiseConv2D, MaxPool2D, AvgPool2D, GlobalAvgPool2D, FC, Softmax, ReLU"""
+    """Conv2D, DepthwiseConv2D, MaxPool2D, AvgPool2D,
+       GlobalAvgPool2D, FC, Softmax, ReLU"""
     def __init__(self):
         super().__init__()
         self.conv2d = nn.Conv2d(1, 8, 3, padding=1)
@@ -74,9 +75,9 @@ class TensorOpsModel(nn.Module):
         x = self.conv(x)                     # [1, 4, 8, 8]
         split1 = x[:, :, :, :4]              # [1, 4, 8, 4]
         split2 = x[:, :, :, 4:]              # [1, 4, 8, 4]
-        # 两个张量形状完全一样，dim=3 对齐
+        # Two tensors have identical shape, aligned on dim=3
         concat = torch.cat([split1, split2], dim=3)  # [1, 4, 8, 8]
-        # 不需要 pad 了，直接走后面的操作
+        # No padding needed, proceed directly
         flat = concat.view(concat.size(0), -1)
         reshape = flat.view(flat.size(0), 4, -1)
         transpose = reshape.transpose(1, 2)
@@ -100,7 +101,8 @@ class UpsampleModel(nn.Module):
     """Upsample (nearest), ConvTranspose"""
     def __init__(self):
         super().__init__()
-        self.conv_transpose = nn.ConvTranspose2d(4, 4, 3, stride=2, padding=1, output_padding=1)
+        self.conv_transpose = nn.ConvTranspose2d(
+            4, 4, 3, stride=2, padding=1, output_padding=1)
 
     def forward(self, x):
         x = self.conv_transpose(x)
@@ -122,7 +124,8 @@ class LSTMModel(nn.Module):
         return x
 
 
-def export_to_onnx(model, name, input_shape, output_dir=None, dynamic_axes=None):
+def export_to_onnx(model, name, input_shape,
+                   output_dir=None, dynamic_axes=None):
     """Export PyTorch model to ONNX."""
     if output_dir is None:
         output_dir = Path(".")

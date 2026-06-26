@@ -64,8 +64,12 @@ def calculate_macs(model_info: Dict[str, Any]) -> int:
             input_idx = op.get("input_indices", [0])[0]
             output_idx = op.get("output_indices", [0])[0]
 
-            input_shape = tensors.get(input_idx, {}).get("shape", [1, 1, 1, 1])
-            output_shape = tensors.get(output_idx, {}).get("shape", [1, 1, 1, 1])
+            input_shape = tensors.get(input_idx, {}).get(
+                "shape", [1, 1, 1, 1]
+            )
+            output_shape = tensors.get(output_idx, {}).get(
+                "shape", [1, 1, 1, 1]
+            )
 
             # NHWC format: [batch, height, width, channels]
             if len(input_shape) >= 4 and len(output_shape) >= 4:
@@ -99,8 +103,12 @@ def calculate_macs(model_info: Dict[str, Any]) -> int:
             input_idx = op.get("input_indices", [0])[0]
             output_idx = op.get("output_indices", [0])[0]
 
-            input_shape = tensors.get(input_idx, {}).get("shape", [1, 1, 1, 1])
-            output_shape = tensors.get(output_idx, {}).get("shape", [1, 1, 1, 1])
+            input_shape = tensors.get(input_idx, {}).get(
+                "shape", [1, 1, 1, 1]
+            )
+            output_shape = tensors.get(output_idx, {}).get(
+                "shape", [1, 1, 1, 1]
+            )
 
             if len(input_shape) >= 4 and len(output_shape) >= 4:
                 h = output_shape[1] if output_shape[1] else 1
@@ -149,7 +157,7 @@ def calculate_macs(model_info: Dict[str, Any]) -> int:
                 w = output_shape[2] if output_shape[2] else 1
                 c_in = input_shape[3] if input_shape[3] else 1
                 c_out = output_shape[3] if output_shape[3] else 1
-                # MACs of a transposed convolution. MACs = H * W * C_in * C_out * K * K
+                # MACs of transposed convolution: H * W * C_in * C_out * K * K
                 total += h * w * c_in * c_out * kernel_size * kernel_size
 
     return total

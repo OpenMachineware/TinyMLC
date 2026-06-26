@@ -19,7 +19,8 @@ class CommonSubexpressionElimination(Pass):
     Strategy:
         1. Compute a signature for each op (op_name + input_indices + params)
         2. If two ops have the same signature, keep the first one
-        3. Replace all uses of the later op's outputs with the first op's outputs
+        3. Replace all uses of the later op's outputs with
+           the first op's outputs
     """
 
     def __init__(self, name: str = "CommonSubexpressionElimination"):
@@ -49,7 +50,8 @@ class CommonSubexpressionElimination(Pass):
                 eliminated_count += 1
                 self._log_change(
                     f"  Eliminated duplicate {op.get('op_name')} "
-                    f"(outputs: {op.get('output_indices')} -> {orig_op.get('output_indices')})"
+                    f"(outputs: {op.get('output_indices')} "
+                    f"-> {orig_op.get('output_indices')})"
                 )
                 # Don't add this op to new_ops
             else:
@@ -61,7 +63,9 @@ class CommonSubexpressionElimination(Pass):
             model_info["ops"] = new_ops
             # Update all tensor references in remaining ops
             self._update_tensor_refs(model_info)
-            self._log_change(f"Eliminated {eliminated_count} duplicate expressions")
+            self._log_change(
+                f"Eliminated {eliminated_count} duplicate expressions"
+            )
 
         return model_info
 
@@ -101,7 +105,9 @@ class CommonSubexpressionElimination(Pass):
         sig_str = json.dumps(sig, sort_keys=True)
         return hashlib.sha256(sig_str.encode()).hexdigest()[:16]
 
-    def _replace_outputs(self, dup_op: Dict[str, Any], orig_op: Dict[str, Any]) -> None:
+    def _replace_outputs(
+        self, dup_op: Dict[str, Any], orig_op: Dict[str, Any]
+    ) -> None:
         """
         Map outputs of dup_op to outputs of orig_op.
 
@@ -163,4 +169,6 @@ class CommonSubexpressionElimination(Pass):
         # (tensor_index is metadata, we don't need to update it for CSE)
         # But if we want to keep consistency, we could update it.
 
-        self._log_change(f"  Replaced {len(self._replace_map)} tensor references")
+        self._log_change(
+            f"  Replaced {len(self._replace_map)} tensor references"
+        )

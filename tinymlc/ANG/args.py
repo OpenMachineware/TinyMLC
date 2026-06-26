@@ -56,7 +56,9 @@ def create_estimator(args: argparse.Namespace) -> Estimator:
                 "max_params": 50000,
                 "max_ram": max_ram_kb * 1024,
                 "script_path": getattr(args, "estimator_script", None),
-                "function_name": getattr(args, "estimator_function", "estimate"),
+                "function_name": getattr(
+                    args, "estimator_function", "estimate"
+                ),
                 "clock_speed": getattr(args, "clock_speed", 100000000),
             }
         )

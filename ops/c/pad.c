@@ -12,7 +12,8 @@ void tmlc_pad_s8(const int8_t* input,
     // paddings format: [top, bottom, left, right, front, back, ...]
     // For 4D NHWC: [0, 0, top, bottom, left, right, 0, 0]
 
-    if (input_dims != 4 || input == NULL || output == NULL || paddings == NULL) {
+    if (input_dims != 4 || input == NULL ||
+        output == NULL || paddings == NULL) {
         return;
     }
 

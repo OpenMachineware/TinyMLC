@@ -2,7 +2,8 @@
 """CLI tool to extract weights from ONNX models
 
 Usage:
-    uv run python -m tinymlc.extract_onnx_weights model.onnx --output-dir output/
+    uv run python -m tinymlc.extract_onnx_weights \
+        model.onnx --output-dir output/
 
 Or:
     python -m tinymlc.extract_onnx_weights model.onnx --output-dir output/
@@ -19,7 +20,10 @@ from converter.converter import export_model_weights
 from utils.dump import info, fatal_error
 
 
-WEIGHTLESS_OPS = ["ADD", "SOFTMAX", "RESHAPE", "RELU", "SIGMOID", "TANH", "SUB", "MULTIPLY"]
+WEIGHTLESS_OPS = [
+    "ADD", "SOFTMAX", "RESHAPE", "RELU",
+    "SIGMOID", "TANH", "SUB", "MULTIPLY"
+]
 
 
 def main():
@@ -51,7 +55,9 @@ def main():
                 "Check if model contains supported operators"
             )
         else:
-            info("Note: Model only contains weightless operators, continuing...")
+            info(
+                "Note: Model only contains weightless operators, continuing..."
+            )
 
     # 4. Create output directory
     output_dir = Path(args.output_dir)

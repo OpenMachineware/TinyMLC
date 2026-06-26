@@ -16,7 +16,8 @@
 {% if target == "host" %}
 {{ tensor.type }} tensor_{{ tensor.index }}[{{ tensor.size }}];
 {% else %}
-{{ tensor.type }} tensor_{{ tensor.index }}[{{ tensor.size }}] __attribute__((section(".bss")));
+{{ tensor.type }} tensor_{{ tensor.index }}[{{ tensor.size }}] \
+    __attribute__((section(".bss")));
 {% endif %}
 {% endfor %}
 
@@ -33,7 +34,11 @@ void {{ inference_func }}(const int8_t* input, int8_t* output) {
     // Input tensor mapping
     int8_t* tensor_{{ input_tensor_indices[0] }} = (int8_t*)input;
 {% elif inputs_count == 2 %}
-void {{ inference_func }}(const int8_t* input1, const int8_t* input2, int8_t* output) {
+void {{ inference_func }}(
+    const int8_t* input1,
+    const int8_t* input2,
+    int8_t* output
+) {
     // Input tensor mapping
     int8_t* tensor_{{ input_tensor_indices[0] }} = (int8_t*)input1;
     int8_t* tensor_{{ input_tensor_indices[1] }} = (int8_t*)input2;
@@ -72,7 +77,11 @@ void {{ inference_func }}(const int8_t* input1, const int8_t* input2, int8_t* ou
         );
         {% elif op.op_name == "RESHAPE" %}
         {
-            static const int reshape_target[] = { {% for s in op.reshape_target_shape %}{{ s }}{% if not loop.last %}, {% endif %}{% endfor %} };
+            static const int reshape_target[] = {
+                {% for s in op.reshape_target_shape %}
+                    {{ s }}{% if not loop.last %},{% endif %}
+                {% endfor %}
+            };
             int reshape_input_size = {{ tensor_sizes[op.input_indices[0]] }};
             tmlc_reshape_s8(
                 tensor_{{ op.input_indices[0] }},
@@ -187,7 +196,11 @@ void {{ inference_func }}(const int8_t* input1, const int8_t* input2, int8_t* ou
             NULL,
             tensor_{{ op.output_indices[0] }},
             {{ op.transpose_params.input_dims }},
-            (const int[]){ {% for s in tensor_shapes[op.data_input_idx] %}{{ s }}{% if not loop.last %}, {% endif %}{% endfor %} }
+            (const int[]){
+                {% for s in tensor_shapes[op.data_input_idx] %}
+                    {{ s }}{% if not loop.last %},{% endif %}
+                {% endfor %}
+            }
         );
         {% elif op.op_name == "PAD" %}
         tmlc_pad_s8(
@@ -195,16 +208,32 @@ void {{ inference_func }}(const int8_t* input1, const int8_t* input2, int8_t* ou
             NULL,  // paddings, currently NULL
             tensor_{{ op.output_indices[0] }},
             4,
-            (const int[]){ {% for s in tensor_shapes[op.data_input_idx] %}{{ s }}{% if not loop.last %}, {% endif %}{% endfor %} },
-            (const int[]){ {% for s in tensor_shapes[op.output_indices[0]] %}{{ s }}{% if not loop.last %}, {% endif %}{% endfor %} }
+            (const int[]){
+                {% for s in tensor_shapes[op.data_input_idx] %}
+                    {{ s }}{% if not loop.last %},{% endif %}
+                {% endfor %}
+            },
+            (const int[]){
+                {% for s in tensor_shapes[op.output_indices[0]] %}
+                    {{ s }}{% if not loop.last %},{% endif %}
+                {% endfor %}
+            }
         );
         {% elif op.op_name == "MEAN" %}
         tmlc_mean_s8(
             tensor_{{ op.data_input_idx }},
             tensor_{{ op.output_indices[0] }},
             {{ op.mean_params.input_dims }},
-            (const int[]){ {% for s in tensor_shapes[op.data_input_idx] %}{{ s }}{% if not loop.last %}, {% endif %}{% endfor %} },
-            (const int[]){ {% for s in tensor_shapes[op.output_indices[0]] %}{{ s }}{% if not loop.last %}, {% endif %}{% endfor %} },
+            (const int[]){
+                {% for s in tensor_shapes[op.data_input_idx] %}
+                    {{ s }}{% if not loop.last %},{% endif %}
+                {% endfor %}
+            },
+            (const int[]){
+                {% for s in tensor_shapes[op.output_indices[0]] %}
+                    {{ s }}{% if not loop.last %},{% endif %}
+                {% endfor %}
+            },
             NULL,
             0,
             0
@@ -224,8 +253,16 @@ void {{ inference_func }}(const int8_t* input1, const int8_t* input2, int8_t* ou
         );
         {% elif op.op_name == "CONCAT" %}
         {
-            static const int8_t* concat_inputs[] = { {% for idx in op.input_indices %}tensor_{{ idx }}{% if not loop.last %}, {% endif %}{% endfor %} };
-            static const int concat_sizes[] = { {% for idx in op.input_indices %}{{ tensor_sizes[idx] }}{% if not loop.last %}, {% endif %}{% endfor %} };
+            static const int8_t* concat_inputs[] = {
+                {% for idx in op.input_indices %}
+                    tensor_{{ idx }}{% if not loop.last %},{% endif %}
+                {% endfor %}
+            };
+            static const int concat_sizes[] = {
+                {% for idx in op.input_indices %}
+                    {{ tensor_sizes[idx] }}{% if not loop.last %},{% endif %}
+                {% endfor %}
+            };
             tmlc_concat_s8(
                 concat_inputs,
                 concat_sizes,

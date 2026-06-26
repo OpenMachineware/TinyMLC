@@ -15,12 +15,14 @@ MODELS = [
     (
         "hello_world_float.tflite",
         "https://raw.githubusercontent.com/tensorflow/tflite-micro/main/"
-        "tensorflow/lite/micro/examples/hello_world/models/hello_world_float.tflite"
+        "tensorflow/lite/micro/examples/hello_world/"
+        "models/hello_world_float.tflite"
     ),
     (
         "hello_world_int8.tflite",
         "https://raw.githubusercontent.com/tensorflow/tflite-micro/main/"
-        "tensorflow/lite/micro/examples/hello_world/models/hello_world_int8.tflite"
+        "tensorflow/lite/micro/examples/hello_world/"
+        "models/hello_world_int8.tflite"
     ),
     # mnist_lstm models
     (
@@ -32,13 +34,15 @@ MODELS = [
     (
         "micro_speech_quantized.tflite",
         "https://raw.githubusercontent.com/tensorflow/tflite-micro/main/"
-        "tensorflow/lite/micro/examples/micro_speech/models/micro_speech_quantized.tflite"
+        "tensorflow/lite/micro/examples/micro_speech/"
+        "models/micro_speech_quantized.tflite"
     ),
     # memory_footprint models
     (
         "simple_add_model.tflite",
         "https://raw.githubusercontent.com/tensorflow/tflite-micro/main/"
-        "tensorflow/lite/micro/examples/memory_footprint/models/simple_add_model.tflite"
+        "tensorflow/lite/micro/examples/memory_footprint/"
+        "models/simple_add_model.tflite"
     ),
     # dtln models
     (

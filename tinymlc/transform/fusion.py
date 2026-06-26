@@ -105,7 +105,8 @@ class OperatorFusion(Pass):
                     }
             model_info["tensors"] = tensors
 
-            # Update all references: replace conv_output with act_output, then delete conv_output
+            # Update all references: replace conv_output with act_output,
+            # then delete conv_output
             self._update_tensor_refs_after_removal(model_info, conv_output,
                                                    act_output)
 
@@ -218,7 +219,8 @@ class OperatorFusion(Pass):
         return fused
 
     def _fuse_dwconv_activation(self, model_info: Dict[str, Any]) -> bool:
-        """Fuse DEPTHWISE_CONV_2D + activation into a single DEPTHWISE_CONV_2D."""
+        """Fuse DEPTHWISE_CONV_2D + activation into a single
+        DEPTHWISE_CONV_2D."""
         ops = model_info.get("ops", [])
         fused = False
         i = 0
@@ -285,9 +287,9 @@ class OperatorFusion(Pass):
         Fuse CONV_2D + ADD (residual connection) into a single CONV_2D.
 
         Pattern:
-            input ──┬──> CONV_2D ──> ADD ──> output
-                    │                     ↑
-                    └─────────────────────┘
+            input ──┬──> CONV_2D ──> ADD
+                    │                 ↑
+                    └─────────────────┘
 
         Becomes:
             input ──> CONV_2D (with residual=True) ──> output
@@ -447,8 +449,9 @@ class OperatorFusion(Pass):
                 i += 1
                 continue
 
-            # Fold BN into conv weights: w' = w * scale / sqrt(var + eps)
-            #                          b' = (b - mean) * scale / sqrt(var + eps) + bias
+            # Fold BN into conv weights:
+            #   w' = w * scale / sqrt(var + eps)
+            #   b' = (b - mean) * scale / sqrt(var + eps) + bias
             conv_weight = weights[weight_idx]
             conv_bias = weights.get(bias_idx_conv,
                                     np.zeros(conv_weight.shape[-1],
@@ -458,7 +461,8 @@ class OperatorFusion(Pass):
             std = np.sqrt(var + epsilon)
             factor = scale / std
 
-            # Fold into weights (assuming conv_weight shape: [H, W, C_in, C_out])
+            # Fold into weights (assuming conv_weight shape:
+            # [H, W, C_in, C_out])
             # Convert to float for computation
             w_f = conv_weight.astype(np.float32)
             b_f = conv_bias.astype(np.float32)
@@ -621,7 +625,8 @@ class OperatorFusion(Pass):
             # ----------------------------------------------------------------
             # Pattern 2: 3x3 + 3x3 -> 5x5
             # ----------------------------------------------------------------
-            if k1 == 3 and k2 == 3 and s1 == 1 and s2 == 1 and p1 == "SAME" and p2 == "SAME":
+            if (k1 == 3 and k2 == 3 and s1 == 1 and s2 == 1
+                    and p1 == "SAME" and p2 == "SAME"):
                 w1_f = w1.astype(np.float32)
                 w2_f = w2.astype(np.float32)
 

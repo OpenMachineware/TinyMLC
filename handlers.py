@@ -113,7 +113,8 @@ def handle_generate(args: argparse.Namespace) -> int:
         model_info=optimized_model_info,
         output_dir=str(out_dir),
         target=target,
-        inference_func=getattr(args, "inference_function_name", "tinymlc_inference"),
+        inference_func=getattr(args, "inference_function_name",
+                               "tinymlc_inference"),
         with_test_main=True,  # Always generate test main for generated networks
     )
 
@@ -137,15 +138,20 @@ def handle_generate(args: argparse.Namespace) -> int:
     accel_lib_lib = getattr(args, "accel_lib_lib", None)
 
     if accel == "cmsis-nn" and (not accel_lib_inc or not accel_lib_lib):
-        accel_lib_inc = str(project_root / "third_party" / "CMSIS-NN-7.0.0" / "Include")
-        accel_lib_lib = str(project_root / "third_party" / "CMSIS-NN-7.0.0" / "Lib" / "libcmsis-nn.a")
+        accel_lib_inc = str(project_root / "third_party" /
+                           "CMSIS-NN-7.0.0" / "Include")
+        accel_lib_lib = str(project_root / "third_party" /
+                           "CMSIS-NN-7.0.0" / "Lib" / "libcmsis-nn.a")
     elif accel == "nmsis-nn" and (not accel_lib_inc or not accel_lib_lib):
-        accel_lib_inc = str(project_root / "third_party" / "NMSIS-1.6.0" / "Include")
-        accel_lib_lib = str(project_root / "third_party" / "NMSIS-1.6.0" / "Lib" / "libNMSISNN.a")
+        accel_lib_inc = str(project_root / "third_party" /
+                           "NMSIS-NN-1.6.0" / "Include")
+        accel_lib_lib = str(project_root / "third_party" /
+                           "NMSIS-NN-1.6.0" / "Lib" / "libNMSISNN.a")
 
     if accel == "pure-c":
         copy_files_to_build(out_dir, target, mode, accel)
-    copy_files_to_build(out_dir, target, mode, accel, accel_lib_inc, accel_lib_lib)
+    copy_files_to_build(out_dir, target, mode, accel,
+                        accel_lib_inc, accel_lib_lib)
 
     # Determine script name (must match copy_files_to_build logic)
     if target == "host":
@@ -202,7 +208,8 @@ def handle_table(args: argparse.Namespace) -> int:
 
     elif getattr(args, "update", False):
         info(f"Updating table: {table_name}")
-        add_ops = getattr(args, "add_ops", "").split(",") if args.add_ops else []
+        add_ops = getattr(args, "add_ops", "").split(",") \
+            if args.add_ops else []
         recalibrate = getattr(args, "recalibrate", False)
 
         table_mgr.update_table(
@@ -221,7 +228,8 @@ def handle_table(args: argparse.Namespace) -> int:
             print(json.dumps(stats, indent=2))
 
     else:
-        fatal_error("Table operation not specified. Use --build, --update, or --show")
+        fatal_error(
+            "Table operation not specified. Use --build, --update, or --show")
 
     return 0
 
@@ -240,7 +248,8 @@ def handle_convert(args: argparse.Namespace) -> int:
     if not model_path:
         fatal_error("--model is required for convert")
     if not Path(model_path).exists():
-        fatal_error(f"Model file not found: {model_path}", "Please check file path")
+        fatal_error(f"Model file not found: {model_path}",
+                    "Please check file path")
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -323,13 +332,18 @@ def handle_convert(args: argparse.Namespace) -> int:
     accel_lib_lib = getattr(args, "accel_lib_lib", None)
 
     if accel == "cmsis-nn" and (not accel_lib_inc or not accel_lib_lib):
-        accel_lib_inc = str(project_root / "third_party" / "CMSIS-NN-7.0.0" / "Include")
-        accel_lib_lib = str(project_root / "third_party" / "CMSIS-NN-7.0.0" / "Lib" / "libcmsis-nn.a")
+        accel_lib_inc = str(project_root / "third_party" /
+                           "CMSIS-NN-7.0.0" / "Include")
+        accel_lib_lib = str(project_root / "third_party" /
+                           "CMSIS-NN-7.0.0" / "Lib" / "libcmsis-nn.a")
     elif accel == "nmsis-nn" and (not accel_lib_inc or not accel_lib_lib):
-        accel_lib_inc = str(project_root / "third_party" / "NMSIS-1.6.0" / "Include")
-        accel_lib_lib = str(project_root / "third_party" / "NMSIS-1.6.0" / "Lib" / "libNMSISNN.a")
+        accel_lib_inc = str(project_root / "third_party" /
+                           "NMSIS-NN-1.6.0" / "Include")
+        accel_lib_lib = str(project_root / "third_party" /
+                           "NMSIS-NN-1.6.0" / "Lib" / "libNMSISNN.a")
 
-    copy_files_to_build(output_dir, target, mode, accel, accel_lib_inc, accel_lib_lib)
+    copy_files_to_build(output_dir, target, mode, accel,
+                        accel_lib_inc, accel_lib_lib)
 
     # Determine script name
     if target == "host":
