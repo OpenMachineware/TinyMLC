@@ -10,7 +10,7 @@ from tinymlc.transform.simplify import Simplify
 from tinymlc.transform.algebraic import AlgebraicSimplify
 from tinymlc.transform.fusion import OperatorFusion
 from tinymlc.transform.memory import MemoryReuse
-from utils.dump import fatal_error, warning, info
+from utils.dump import info
 
 class PassManager:
     """

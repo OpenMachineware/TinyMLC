@@ -3,14 +3,11 @@
 
 import random
 import copy
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 
 from tinymlc.ANG.model_builder import ModelBuilder
-from tinymlc.ANG.model_info import ModelInfo
 from tinymlc.ANG.estimator import Estimator
-from tinymlc.ANG.utils import (generate_random_weights_from_structure,
-                               fill_model_info_with_weights)
-from utils.dump import fatal_error, warning, info
+from utils.dump import fatal_error, info
 
 
 class ModelGenerator:
@@ -363,18 +360,24 @@ class ModelGenerator:
 
         mutation_rate = self.config["mutation_rate"]
 
+        # Get options from config
+        channels_opts = self.config.get("channels_options", [8, 16, 32, 64])
+        kernel_opts = self.config.get("kernel_options", [1, 3, 5])
+        stride_opts = self.config.get("stride_options", [1, 2])
+        fc_units_opts = self.config.get("fc_units_options", [32, 64, 128])
+
         for i, layer in enumerate(layers):
             if random.random() < mutation_rate:
                 layer_type = layer["type"]
                 if layer_type == "conv":
-                    opts = self.config
-                    layer["channels"] = random.choice(opts["channels_options"])
-                    layer["kernel"] = random.choice(opts["kernel_options"])
+                    layer["channels"] = random.choice(channels_opts)
+                    layer["kernel"] = random.choice(kernel_opts)
+                    layer["stride"] = random.choice(stride_opts)
                 elif layer_type == "pool":
                     layer["kernel"] = random.choice([2, 3])
                     layer["stride"] = random.choice([2, 3])
                 elif layer_type == "fc":
-                    layer["units"] = random.choice(opts["fc_units_options"])
+                    layer["units"] = random.choice(fc_units_opts)
                 elif layer_type == "detection_head":
                     layer["num_anchors"] = random.choice([3, 4, 5])
 

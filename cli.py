@@ -3,9 +3,8 @@
 
 import argparse
 import sys
-from typing import List
 
-from handlers import handle_generate, handle_table, handle_convert
+from handlers import handle_generate, handle_convert
 from utils.dump import fatal_error
 from tinymlc.ANG.args import parse_shape
 
@@ -84,19 +83,6 @@ def main() -> int:
     gen_parser.add_argument("--generations", type=int, default=50)
     gen_parser.add_argument("--early-stop", type=int, default=10)
     gen_parser.add_argument("--num-samples", type=int, default=100)
-
-    # ---- table ----
-    table_parser = subparsers.add_parser(
-        "table", parents=[global_parent], help="Manage hardware profile tables"
-    )
-    table_parser.add_argument("--build", action="store_true")
-    table_parser.add_argument("--update", action="store_true")
-    table_parser.add_argument("--show", action="store_true")
-    table_parser.add_argument("--stats", action="store_true")
-    table_parser.add_argument("--add-ops", type=str)
-    table_parser.add_argument("--recalibrate", action="store_true")
-    table_parser.add_argument("--entries", type=str)
-    table_parser.add_argument("--board", type=str, default="unknown")
 
     # ---- convert ----
     convert_parser = subparsers.add_parser(

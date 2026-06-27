@@ -2,13 +2,13 @@
 """Command-line argument utilities for ANG and TinyMLC CLI"""
 
 import argparse
-from typing import List, Optional
+from typing import List
 
 from tinymlc.ANG.estimator import Estimator
 from tinymlc.ANG.estimator_software import SoftwareEstimator
 from tinymlc.ANG.estimator_qemu import QemuEstimator
 from tinymlc.ANG.estimator_hal import HardwareHALEstimator
-
+from utils.dump import fatal_error
 
 def parse_shape(shape_str: str) -> List[int]:
     """Parse shape string like '1,28,28,1' to list of integers"""
@@ -64,10 +64,4 @@ def create_estimator(args: argparse.Namespace) -> Estimator:
         )
 
     else:
-        from utils.dump import fatal_error
         fatal_error(f"Unknown estimator type: {estimator_type}")
-
-
-def get_table_name(args: argparse.Namespace) -> Optional[str]:
-    """Get table name from args"""
-    return getattr(args, "table_name", None)

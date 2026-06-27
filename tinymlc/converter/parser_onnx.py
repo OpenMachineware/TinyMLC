@@ -2,11 +2,8 @@
 """ONNX model parser"""
 
 import onnx
-from onnx import helper, numpy_helper
-import numpy as np
-from pathlib import Path
-
-from utils.dump import fatal_error, info, warning
+from onnx import numpy_helper
+from utils.dump import warning
 
 # ONNX operator to tinymlc IR mapping
 OP_MAP = {

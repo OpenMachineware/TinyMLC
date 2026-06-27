@@ -1,6 +1,6 @@
 import numpy as np
 
-from utils.dump import fatal_error, warning, info
+from utils.dump import warning, info
 
 
 def quantize_to_int8(tensor):

@@ -3,11 +3,8 @@
 
 import subprocess
 import tempfile
-import os
 import re
-from pathlib import Path
 from typing import Dict, Any, Optional
-import numpy as np
 
 from tinymlc.ANG.estimator import Estimator
 from tinymlc.ANG.utils import (calculate_macs, calculate_params,

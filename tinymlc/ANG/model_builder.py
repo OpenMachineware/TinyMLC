@@ -2,15 +2,10 @@
 # Builder for constructing ModelInfo structures from scratch.
 
 import copy
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Dict
 import numpy as np
 
-from tinymlc.ANG.model_info import (
-    ModelInfo,
-    TensorSpec,
-    Op,
-    create_default_tensor_spec,
-)
+from tinymlc.ANG.model_info import ModelInfo, TensorSpec, Op
 
 
 class ModelBuilder:

@@ -1,7 +1,9 @@
 # tinymlc/transform/fusion.py
 # Operator Fusion.
 
-from typing import Dict, Any, List, Optional, Tuple
+import numpy as np
+
+from typing import Dict, Any
 from tinymlc.transform.base import Pass
 
 
@@ -437,8 +439,6 @@ class OperatorFusion(Pass):
                 continue
 
             # Extract BN parameters as numpy arrays
-            import numpy as np
-
             scale = weights.get(scale_idx)
             bias = weights.get(bias_idx)
             mean = weights.get(mean_idx)
@@ -559,8 +559,6 @@ class OperatorFusion(Pass):
             if w1_idx not in weights or w2_idx not in weights:
                 i += 1
                 continue
-
-            import numpy as np
 
             w1 = weights[w1_idx]
             w2 = weights[w2_idx]

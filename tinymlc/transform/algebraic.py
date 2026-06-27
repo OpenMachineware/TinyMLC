@@ -9,9 +9,10 @@
 #   4. SUB(x, constant) -> x - constant
 #   5. ADD(x, ADD(y, z)) -> ADD(ADD(x, y), z)  (associative)
 #   6. ADD(x, y) -> SUB(x, -y)  (if y is negative constant)
+import numpy as np
 
-from typing import Dict, Any, List, Set, Tuple, Optional
-from .base import Pass
+from typing import Dict, Any, List, Optional
+from tinymlc.transform.base import Pass
 
 
 class AlgebraicSimplify(Pass):
@@ -211,8 +212,6 @@ class AlgebraicSimplify(Pass):
 
     def _create_constant_zero(self, model_info: Dict[str, Any]) -> int:
         """Create a constant zero tensor."""
-        import numpy as np
-
         # Find the max tensor index
         tensors = model_info.get("tensors", {})
         max_idx = max(tensors.keys()) if tensors else 0

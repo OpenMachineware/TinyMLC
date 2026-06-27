@@ -1,7 +1,7 @@
 # tinymlc/transform/cse.py
 # Common Subexpression Elimination.
 
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any
 import hashlib
 import json
 

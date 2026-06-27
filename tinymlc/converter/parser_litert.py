@@ -8,7 +8,6 @@ UNIDIRECTIONAL_SEQUENCE_LSTM spec.
 """
 
 from ai_edge_litert.interpreter import Interpreter
-from ai_edge_litert.compiled_model import CompiledModel
 import numpy as np
 
 from utils.dump import fatal_error, info, warning

@@ -1,8 +1,7 @@
 # tinymlc/transform/constant_folding.py
 # Constant folding optimization pass.
 
-from typing import Dict, Any, List, Optional
-import copy
+from typing import Dict, Any
 import numpy as np
 
 from tinymlc.transform.base import Pass

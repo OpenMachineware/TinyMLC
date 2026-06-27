@@ -13,7 +13,7 @@
 #   9. POOL with kernel_size=1 and stride=1: remove the pool
 
 from typing import Dict, Any, List, Set, Tuple, Optional
-from .base import Pass
+from tinymlc.transform.base import Pass
 
 
 class Simplify(Pass):

@@ -1,7 +1,7 @@
 # tinymlc/transform/memory.py
 # Memory reuse optimization.
 
-from typing import Dict, Any, List, Set, Tuple
+from typing import Dict, Any, Tuple
 from tinymlc.transform.base import Pass
 
 
