@@ -1,4 +1,4 @@
-# tinymlc/transform/simplify.py
+# TinyMLC/transform/simplify.py
 # Simplify pass: eliminates redundant operator patterns.
 #
 # Patterns handled:
@@ -13,7 +13,7 @@
 #   9. POOL with kernel_size=1 and stride=1: remove the pool
 
 from typing import Dict, Any, List, Set, Tuple, Optional
-from tinymlc.transform.base import Pass
+from TinyMLC.transform.base import Pass
 
 
 class Simplify(Pass):

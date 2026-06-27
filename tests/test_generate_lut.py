@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 import numpy as np
 
-from tinymlc.generate_lut import generate_sigmoid_lut, generate_tanh_lut
+from TinyMLC.generate_lut import generate_sigmoid_lut, generate_tanh_lut
 
 
 def test_sigmoid_lut_length():

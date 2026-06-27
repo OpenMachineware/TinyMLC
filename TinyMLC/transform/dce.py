@@ -1,8 +1,8 @@
-# tinymlc/transform/dce.py
+# TinyMLC/transform/dce.py
 # Dead Code Elimination pass.
 
 from typing import Dict, Any, Set, List
-from tinymlc.transform.base import Pass
+from TinyMLC.transform.base import Pass
 
 
 class DeadCodeElimination(Pass):

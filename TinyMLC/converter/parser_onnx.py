@@ -5,7 +5,7 @@ import onnx
 from onnx import numpy_helper
 from utils.dump import warning
 
-# ONNX operator to tinymlc IR mapping
+# ONNX operator to TinyMLC IR mapping
 OP_MAP = {
     "Conv": "CONV_2D",
     "Gemm": "FULLY_CONNECTED",
@@ -335,7 +335,7 @@ def parse_model_onnx(model_path: str):
                 "zero_point": zero_point,
             })
 
-        # Map to tinymlc operator name
+        # Map to TinyMLC operator name
         if node.op_type in OP_MAP:
             op_info["op_name"] = OP_MAP[node.op_type]
             op_info["state"] = "translated"

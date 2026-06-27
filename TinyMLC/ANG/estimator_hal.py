@@ -6,8 +6,8 @@ import sys
 from pathlib import Path
 from typing import Dict, Any, Optional
 
-from tinymlc.ANG.estimator import Estimator
-from tinymlc.ANG.utils import (calculate_macs, calculate_params,
+from TinyMLC.ANG.estimator import Estimator
+from TinyMLC.ANG.utils import (calculate_macs, calculate_params,
                                calculate_peak_ram)
 
 

@@ -1,10 +1,10 @@
-# tinymlc/transform/constant_folding.py
+# TinyMLC/transform/constant_folding.py
 # Constant folding optimization pass.
 
 from typing import Dict, Any
 import numpy as np
 
-from tinymlc.transform.base import Pass
+from TinyMLC.transform.base import Pass
 
 
 class ConstantFolding(Pass):

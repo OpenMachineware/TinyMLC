@@ -1,4 +1,4 @@
-# tinymlc/transform/base.py
+# TinyMLC/transform/base.py
 # Base class for all optimization passes.
 
 from abc import ABC, abstractmethod

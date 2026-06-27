@@ -6,7 +6,7 @@ import sys
 
 from handlers import handle_generate, handle_convert
 from utils.dump import fatal_error
-from tinymlc.ANG.args import parse_shape
+from TinyMLC.ANG.args import parse_shape
 
 
 global_parent = argparse.ArgumentParser(add_help=False)

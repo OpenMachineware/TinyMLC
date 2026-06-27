@@ -1,11 +1,11 @@
-# tinymlc/transform/cse.py
+# TinyMLC/transform/cse.py
 # Common Subexpression Elimination.
 
 from typing import Dict, Any
 import hashlib
 import json
 
-from tinymlc.transform.base import Pass
+from TinyMLC.transform.base import Pass
 
 
 class CommonSubexpressionElimination(Pass):

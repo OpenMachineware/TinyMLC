@@ -1,4 +1,4 @@
-# tinymlc/transform/algebraic.py
+# TinyMLC/transform/algebraic.py
 # Algebraic simplification: transforms arithmetic expressions
 # to simpler equivalent forms.
 #
@@ -12,7 +12,7 @@
 import numpy as np
 
 from typing import Dict, Any, List, Optional
-from tinymlc.transform.base import Pass
+from TinyMLC.transform.base import Pass
 
 
 class AlgebraicSimplify(Pass):

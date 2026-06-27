@@ -5,8 +5,8 @@ import random
 import copy
 from typing import Dict, Any, Optional
 
-from tinymlc.ANG.model_builder import ModelBuilder
-from tinymlc.ANG.estimator import Estimator
+from TinyMLC.ANG.model_builder import ModelBuilder
+from TinyMLC.ANG.estimator import Estimator
 from utils.dump import fatal_error, info
 
 

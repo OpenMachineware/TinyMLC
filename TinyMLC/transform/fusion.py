@@ -1,10 +1,10 @@
-# tinymlc/transform/fusion.py
+# TinyMLC/transform/fusion.py
 # Operator Fusion.
 
 import numpy as np
 
 from typing import Dict, Any
-from tinymlc.transform.base import Pass
+from TinyMLC.transform.base import Pass
 
 
 class OperatorFusion(Pass):

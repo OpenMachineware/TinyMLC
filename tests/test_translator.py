@@ -34,7 +34,7 @@ def test_translator_runs(lstm_model, output_dir):
         [
             sys.executable,
             "-m",
-            "tinymlc.translator",
+            "TinyMLC.translator",
             str(lstm_model),
             "--output-dir",
             str(output_dir),
@@ -56,7 +56,7 @@ def test_generated_files_content(lstm_model, output_dir):
         [
             sys.executable,
             "-m",
-            "tinymlc.translator",
+            "TinyMLC.translator",
             str(lstm_model),
             "--output-dir",
             str(output_dir),
@@ -79,7 +79,7 @@ def test_translator_with_verbose(lstm_model, output_dir):
         [
             sys.executable,
             "-m",
-            "tinymlc.translator",
+            "TinyMLC.translator",
             str(lstm_model),
             "--output-dir",
             str(output_dir),

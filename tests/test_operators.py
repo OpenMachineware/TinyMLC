@@ -8,7 +8,7 @@ import tempfile
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tinymlc.ANG.model_info import TensorSpec, Op, ModelInfo
+from TinyMLC.ANG.model_info import TensorSpec, Op, ModelInfo
 import numpy as np
 
 
@@ -102,7 +102,7 @@ def create_model_info(ops_data):
 
 def test_operator(op_name, model_info, target="riscv", accel="pure-c"):
     """Test if an operator can be converted to C code"""
-    from tinymlc.codegen import generate_c_code
+    from TinyMLC.codegen import generate_c_code
 
     with tempfile.TemporaryDirectory() as tmpdir:
         try:

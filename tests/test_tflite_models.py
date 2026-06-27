@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Download tflite models from tflite-micro repository and test them with tinymlc
+Download tflite models from tflite-micro repository and test them with TinyMLC
 """
 
 import urllib.request
 import urllib.error
 from pathlib import Path
 
-from tinymlc.converter.parser_litert import parse_model_tflite
+from TinyMLC.converter.parser_litert import parse_model_tflite
 
 # Models to download from tflite-micro
 MODELS = [

@@ -10,15 +10,15 @@ import subprocess
 import sys
 from pathlib import Path
 
-from tinymlc.ANG.model_generator import ModelGenerator
-from tinymlc.ANG.args import create_estimator
-from tinymlc.converter.parser_litert import parse_model_tflite, extract_all_weights_litert
-from tinymlc.converter.parser_onnx import parse_model_onnx, extract_all_weights_onnx
-from tinymlc.converter.export_weights import export_model_weights
+from TinyMLC.ANG.model_generator import ModelGenerator
+from TinyMLC.ANG.args import create_estimator
+from TinyMLC.converter.parser_litert import parse_model_tflite, extract_all_weights_litert
+from TinyMLC.converter.parser_onnx import parse_model_onnx, extract_all_weights_onnx
+from TinyMLC.converter.export_weights import export_model_weights
 from utils.path import get_output_dir
-from tinymlc.codegen import generate_c_code, copy_files_to_build
-from tinymlc.generate_lut import generate_lut
-from tinymlc.transform.pass_manager import PassManager
+from TinyMLC.codegen import generate_c_code, copy_files_to_build
+from TinyMLC.generate_lut import generate_lut
+from TinyMLC.transform.pass_manager import PassManager
 from utils.dump import fatal_error, warning, info, dump_model_info
 
 

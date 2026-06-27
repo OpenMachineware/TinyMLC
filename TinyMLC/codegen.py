@@ -5,7 +5,7 @@ import shutil
 from pathlib import Path
 from jinja2 import Template
 
-from tinymlc.ops import SUPPORTED_OPS
+from TinyMLC.ops import SUPPORTED_OPS
 from utils.dump import fatal_error, warning, info
 
 

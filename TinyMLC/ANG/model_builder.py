@@ -5,7 +5,7 @@ import copy
 from typing import List, Optional, Dict
 import numpy as np
 
-from tinymlc.ANG.model_info import ModelInfo, TensorSpec, Op
+from TinyMLC.ANG.model_info import ModelInfo, TensorSpec, Op
 
 
 class ModelBuilder:

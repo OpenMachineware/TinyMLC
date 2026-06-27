@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-tinymlc - TinyML Compiler
+TinyMLC - TinyML Compiler
 Command line entry point
 """
 

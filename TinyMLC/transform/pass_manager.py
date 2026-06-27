@@ -1,15 +1,15 @@
-# tinymlc/transform/pass_manager.py
+# TinyMLC/transform/pass_manager.py
 # Pass manager that runs a sequence of optimization passes.
 
 from typing import Dict, Any, List
-from tinymlc.transform.base import Pass
-from tinymlc.transform.constant_folding import ConstantFolding
-from tinymlc.transform.dce import DeadCodeElimination
-from tinymlc.transform.cse import CommonSubexpressionElimination
-from tinymlc.transform.simplify import Simplify
-from tinymlc.transform.algebraic import AlgebraicSimplify
-from tinymlc.transform.fusion import OperatorFusion
-from tinymlc.transform.memory import MemoryReuse
+from TinyMLC.transform.base import Pass
+from TinyMLC.transform.constant_folding import ConstantFolding
+from TinyMLC.transform.dce import DeadCodeElimination
+from TinyMLC.transform.cse import CommonSubexpressionElimination
+from TinyMLC.transform.simplify import Simplify
+from TinyMLC.transform.algebraic import AlgebraicSimplify
+from TinyMLC.transform.fusion import OperatorFusion
+from TinyMLC.transform.memory import MemoryReuse
 from utils.dump import info
 
 class PassManager:

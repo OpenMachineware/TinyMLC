@@ -4,7 +4,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 
-from tinymlc.ANG.utils import hash_structure
+from TinyMLC.ANG.utils import hash_structure
 
 class Estimator(ABC):
     """
