@@ -1,33 +1,36 @@
-# tinymlc/dump.py
 import sys
+from termcolor import colored
 
-try:
-    from termcolor import cprint
-except ImportError:
-    # Fallback: use plain print when termcolor is unavailable
-    def cprint(msg, color=None, attrs=None):
-        print(msg)
+
+IS_WINDOWS = sys.platform.startswith('win')
+if IS_WINDOWS:
+    try:
+        from colorama import init
+        init(autoreset=True)
+    except ImportError:
+        print("[WARNING]: colorama is required under Windows,"
+              "please run 'pip install colorama' to install it.")
 
 
 def info(msg):
     """Print info message"""
-    cprint(f"[INFO] {msg}", "cyan")
+    print(colored(f"[INFO] {msg}", "cyan"))
 
 
 def warning(msg, suggestion=None):
     """Print warning message (does not exit)"""
-    cprint(f"[WARNING] {msg}", "yellow")
+    print(colored(f"[WARNING] {msg}", "yellow"))
     if suggestion:
-        cprint(f"  SUGGESTION: {suggestion}", "yellow")
+        print(colored(f"SUGGESTION: {suggestion}", "yellow"))
 
 
 def fatal_error(msg, suggestion=None):
     """Print fatal error message and exit"""
-    cprint("\n" + "=" * 60, "red")
-    cprint(f"[ERROR] {msg}", "red", attrs=["bold"])
+    print(colored("\n" + "=" * 60, "red"))
+    print(colored(f"[ERROR] {msg}", "red", attrs=["bold"]))
     if suggestion:
-        cprint(f"\n  SUGGESTION: {suggestion}", "red")
-    cprint("\n" + "=" * 60, "red")
+        print(colored(f"SUGGESTION: {suggestion}", "red"))
+    print(colored("\n" + "=" * 60, "red"))
     sys.exit(1)
 
 
