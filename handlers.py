@@ -225,6 +225,12 @@ def handle_convert(args: argparse.Namespace) -> int:
             f"Invalid --target '{target}'",
             "Supported targets: arm, riscv, host")
 
+    dump_model = getattr(args, "dump_model", None)
+    if dump_model:
+        with open(dump_model, "w") as f:
+            json.dump(model_info, f, indent=2, default=str)
+    info(f"Model info saved to: {dump_model}")
+
     # ---- Optimization passes ----
     pm = PassManager.default_pipeline()
     info("Running optimization passes...")

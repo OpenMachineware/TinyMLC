@@ -31,8 +31,7 @@ global_parent.add_argument("--run", action="store_true")
 global_parent.add_argument(
     "--inference-function-name", type=str, default="tinymlc_inference")
 global_parent.add_argument("--output-dir", type=str, default=".")
-global_parent.add_argument("--table-name", type=str)
-
+global_parent.add_argument("--dump-model", type=str)
 
 def main() -> int:
     parser = argparse.ArgumentParser(
@@ -63,7 +62,6 @@ def main() -> int:
     gen_parser.add_argument("--max-ram", type=int, default=30)
     gen_parser.add_argument("--max-flash", type=int, default=64)
     gen_parser.add_argument("--clock-speed", type=int, default=100000000)
-    gen_parser.add_argument("--dump-model", type=str)
     gen_parser.add_argument("--icount-shift", type=int, default=0)
     gen_parser.add_argument("--qemu-cpu", type=str, default="cortex-m4")
     gen_parser.add_argument(
@@ -98,8 +96,6 @@ def main() -> int:
 
     if args.command == "generate":
         return handle_generate(args)
-    elif args.command == "table":
-        return handle_table(args)
     elif args.command == "convert":
         return handle_convert(args)
     else:
