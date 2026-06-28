@@ -321,12 +321,11 @@ void MainWindow::onProcessFinished(int exitCode, QProcess::ExitStatus status) {
     }
 
     if (status == QProcess::NormalExit && exitCode == 0) {
-        // m_console->appendPlainText(tr("✅ Generation complete!"));
-        // setStatus(tr("Ready"), 100);
-
+        // FIXME: the patch should be calced.
         QString modelInfoPath = QDir::currentPath() + "/model_info.json";
         m_graph->loadModelInfo(modelInfoPath);
         m_graph->setReady(true);
+        m_config->setModelInfo(modelInfoPath);
 
         if (m_currentMode == ProcessMode::Generate) {
             m_console->appendPlainText(tr("✅ Generation complete!\n"));

@@ -5,6 +5,10 @@
 #include <QGroupBox>
 #include <QLabel>
 #include <QSpacerItem>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QFile>
 
 ConfigPanel::ConfigPanel(QWidget *parent)
     : QWidget(parent) {
@@ -46,8 +50,6 @@ ConfigPanel::ConfigPanel(QWidget *parent)
     flashLayout->addStretch();
     hwLayout->addLayout(flashLayout);
 
-    mainLayout->addWidget(hwGroup);
-
     // ---- Generate Options ----
     QGroupBox* generateGroup = new QGroupBox(tr("Generate Options"), this);
     QVBoxLayout* generateLayout = new QVBoxLayout(generateGroup);
@@ -72,10 +74,94 @@ ConfigPanel::ConfigPanel(QWidget *parent)
     popLayout->addStretch();
     generateLayout->addLayout(popLayout);
 
+    // ---- Model Info ----
+    m_infoGroup = new QGroupBox(tr("Model Information"), this);
+    QVBoxLayout* infoLayout = new QVBoxLayout(m_infoGroup);
+    m_inputShapeLabel = new QLabel(tr("Input: -"), this);
+    infoLayout->addWidget(m_inputShapeLabel);
+    m_outputShapeLabel = new QLabel(tr("Output: -"), this);
+    infoLayout->addWidget(m_outputShapeLabel);
+    m_layersLabel = new QLabel(tr("Layers: -"), this);
+    infoLayout->addWidget(m_layersLabel);
+    m_macsInfoLabel = new QLabel(tr("MACs: -"), this);
+    infoLayout->addWidget(m_macsInfoLabel);
+    m_paramsLabel = new QLabel(tr("Params: -"), this);
+    infoLayout->addWidget(m_paramsLabel);
+    m_ramInfoLabel = new QLabel(tr("Peak RAM: -"), this);
+    infoLayout->addWidget(m_ramInfoLabel);
+    m_flashInfoLabel = new QLabel(tr("Flash: -"), this);
+    infoLayout->addWidget(m_flashInfoLabel);
+
+    mainLayout->addWidget(hwGroup);
+    mainLayout->addWidget(m_infoGroup);
     mainLayout->addWidget(generateGroup);
     mainLayout->addStretch();
 
     setMinimumWidth(200);
+}
+
+void ConfigPanel::setModelInfo(const QString& jsonPath) {
+    QFile file(jsonPath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        return;
+    }
+
+    QByteArray data = file.readAll();
+    file.close();
+
+    QJsonDocument doc = QJsonDocument::fromJson(data);
+    if (doc.isNull()) return;
+
+    QJsonObject root = doc.object();
+
+    // Input/Output
+    QJsonArray inputs = root["input"].toArray();
+    QJsonArray outputs = root["output"].toArray();
+
+    if (!inputs.isEmpty()) {
+        QJsonObject inp = inputs[0].toObject();
+        QJsonArray shape = inp["shape"].toArray();
+        QString shapeStr;
+        for (const auto& v : shape) {
+            shapeStr += QString::number(v.toInt()) + ",";
+        }
+        shapeStr.chop(1);
+        m_inputShapeLabel->setText(tr("Input: [%1]").arg(shapeStr));
+    }
+
+    if (!outputs.isEmpty()) {
+        QJsonObject out = outputs[0].toObject();
+        QJsonArray shape = out["shape"].toArray();
+        QString shapeStr;
+        for (const auto& v : shape) {
+            shapeStr += QString::number(v.toInt()) + ",";
+        }
+        shapeStr.chop(1);
+        m_outputShapeLabel->setText(tr("Output: [%1]").arg(shapeStr));
+    }
+
+    // Layers
+    QJsonArray ops = root["ops"].toArray();
+    m_layersLabel->setText(tr("Layers: %1").arg(ops.size()));
+
+    // MACs, Params, RAM, Flash (from quant_scales or metadata)
+    QJsonObject quantScales = root["quant_scales"].toObject();
+    if (quantScales.contains("macs")) {
+        m_macsInfoLabel->setText(tr("MACs: %1")
+            .arg(quantScales["macs"].toInt()));
+    }
+    if (quantScales.contains("params")) {
+        m_paramsLabel->setText(tr("Params: %1")
+            .arg(quantScales["params"].toInt()));
+    }
+    if (quantScales.contains("peak_ram")) {
+        m_ramInfoLabel->setText(tr("Peak RAM: %1 B")
+            .arg(quantScales["peak_ram"].toInt()));
+    }
+    if (quantScales.contains("flash")) {
+        m_flashInfoLabel->setText(tr("Flash: %1 B")
+            .arg(quantScales["flash"].toInt()));
+    }
 }
 
 int ConfigPanel::getMaxMacs() const { return m_macsSpin->value(); }
