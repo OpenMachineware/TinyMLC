@@ -1,1 +1,31 @@
-# TinyMLC
+TinyMLC - Tiny Machine Learning Compiler
+
+Automatic generation + optimization + deployment of MCU neural
+networks.
+
+Features
+
+- Automatic network generation (ANG)
+- ONNX / TFLite model conversion
+- 7 optimization passes (constant folding, DCE, CSE, Simplify,
+  fusion, algebraic simplify, memory reuse)
+- 31 pure-C operators (int8 quantization)
+- Multi-backend support (Host / ARM / RISC-V)
+- Qt6 GUI
+- Accelerator library support (CMSIS-NN / NMSIS)
+
+Quick Start
+
+pip install -e .
+python main.py generate --task-type classification --max-macs 100000
+cd TinyGUI/build && ./TinyGUI
+
+Documentation
+
+User guide:   docs/guide_en.txt
+Porting:      docs/porting_en.txt
+Operator status: docs/ops_en.txt
+
+License
+
+Apache License 2.0
