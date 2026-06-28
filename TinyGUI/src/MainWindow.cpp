@@ -301,10 +301,52 @@ void MainWindow::onGenerate() {
     m_console->appendPlainText(tr("▶ Starting network generation...\n"));
     setStatus(tr("Generating network..."), 20);
 
-    QString pythonPath = "/Users/jia/Desktop/TinyMLC/.venv/bin/python";
-    QString scriptPath = "/Users/jia/Desktop/TinyMLC/main.py";
+    // FIXME: Should be configured
+    // Assign main.py is in the same directory as the GUI executable,
+    // or its parent directory.
+    QString appDir = QCoreApplication::applicationDirPath();
+    QString projectRoot;
+    QStringList possibleRoots = {
+        appDir + "/../..",   // TinyGUI/build/../.. -> TinyMLC
+        appDir + "/..",      // TinyGUI/build/.. -> TinyGUI
+        appDir,              // TinyGUI/build
+    };
 
-    // FIXME: Current dir as output_dir
+    for (const QString& root : possibleRoots) {
+        if (QFile::exists(root + "/main.py")) {
+            projectRoot = root;
+            break;
+        }
+    }
+
+    if (projectRoot.isEmpty()) {
+        m_console->appendPlainText(tr("❌ Project root not found (main.py missing)"));
+        return;
+    }
+
+    QString pythonBin;
+    // Find python in venv.
+    QStringList possibleVenvs = {projectRoot + "/.venv/bin/python3",
+                                 projectRoot + "/venv/bin/python3",
+                                 projectRoot + "/../.venv/bin/python3",
+                                 projectRoot + "/../venv/bin/python3"};
+    for (const QString& path : possibleVenvs) {
+        if (QFile::exists(path)) {
+            pythonBin = path;
+            break;
+        }
+    }
+
+    if (!QFile::exists(pythonBin)) {
+        pythonBin = projectRoot + "/venv/bin/python3";
+    }
+    if (!QFile::exists(pythonBin)) {
+        pythonBin = "python3";  // fallback
+    }
+
+    QString scriptPath = projectRoot + "/main.py";
+
+    // FIXME: Should be configured
     // It should be configured or specified by file dialog
     QString outputDir = QDir::currentPath();
     QString modelInfoPath = outputDir + "/model_info.json";
@@ -328,12 +370,18 @@ void MainWindow::onGenerate() {
     m_process = new QProcess(this);
 
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    QString pythonPath = projectRoot + ":" +
+                         projectRoot + "/TinyMLC:" +
+                         projectRoot + "/utils:" +
+                         projectRoot + "/TinyMLC/ANG:" +
+                         projectRoot + "/TinyMLC/converter";
+    env.insert("PYTHONPATH", pythonPath);
     env.insert("FORCE_COLOR", "1");
     env.insert("CLICOLOR_FORCE", "1");
     env.insert("TERM", "xterm-256color");
     m_process->setProcessEnvironment(env);
 
-    m_process->setProgram(pythonPath);
+    m_process->setProgram(pythonBin);
     m_process->setArguments(args);
 
     connect(m_process, &QProcess::readyReadStandardOutput,

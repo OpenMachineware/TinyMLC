@@ -18,7 +18,12 @@
 # limitations under the License.
 
 import sys
-from termcolor import colored
+
+try:
+    from termcolor import colored
+except ImportError:
+    def colored(text, color=None, attrs=None):
+        return text
 
 
 IS_WINDOWS = sys.platform.startswith('win')
