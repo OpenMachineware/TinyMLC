@@ -31,11 +31,30 @@ void GraphPanel::loadModelInfo(const QString& jsonPath) {
 
     QJsonObject root = doc.object();
     QJsonArray ops = root["ops"].toArray();
+    parseOps(ops);
+    layoutNodes();
+    update();
+}
 
+void GraphPanel::loadModelInfoFromJson(const QString& jsonStr) {
+    QJsonDocument doc = QJsonDocument::fromJson(jsonStr.toUtf8());
+    if (doc.isNull()) {
+        qDebug() << "Invalid JSON for model_info";
+        return;
+    }
+
+    QJsonObject root = doc.object();
+    QJsonArray ops = root["ops"].toArray();
+    parseOps(ops);
+    layoutNodes();
+    update();
+}
+
+void GraphPanel::parseOps(const QJsonArray& ops) {
     m_nodes.clear();
     m_edges.clear();
 
-    // Create nodes
+    // ---- Create nodes ----
     for (int i = 0; i < ops.size(); ++i) {
         QJsonObject op = ops[i].toObject();
         QString opName = op["op_name"].toString();
@@ -47,17 +66,22 @@ void GraphPanel::loadModelInfo(const QString& jsonPath) {
         m_nodes.append(node);
     }
 
-    // Create edges
+    // ---- Create edges ----
     for (int i = 0; i < ops.size(); ++i) {
         QJsonObject op = ops[i].toObject();
         QJsonArray inputs = op["input_indices"].toArray();
-        int outputIdx = op["output_indices"].toArray()[0].toInt();
+        QJsonArray outputs = op["output_indices"].toArray();
+
+        if (outputs.isEmpty()) continue;
+        int outputIdx = outputs[0].toInt();
 
         // Find output node index
         int toIdx = -1;
         for (int j = 0; j < ops.size(); ++j) {
             QJsonObject other = ops[j].toObject();
-            if (other["output_indices"].toArray()[0].toInt() == outputIdx) {
+            QJsonArray otherOutputs = other["output_indices"].toArray();
+            if (!otherOutputs.isEmpty()
+                && otherOutputs[0].toInt() == outputIdx) {
                 toIdx = j;
                 break;
             }
@@ -69,7 +93,9 @@ void GraphPanel::loadModelInfo(const QString& jsonPath) {
             int fromIdx = -1;
             for (int j = 0; j < ops.size(); ++j) {
                 QJsonObject other = ops[j].toObject();
-                if (other["output_indices"].toArray()[0].toInt() == inputIdx) {
+                QJsonArray otherOutputs = other["output_indices"].toArray();
+                if (!otherOutputs.isEmpty()
+                    && otherOutputs[0].toInt() == inputIdx) {
                     fromIdx = j;
                     break;
                 }
@@ -82,9 +108,6 @@ void GraphPanel::loadModelInfo(const QString& jsonPath) {
             }
         }
     }
-
-    layoutNodes();
-    update();
 }
 
 void GraphPanel::layoutNodes() {
@@ -138,9 +161,12 @@ void GraphPanel::drawNode(QPainter& painter, const GraphNode& node) {
 
     painter.setPen(QPen(Qt::darkCyan));
     painter.setFont(QFont("Arial", 9));
+
     QFontMetrics fm(painter.font());
     int textWidth = fm.horizontalAdvance(node.label) + 10;
-    QRect textRect(node.pos.x() - textWidth/2, node.pos.y() + node.radius + 4, textWidth, 20);
+    QRect textRect(node.pos.x() - textWidth/2,
+                   node.pos.y() + node.radius + 4,
+                   textWidth, 20);
     painter.drawText(textRect, Qt::AlignCenter, node.label);
 }
 

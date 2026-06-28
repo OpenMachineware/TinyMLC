@@ -5,6 +5,8 @@
 #include <QVector>
 #include <QString>
 #include <QPoint>
+#include <QColor>
+
 
 struct GraphNode {
     QString label;
@@ -24,8 +26,11 @@ class GraphPanel : public QWidget {
 
 public:
     explicit GraphPanel(QWidget *parent = nullptr);
+
     void setReady(bool ready);
     void loadModelInfo(const QString& jsonPath);
+    void loadModelInfoFromJson(const QString& jsonStr);
+    void parseOps(const QJsonArray& ops);
 
 protected:
     void paintEvent(QPaintEvent *event) override;

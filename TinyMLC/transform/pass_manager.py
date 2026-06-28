@@ -1,6 +1,9 @@
 # TinyMLC/transform/pass_manager.py
 # Pass manager that runs a sequence of optimization passes.
 
+import json
+import sys
+
 from typing import Dict, Any, List
 from TinyMLC.transform.base import Pass
 from TinyMLC.transform.constant_folding import ConstantFolding
@@ -11,6 +14,7 @@ from TinyMLC.transform.algebraic import AlgebraicSimplify
 from TinyMLC.transform.fusion import OperatorFusion
 from TinyMLC.transform.memory import MemoryReuse
 from utils.dump import info
+
 
 class PassManager:
     """
@@ -38,6 +42,8 @@ class PassManager:
         for pass_obj in self.passes:
             info(f"  Running: {pass_obj.name}")
             current = pass_obj.run(current)
+            print(f"OPTIMIZED_MODEL: {json.dumps(current)}")
+            sys.stdout.flush()
             self._results.append({
                 "name": pass_obj.name,
                 "stats": pass_obj.get_stats(),

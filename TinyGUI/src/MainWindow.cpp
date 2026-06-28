@@ -347,24 +347,29 @@ void MainWindow::onReadyReadStandardOutput() {
     QString text = QString::fromUtf8(data);
     m_outputBuffer += text;
 
-    if (text.contains("Running network generation")) {
-        m_progressBar->setValue(10);
-    } else if (text.contains("Running optimization passes")) {
-        m_progressBar->setValue(40);
-    } else if (text.contains("Generating C code")) {
-        m_progressBar->setValue(70);
-    } else if (text.contains("Done!")) {
-        m_progressBar->setValue(90);
-    }
-
-    // Split by lines and display
     int pos;
     while ((pos = m_outputBuffer.indexOf('\n')) != -1) {
         QString line = m_outputBuffer.left(pos);
         m_outputBuffer = m_outputBuffer.mid(pos + 1);
+
+        // Check if it is a model_info line
+        if (line.startsWith("MODEL_INFO: ")) {
+            QString jsonStr = line.mid(12);  // Strip "MODEL_INFO: "
+            // Update GraphPanel
+            m_graph->loadModelInfoFromJson(jsonStr);
+            continue;
+        }
+        if (line.startsWith("OPTIMIZED_MODEL: ")) {
+            QString jsonStr = line.mid(17);
+            m_graph->loadModelInfoFromJson(jsonStr);
+            continue;
+        }
+
+        // normal log line
         appendAnsiText(line);
     }
 }
+
 
 void MainWindow::onReadyReadStandardError() {
     if (!m_process) return;

@@ -1,8 +1,11 @@
 # model_generator.py
 # Network structure generation using random and genetic algorithms.
 
-import random
 import copy
+import json
+import random
+import sys
+
 from typing import Dict, Any, Optional
 
 from TinyMLC.ANG.model_builder import ModelBuilder
@@ -140,6 +143,9 @@ class ModelGenerator:
                     next_population.append(child2)
 
             population = next_population
+            best_model_info = self._structure_to_model_info(best_structure)
+            print(f"MODEL_INFO: {json.dumps(best_model_info)}")
+            sys.stdout.flush()
 
         self._best_structure = best_structure
         return best_structure
