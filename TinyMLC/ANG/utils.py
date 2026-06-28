@@ -238,6 +238,13 @@ def calculate_peak_ram(model_info: Dict[str, Any]) -> int:
     return peak
 
 
+def calculate_flash(model_info):
+    # Estimated Flash usage = Params + Code size (approximate)
+    params = calculate_params(model_info)
+    # Code size is roughly 1KB, but can be calculated more precisely if needed
+    return params + 1024
+
+
 def flatten_weights(weights: Dict[int, np.ndarray]) -> Dict[int, List[int]]:
     """
     Flatten all weight tensors into lists.

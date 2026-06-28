@@ -6,6 +6,8 @@ from typing import List, Optional, Dict
 import numpy as np
 
 from TinyMLC.ANG.model_info import ModelInfo, TensorSpec, Op
+from TinyMLC.ANG.utils import (calculate_macs, calculate_params,
+                               calculate_peak_ram, calculate_flash)
 
 
 class ModelBuilder:
@@ -466,6 +468,21 @@ class ModelBuilder:
             weights=self.weights,
             quant_scales={},
         )
+
+        # calc stat info.
+        model_dict = model_info.to_dict()
+        macs = calculate_macs(model_dict)
+        params = calculate_params(model_dict)
+        peak_ram = calculate_peak_ram(model_dict)
+        flash = calculate_flash(model_dict)
+
+        # Fill quant_scales
+        model_info.quant_scales = {
+            "macs": macs,
+            "params": params,
+            "peak_ram": peak_ram,
+            "flash": flash,
+        }
 
         if not model_info.validate():
             # Add more detailed validation

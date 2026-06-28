@@ -47,12 +47,6 @@ def handle_generate(args: argparse.Namespace) -> int:
     mode = getattr(args, "generate_mode", "genetic")
     model_info = generator.generate(mode=mode)
 
-    dump_model = getattr(args, "dump_model", None)
-    if dump_model:
-        with open(dump_model, "w") as f:
-            json.dump(model_info, f, indent=2, default=str)
-        info(f"Model info saved to: {dump_model}")
-
     # Get target, mode, accel for code generation and build
     target = getattr(args, "target", "riscv")
     mode = getattr(args, "mode", "release")
@@ -80,12 +74,20 @@ def handle_generate(args: argparse.Namespace) -> int:
             warning("Host target only supports debug mode, forcing mode=debug")
             mode = "debug"
 
+    # ---- Dump model_info BEFORE optimization? No ----
+    # dump_model = getattr(args, "dump_model", None)
+    # if dump_model:
+    #     with open(dump_model, "w") as f:
+    #         json.dump(model_info, f, indent=2, default=str)
+    #     info(f"Model info saved to: {dump_model}")
+
     # ---- Optimization passes ----
     pm = PassManager.default_pipeline()
     info("Running optimization passes...")
     optimized_model_info = pm.run(model_info)
     pm.dump_summary()
 
+    # ---- Generate C code ----
     info("Generating C code...")
     out_dir = get_output_dir(args)
     result = generate_c_code(
@@ -96,6 +98,13 @@ def handle_generate(args: argparse.Namespace) -> int:
                                "tinymlc_inference"),
         with_test_main=True,  # Always generate test main for generated networks
     )
+
+    # ---- Dump optimized model_info (with quant_scales) ----
+    dump_model = getattr(args, "dump_model", None)
+    if dump_model:
+        with open(dump_model, "w") as f:
+            json.dump(optimized_model_info, f, indent=2, default=str)
+        info(f"Optimized model info saved to: {dump_model}")
 
     for filename, content in result.items():
         filepath = out_dir / filename
