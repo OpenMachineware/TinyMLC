@@ -27,6 +27,8 @@ cd "$SCRIPT_DIR"
 
 MODEL_PATH="${1:-model.onnx}"
 
+export PATH="/opt/xpack-riscv-none-elf-gcc-15.2.0-1/bin:$PATH"
+
 CC="riscv-none-elf-gcc"
 LD="riscv-none-elf-ld"
 SIM="qemu-system-riscv32"
