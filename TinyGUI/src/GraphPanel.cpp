@@ -8,9 +8,18 @@
 #include <QDebug>
 
 GraphPanel::GraphPanel(QWidget *parent)
-    : QWidget(parent), m_ready(false) {
+    : QWidget(parent), m_ready(false), m_pendingRefresh(false)
+    , m_animating(false) {
     setMinimumHeight(150);
     setStyleSheet("background-color: #252525;");
+
+    m_refreshTimer.setSingleShot(true);
+    m_refreshTimer.setInterval(50);  // 50ms
+    connect(&m_refreshTimer, &QTimer::timeout, this,
+        &GraphPanel::onRefreshTimer);
+
+    m_animTimer.setInterval(16);  // ~60fps
+    connect(&m_animTimer, &QTimer::timeout, this, &GraphPanel::onAnimTimer);
 }
 
 void GraphPanel::loadModelInfo(const QString& jsonPath) {
@@ -45,14 +54,31 @@ void GraphPanel::loadModelInfoFromJson(const QString& jsonStr) {
 
     QJsonObject root = doc.object();
     QJsonArray ops = root["ops"].toArray();
+
+    bool isOptimized = root.contains("optimized") && root["optimized"].toBool();
+
     parseOps(ops);
+
+    if (isOptimized) {
+        for (auto& node : m_nodes) {
+            node.color = QColor(0xff, 0x66, 0x00);
+        }
+    } else {
+        for (auto& node : m_nodes) {
+            node.color = QColor(0x00, 0x99, 0xff);
+        }
+    }
+
     layoutNodes();
-    update();
+    requestRefresh();
 }
 
 void GraphPanel::parseOps(const QJsonArray& ops) {
     m_nodes.clear();
     m_edges.clear();
+
+    int centerX = width() / 2;
+    int centerY = height() / 2;
 
     // ---- Create nodes ----
     for (int i = 0; i < ops.size(); ++i) {
@@ -63,6 +89,8 @@ void GraphPanel::parseOps(const QJsonArray& ops) {
         node.radius = 30;
         node.color = QColor(0x00, 0x99, 0xff);
         node.ready = false;
+        node.pos = QPoint(centerX + (i - ops.size()/2) * 20, centerY);
+        node.targetPos = node.pos;
         m_nodes.append(node);
     }
 
@@ -110,18 +138,53 @@ void GraphPanel::parseOps(const QJsonArray& ops) {
     }
 }
 
+void GraphPanel::onAnimTimer() {
+    bool allDone = true;
+    for (auto& node : m_nodes) {
+        QPoint delta = node.targetPos - node.pos;
+        if (abs(delta.x()) > 1 || abs(delta.y()) > 1) {
+            node.pos += delta / 4;
+            allDone = false;
+        } else {
+            node.pos = node.targetPos;
+        }
+    }
+    update();
+
+    if (allDone) {
+        m_animTimer.stop();
+        m_animating = false;
+    }
+}
+
 void GraphPanel::layoutNodes() {
     if (m_nodes.isEmpty()) return;
 
     int width = this->width();
     int height = this->height();
-    int spacing = 120;
-    int totalWidth = (m_nodes.size() - 1) * spacing;
-    int startX = (width - totalWidth) / 2;
-    int y = height / 2;
+    int nodeCount = m_nodes.size();
 
-    for (int i = 0; i < m_nodes.size(); ++i) {
-        m_nodes[i].pos = QPoint(startX + i * spacing, y);
+    int nodesPerRow = 8;
+    int rows = (nodeCount + nodesPerRow - 1) / nodesPerRow;
+    int cols = qMin(nodeCount, nodesPerRow);
+
+    // Dynamic calc spacing, 100px at least. Scale when nodes too mcuh.
+    int spacing = qMax(80, qMin(120, (width - 100) / cols));
+    int totalWidth = (cols - 1) * spacing;
+    int startX = (width - totalWidth) / 2;
+    int rowHeight = 120;
+
+    for (int i = 0; i < nodeCount; ++i) {
+        int row = i / nodesPerRow;
+        int col = i % nodesPerRow;
+        int x = startX + col * spacing;
+        int y = (height / 2) + (row - (rows - 1) / 2.0) * rowHeight;
+        m_nodes[i].targetPos = QPoint(x, y);
+    }
+
+    if (!m_animating) {
+        m_animating = true;
+        m_animTimer.start();
     }
 }
 
@@ -184,4 +247,16 @@ void GraphPanel::drawEdge(QPainter& painter, const GraphEdge& edge) {
     }
 
     painter.drawLine(fromPos, toPos);
+}
+
+void GraphPanel::onRefreshTimer() {
+    m_pendingRefresh = false;
+    update();  // ReDraw
+}
+
+void GraphPanel::requestRefresh() {
+    if (!m_pendingRefresh) {
+        m_pendingRefresh = true;
+        m_refreshTimer.start();
+    }
 }
