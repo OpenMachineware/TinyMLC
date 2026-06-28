@@ -1,5 +1,8 @@
 TinyMLC - Tiny Machine Learning Compiler
 
+[![PyPI version](https://img.shields.io/pypi/v/tinymlc.svg)](https://pypi.org/project/tinymlc/)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
 Automatic generation + optimization + deployment of MCU neural
 networks.
 

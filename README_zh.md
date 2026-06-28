@@ -1,5 +1,8 @@
 TinyMLC - 微型机器学习编译器
 
+[![PyPI version](https://img.shields.io/pypi/v/tinymlc.svg)](https://pypi.org/project/tinymlc/)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
 自动生成 + 优化 + 部署 MCU 神经网络。
 
 特性
