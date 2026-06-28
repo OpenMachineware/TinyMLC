@@ -13,6 +13,7 @@ public:
     void appendPlainText(const QString& text);
     void appendHtml(const QString& html);
     void clear();
+    QString getPlainText() const { return m_textEdit->toPlainText(); }
 
 private:
     QTextEdit* m_textEdit;

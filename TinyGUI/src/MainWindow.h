@@ -36,6 +36,8 @@ private slots:
     void onClear();
     void onAbout();
     void onStop();
+    void loadConfig();
+    void onExportLog();
     void onReadyReadStandardOutput();
     void onReadyReadStandardError();
     void onProcessFinished(int exitCode, QProcess::ExitStatus status);
@@ -61,6 +63,17 @@ private:
     QString       m_currentColor;
     ProcessMode   m_currentMode;
     QString       m_modelInfoPath;
+    QString       m_pythonPath;
+    QString       m_scriptPath;
+    QString       m_defaultTarget;
+    QString       m_defaultMode;
+    QString       m_defaultAccel;
+    QString       m_gccArm;
+    QString       m_gccRiscv;
+    QString       m_qemuArm;
+    QString       m_qemuRiscv;
+    QString       m_cmsisPath;
+    QString       m_nmsisPath;
 };
 
 class GraphPanel;

@@ -18,6 +18,8 @@ add_executable(${PROJECT_NAME}
         src/ConsolePanel.h
         src/GraphPanel.cpp
         src/GraphPanel.h
+        src/ConfigDialog.cpp
+        src/ConfigDialog.h
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::Widgets)

@@ -2,6 +2,7 @@
 #include "ConsolePanel.h"
 #include "ConfigPanel.h"
 #include "GraphPanel.h"
+#include "ConfigDialog.h"
 
 #include <QMenuBar>
 #include <QToolBar>
@@ -14,6 +15,16 @@
 #include <QStyle>
 #include <QDir>
 #include <QMimeData>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QFileDialog>
+#include <QTextStream>
+#include <QDateTime>
+#include <QStatusBar>
+
+
+static const QString CONFIG_PATH = QDir::homePath() + "/.tinymlc/config.json";
+
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -30,6 +41,7 @@ MainWindow::MainWindow(QWidget *parent)
     createCentralWidget();
 
     setStatus(tr("Ready"), 0);
+    statusBar()->showMessage(tr("Ready"));
 
     setAcceptDrops(true);
 }
@@ -62,6 +74,14 @@ void MainWindow::createMenuBar() {
 
     fileMenu->addSeparator();
 
+    // Export Log
+    QAction* exportAction = new QAction(tr("&Export Log..."), this);
+    exportAction->setShortcut(QKeySequence("Ctrl+E"));
+    connect(exportAction, &QAction::triggered, this, &MainWindow::onExportLog);
+    fileMenu->addAction(exportAction);
+
+    fileMenu->addSeparator();
+
     QAction* exitAction = new QAction(tr("E&xit"), this);
     exitAction->setShortcut(QKeySequence("Ctrl+Q"));
     connect(exitAction, &QAction::triggered, this, &QWidget::close);
@@ -71,12 +91,22 @@ void MainWindow::createMenuBar() {
     QAction* aboutAction = new QAction(tr("&About"), this);
     connect(aboutAction, &QAction::triggered, this, &MainWindow::onAbout);
     helpMenu->addAction(aboutAction);
+
+    QMenu* settingsMenu = menuBar()->addMenu(tr("&Settings"));
+    QAction* settingsAction = new QAction(tr("&Preferences..."), this);
+    connect(settingsAction, &QAction::triggered, this, [this]() {
+        ConfigDialog dialog(this);
+        dialog.exec();
+    });
+    settingsMenu->addAction(settingsAction);
 }
 
 void MainWindow::createToolBar() {
     QToolBar* toolbar = addToolBar(tr("Main"));
     toolbar->setMovable(false);
+    toolbar->setIconSize(QSize(20, 20));
 
+    // ---- Left side: actions ----
     QAction* generateAction = new QAction(
         QIcon::fromTheme("media-playback-start",
             style()->standardIcon(QStyle::SP_MediaPlay)),
@@ -101,6 +131,35 @@ void MainWindow::createToolBar() {
     );
     connect(clearAction, &QAction::triggered, this, &MainWindow::onClear);
     toolbar->addAction(clearAction);
+
+    // ---- Spacer to push settings to the right ----
+    QWidget* spacer = new QWidget();
+    spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    toolbar->addWidget(spacer);
+
+    // ---- Export Log ----
+    QAction* exportAction = new QAction(
+        QIcon::fromTheme("document-save",
+            style()->standardIcon(QStyle::SP_DialogSaveButton)),
+        tr("Export Log"), this);
+    connect(exportAction, &QAction::triggered, this, &MainWindow::onExportLog);
+    toolbar->addAction(exportAction);
+
+    // ---- Right side: Settings ----
+    QAction* settingsAction = new QAction(
+        QIcon::fromTheme("preferences-system",
+            style()->standardIcon(QStyle::SP_ComputerIcon)),
+        tr("Settings"), this);
+    connect(settingsAction, &QAction::triggered, this, [this]() {
+        ConfigDialog dialog(this);
+        dialog.exec();
+    });
+    toolbar->addAction(settingsAction);
+
+    // ---- Title label (optional) ----
+    QLabel* titleLabel = new QLabel(tr(" TinyMLC Config "), this);
+    titleLabel->setStyleSheet("color: #aaaaaa; font-size: 13px;");
+    toolbar->addWidget(titleLabel);
 }
 
 void MainWindow::createCentralWidget() {
@@ -213,6 +272,7 @@ void MainWindow::onGenerate() {
 
     m_currentMode = ProcessMode::Generate;
     setStatus(tr("Generating..."), 0);
+    statusBar()->showMessage(tr("Generating..."));
 
     int maxMacs = m_config->getMaxMacs();
     int maxRam = m_config->getMaxRam();
@@ -270,10 +330,13 @@ void MainWindow::onGenerate() {
     if (!m_process->waitForStarted(1000)) {
         m_console->appendPlainText(tr("❌ Failed to start TinyMLC"));
         setStatus(tr("Error"), 0);
+        statusBar()->showMessage(tr("Error"));
         delete m_process;
         m_process = nullptr;
         return;
     }
+    statusBar()->showMessage(tr("Running (PID: %1)")
+        .arg(m_process->processId()));
 }
 
 void MainWindow::onReadyReadStandardOutput() {
@@ -335,10 +398,12 @@ void MainWindow::onProcessFinished(int exitCode, QProcess::ExitStatus status) {
         }
 
         setStatus(tr("Ready"), 100);
+        statusBar()->showMessage(tr("Ready"));
     } else {
         m_console->appendPlainText(tr("❌ Process failed (code: %1)\n")
             .arg(exitCode));
         setStatus(tr("Error"), 0);
+        statusBar()->showMessage(tr("Error"));
     }
 
     m_process = nullptr;
@@ -427,6 +492,43 @@ void MainWindow::runConvert(const QString& filePath) {
     }
 }
 
+void MainWindow::onExportLog() {
+    // Get current console context
+    QString logContent = m_console->getPlainText();
+
+    if (logContent.isEmpty() || logContent == "Ready...") {
+        QMessageBox::information(this, tr("Export Log"),
+                                 tr("Console is empty. Nothing to export."));
+        return;
+    }
+
+    // Default filename：tinymlc_log_YYYYMMDD_HHMMSS.log
+    QString defaultName = QString("tinymlc_log_%1.log")
+        .arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"));
+
+    QString filePath = QFileDialog::getSaveFileName(
+        this,
+        tr("Export Log"),
+        defaultName,
+        tr("Log Files (*.log);;Text Files (*.txt);;All Files (*)")
+    );
+
+    if (filePath.isEmpty()) return;
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QMessageBox::warning(this, tr("Export Log"),
+                             tr("Failed to write file: %1").arg(filePath));
+        return;
+    }
+
+    QTextStream stream(&file);
+    stream << logContent;
+    file.close();
+
+    statusBar()->showMessage(tr("Log exported to: %1").arg(filePath), 3000);
+}
+
 void MainWindow::dragEnterEvent(QDragEnterEvent *event) {
     if (event->mimeData()->hasUrls()) {
         QList<QUrl> urls = event->mimeData()->urls();
@@ -451,6 +553,32 @@ void MainWindow::dropEvent(QDropEvent *event) {
         runConvert(path);
         event->acceptProposedAction();
     }
+}
+
+void MainWindow::loadConfig() {
+    QFile file(CONFIG_PATH);
+    if (!file.exists()) return;
+
+    if (!file.open(QIODevice::ReadOnly)) return;
+    QByteArray data = file.readAll();
+    file.close();
+
+    QJsonDocument doc = QJsonDocument::fromJson(data);
+    if (doc.isNull()) return;
+
+    QJsonObject obj = doc.object();
+
+    m_pythonPath = obj["python_path"].toString();
+    m_scriptPath = obj["script_path"].toString();
+    m_defaultTarget = obj["target"].toString("riscv");
+    m_defaultMode = obj["mode"].toString("debug");
+    m_defaultAccel = obj["accel"].toString("pure-c");
+    m_gccArm = obj["gcc_arm"].toString("arm-none-eabi-gcc");
+    m_gccRiscv = obj["gcc_riscv"].toString("riscv-none-elf-gcc");
+    m_qemuArm = obj["qemu_arm"].toString("qemu-system-arm");
+    m_qemuRiscv = obj["qemu_riscv"].toString("qemu-system-riscv32");
+    m_cmsisPath = obj["cmsis_nn_path"].toString();
+    m_nmsisPath = obj["nmsis_nn_path"].toString();
 }
 
 void MainWindow::onStop() {
