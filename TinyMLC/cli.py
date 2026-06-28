@@ -23,7 +23,7 @@
 import argparse
 import sys
 
-from handlers import handle_generate, handle_convert
+from TinyMLC.handlers import handle_generate, handle_convert
 from utils.dump import fatal_error
 from TinyMLC.ANG.args import parse_shape
 

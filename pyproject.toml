@@ -5,7 +5,9 @@ description = "TinyML Compiler - Tiny Machine Learning Compiler"
 readme = "README.md"
 requires-python = ">=3.13"
 license = { text = "Apache-2.0" }
-authors = []
+authors = [
+    {name = "Jia Liu", email = "proljc@gmail.com"},
+]
 dependencies = [
     "ai-edge-litert>=2.1.5",
     "jinja2>=3.1.6",
@@ -22,11 +24,12 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/tinymlc"]
+packages = ["TinyMLC", "utils"]
 
 [dependency-groups]
 dev = [
     "black>=26.5.1",
+    "build>=1.5.0",
     "onnx-graphsurgeon>=0.6.1",
     "onnx2tf>=1.28.8",
     "onnxscript>=0.7.0",
@@ -34,7 +37,8 @@ dev = [
     "pytest>=9.0.3",
     "sng4onnx>=2.0.1",
     "tf-keras>=2.21.0",
+    "twine>=6.2.0",
 ]
 
 [project.scripts]
-tmlc = "tinymlc.cli:main"
+tmlc = "TinyMLC.cli:main"

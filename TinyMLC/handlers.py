@@ -192,7 +192,7 @@ def handle_convert(args: argparse.Namespace) -> int:
     mode = getattr(args, "mode", None)
     accel = getattr(args, "accel", None)
     model_path = getattr(args, "model", None)
-    output_dir = Path(getattr(args, "output_dir", "."))
+    output_dir = Path(getattr(args, "output_dir", ".."))
     with_test_main = getattr(args, "with_test_main", None)
     inference_function_name = getattr(args, "inference_function_name", None)
     verbose = getattr(args, "verbose", None)

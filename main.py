@@ -24,7 +24,7 @@ Entry point for TinyMLC command line interface
 """
 
 import sys
-from cli import main
+from TinyMLC.cli import main
 
 if __name__ == "__main__":
     sys.exit(main())
