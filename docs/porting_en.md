@@ -1,40 +1,41 @@
-Porting Guide
+# Porting Guide
 
-Supported Platforms
+## Supported Platforms
 
-Platform   Status   Notes
-Host       ✅ Full  Development and debugging
-ARM        ✅ Full  Pure-C version
-RISC-V     ✅ Full  Pure-C version
+| Platform | Status | Notes |
+| :--- | :--- | :--- |
+| Host | ✅ Full | Development and debugging |
+| ARM | ✅ Full | Pure-C version |
+| RISC-V | ✅ Full | Pure-C version |
 
-Adding a New Target
+## Adding a New Target
 
-1. Create target directory under ops/
-2. Add linker script link_xxx.ld
-3. Add startup file start.S
-4. Add build script build_xxx_*.sh
+- Create target directory under ops/
+- Add linker script link_xxx.ld 
+- Add startup file start.S 
+- Add build script build_xxx_*.sh
 
-Adding a New Backend
+## Adding a New Backend
 
-1. Implement operator library (see ops/c/)
-2. Modify codegen.py to add backend selection
-3. Modify copy_files_to_build() to copy files
+- Implement operator library (see ops/c/)
+- Modify codegen.py to add backend selection 
+- Modify copy_files_to_build() to copy files
 
-Accelerator Library Adaptation
+## Accelerator Library Adaptation
 
-1. Create accelerator directory under ops/xxx/
-2. Implement accelerator operator wrappers
-3. Modify build_xxx_*.sh to link accelerator library
+- Create accelerator directory under ops/xxx/ 
+- Implement accelerator operator wrappers 
+- Modify build_xxx_*.sh to link accelerator library
 
-Development Guidelines
+## Development Guidelines
 
 - All commits must be in English
 - All code comments must be in English
-- Strict 80-column limit
+- **Strict 80-column limit**
 - Follow existing code style
 - Issues and PRs: English only
-- Emails from Chinese users: Chinese is OK
+- Emails from Chinese users: Chinese please.
 
-Testing
+## Testing
 
-python -m pytest tests/
+`python -m pytest tests/`

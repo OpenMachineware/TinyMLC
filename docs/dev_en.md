@@ -1,13 +1,13 @@
-Development Guidelines
+# Development Guidelines
 
-Code Style
+## Code Style
 
 - All code comments MUST be in English
-- Strict 80-column limit
+- **Strict 80-column limit**
 - Follow the existing code style in the project
 - No Chinese characters in code (comments or strings)
 
-Git Commits
+## Git Commits
 
 - All commits MUST include a Signed-off-by line using `git commit -s`
 - All commit messages MUST be in English
@@ -15,50 +15,52 @@ Git Commits
 - First line: summary (<= 50 characters)
 - Body: details (optional)
 
-Issues and PRs
+## Issues and PRs
 
 - Issues MUST be in English
 - PRs MUST be in English
-- If you are a Chinese user and email me directly,
-  Chinese is acceptable.
+- If you are a Chinese and email me directly, Chinese please.
 
-Contributing
+## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests: python -m pytest tests/
-5. Submit a PR
+- Fork the repository 
+- Create a feature branch 
+- Make your changes 
+- Run tests: python -m pytest tests/ 
+- Submit a PR
 
-Code Organization
+## Code Organization
 
-TinyMLC/        Core library
-ANG/          Network generator
-converter/    ONNX / TFLite parsers
-transform/    Optimization passes
-templates/    Jinja2 templates
-ops/            Operators
-c/            Pure-C operators
-riscv/        RISC-V specific
-arm/          ARM specific
-TinyGUI/        Qt6 GUI
-utils/          Utility functions
 
-Adding a New Operator
+| Directory | Description |
+| :--- | :--- |
+| TinyMLC/ | Core library |
+| ANG/ | Network generator |
+| converter/ | ONNX / TFLite parsers |
+| transform/ | Optimization passes |
+| templates/ | Jinja2 templates |
+| ops/ | Operators |
+| c/ | Pure-C operators |
+| riscv/ | RISC-V specific |
+| arm/ | ARM specific |
+| TinyGUI/ | Qt6 GUI |
+| utils/ | Utility functions |
 
-1. Add pure-C implementation to ops/c/
-2. Add operator name to SUPPORTED_OPS in ops.py
-3. Add conversion logic to converter/
-4. Add code generation logic to codegen.py
+## Adding a New Operator
 
-Adding a New Optimization Pass
+- Add pure-C implementation to ops/c/ 
+- Add operator name to SUPPORTED_OPS in ops.py 
+- Add conversion logic to converter/ 
+- Add code generation logic to codegen.py
 
-1. Create new file in TinyMLC/transform/
-2. Inherit from Pass base class
-3. Implement run() method
-4. Add to PassManager.default_pipeline()
-5. Add tests
+## Adding a New Optimization Pass
 
-Testing
+- Create new file in TinyMLC/transform/ 
+- Inherit from Pass base class 
+- Implement run() method 
+- Add to PassManager.default_pipeline()
+- Add tests
 
-python -m pytest tests/
+##Testing
+
+`python -m pytest tests/`
