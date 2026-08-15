@@ -2,6 +2,7 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/tinymlc.svg)](https://pypi.org/project/tinymlc/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![CLA assistant](https://cla-assistant.io/readme/badge/OpenMachineware/TinyMLC)](https://cla-assistant.io/OpenMachineware/TinyMLC)
 
 [![英文文档](https://img.shields.io/badge/English_Docs-Click_here-brightgreen?style=for-the-badge)](./README.md)
 
@@ -33,6 +34,13 @@ cd TinyGUI/build && ./TinyGUI
 - 开发指南：[docs/dev_zh.md](./docs/dev_zh.md)
 - 移植指南：[docs/porting_zh.md](./docs/porting_zh.md)
 - 算子状态：[docs/ops_zh.md](./docs/ops_zh.md)
+
+## 贡献
+
+欢迎贡献。在您的首个拉取请求前，需要签署我们的
+[贡献者许可协议](./CLA.md)（英文版 [`CLA.md`](./CLA.md) 具有法律效力，
+中文参考版 [`CLA_zh.md`](./CLA_zh.md)）。详见
+[CONTRIBUTING_zh.md](./CONTRIBUTING_zh.md)。
 
 ## 许可证
 

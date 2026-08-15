@@ -2,6 +2,7 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/tinymlc.svg)](https://pypi.org/project/tinymlc/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![CLA assistant](https://cla-assistant.io/readme/badge/OpenMachineware/TinyMLC)](https://cla-assistant.io/OpenMachineware/TinyMLC)
 
 [![Chinese Docs](https://img.shields.io/badge/Chinese_Docs-Click_here-blue?style=for-the-badge)](./README_zh.md)
 
@@ -33,6 +34,14 @@ cd TinyGUI/build && ./TinyGUI
 - Develop guide: [docs/dev_en.md](./docs/dev_en.md)
 - Porting: [docs/porting_en.md](./docs/porting_en.md)
 - Operator status: [docs/ops_en.md](./docs/ops_en.md)
+
+## Contributing
+
+Contributions are welcome. Before your first pull request, you will be asked
+to sign our [Contributor License Agreement](./CLA.md) (English version:
+[`CLA.md`](./CLA.md), legally binding; Chinese reference:
+[`CLA_zh.md`](./CLA_zh.md)). See
+[CONTRIBUTING.md](./CONTRIBUTING.md) for details.
 
 ## License
 
