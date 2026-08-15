@@ -8,6 +8,8 @@
 Automatic generation + optimization + deployment of MCU neural
 networks.
 
+test
+
 ## Features
 
 - Automatic network generation (ANG)
