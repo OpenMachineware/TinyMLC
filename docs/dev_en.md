@@ -23,10 +23,10 @@
 
 ## Contributing
 
-- Fork the repository 
-- Create a feature branch 
-- Make your changes 
-- Run tests: python -m pytest tests/ 
+- Fork the repository
+- Create a feature branch
+- Make your changes
+- Run tests: python -m pytest tests/
 - Submit a PR
 
 ## Code Organization
@@ -48,16 +48,16 @@
 
 ## Adding a New Operator
 
-- Add pure-C implementation to ops/c/ 
-- Add operator name to SUPPORTED_OPS in ops.py 
-- Add conversion logic to converter/ 
+- Add pure-C implementation to ops/c/
+- Add operator name to SUPPORTED_OPS in ops.py
+- Add conversion logic to converter/
 - Add code generation logic to codegen.py
 
 ## Adding a New Optimization Pass
 
-- Create new file in TinyMLC/transform/ 
-- Inherit from Pass base class 
-- Implement run() method 
+- Create new file in TinyMLC/transform/
+- Inherit from Pass base class
+- Implement run() method
 - Add to PassManager.default_pipeline()
 - Add tests
 

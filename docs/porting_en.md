@@ -11,20 +11,20 @@
 ## Adding a New Target
 
 - Create target directory under ops/
-- Add linker script link_xxx.ld 
-- Add startup file start.S 
+- Add linker script link_xxx.ld
+- Add startup file start.S
 - Add build script build_xxx_*.sh
 
 ## Adding a New Backend
 
 - Implement operator library (see ops/c/)
-- Modify codegen.py to add backend selection 
+- Modify codegen.py to add backend selection
 - Modify copy_files_to_build() to copy files
 
 ## Accelerator Library Adaptation
 
-- Create accelerator directory under ops/xxx/ 
-- Implement accelerator operator wrappers 
+- Create accelerator directory under ops/xxx/
+- Implement accelerator operator wrappers
 - Modify build_xxx_*.sh to link accelerator library
 
 ## Development Guidelines

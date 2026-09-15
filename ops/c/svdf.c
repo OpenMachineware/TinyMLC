@@ -38,11 +38,11 @@ void tmlc_svdf_s8(const int8_t* input,
                   int units)
 {
     int output_size = rank * units;
-    
+
     for (int t = 0; t < time_steps; t++) {
         const int8_t* input_ptr = input + t * input_size;
         int8_t* output_ptr = output + t * output_size;
-        
+
         for (int i = 0; i < output_size; i++) {
             int32_t sum = bias[i];
             for (int j = 0; j < input_size; j++) {

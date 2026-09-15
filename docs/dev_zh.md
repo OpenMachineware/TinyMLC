@@ -23,10 +23,10 @@
 
 ## 贡献流程
 
-- Fork 仓库 
-- 创建功能分支 
-- 修改代码 
-- 运行测试：python -m pytest tests/ 
+- Fork 仓库
+- 创建功能分支
+- 修改代码
+- 运行测试：python -m pytest tests/
 - 提交 PR
 
 ## 代码结构
@@ -48,16 +48,16 @@
 
 ## 添加新算子
 
-- 在 ops/c/ 添加纯 C 实现 
-- 在 ops.py 的 SUPPORTED_OPS 中添加算子名 
-- 在 converter/ 添加转换逻辑 
+- 在 ops/c/ 添加纯 C 实现
+- 在 ops.py 的 SUPPORTED_OPS 中添加算子名
+- 在 converter/ 添加转换逻辑
 - 在 codegen.py 添加代码生成逻辑
 
 ## 添加新的优化 Pass
 
-- 在 TinyMLC/transform/ 创建新文件 
-- 继承 Pass 基类 
-- 实现 run() 方法 
+- 在 TinyMLC/transform/ 创建新文件
+- 继承 Pass 基类
+- 实现 run() 方法
 - 添加到 PassManager.default_pipeline()
 - 添加测试
 
